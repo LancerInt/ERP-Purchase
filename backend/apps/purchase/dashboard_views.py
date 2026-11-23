@@ -1567,6 +1567,50 @@ class PurchaseDashboardView(APIView):
                 'paid_by_account': paid_by_account,
                 'paid_by_account_total': _money(sum(acct.values(), _ZERO))}
 
+    @classmethod
+    def _payment_status_split(cls, start, end, company_id, vendor_id, product_id=None,
+                              include_transfers=False, source=None, msme=None, _dup_cache=None):
+        """Split THIS PERIOD'S bills into fully-paid / partially-paid / unpaid
+        by comparing each bill's amount_paid to its total_amount. Returns the
+        COUNT and the amount in each bucket so the Amount Paid / Payable tiles
+        can show 'X bills paid, Y partial, Z pending'."""
+        bills = cls._bill_qs(company_id, vendor_id, product_id, include_transfers,
+                             source=source, msme=msme).filter(
+            bill_date__gte=start, bill_date__lte=end,
+        ).exclude(status='CANCELLED').exclude(tally_guid__startswith='OPENING')
+        _d = _cached_dup_bill_ids(bills, _dup_cache)
+        if _d:
+            bills = bills.exclude(id__in=_d)
+        # Purchase-only — exclude expense-like bills, the SAME rule as the Amount
+        # Billed / Total Purchase tiles, so the paid/partial/pending counts sum to
+        # the billed count (not to every bill incl. expenses).
+        expense_like = (Q(is_expense=True) | Q(purchase_category__in=_EXPENSE_CATS)
+                        | Q(tally_voucher_type__icontains='journal'))
+        bills = bills.exclude(expense_like)
+
+        paid_c = paid_amt = partial_c = partial_paid = partial_bal = unpaid_c = unpaid_amt = 0
+        paid_c = partial_c = unpaid_c = 0
+        paid_amt = partial_paid = partial_bal = unpaid_amt = _ZERO
+        for b in bills.only('total_amount', 'amount_paid'):
+            total = b.total_amount or _ZERO
+            ap = b.amount_paid or _ZERO
+            if ap <= 0:
+                unpaid_c += 1
+                unpaid_amt += total
+            elif ap >= total:
+                paid_c += 1
+                paid_amt += total
+            else:
+                partial_c += 1
+                partial_paid += ap
+                partial_bal += (total - ap)
+        return {
+            'paid': {'count': paid_c, 'amount': _money(paid_amt)},
+            'partial': {'count': partial_c, 'paid': _money(partial_paid),
+                        'balance': _money(partial_bal)},
+            'unpaid': {'count': unpaid_c, 'amount': _money(unpaid_amt)},
+        }
+
     # ── daily trend ─────────────────────────────────────────────────────────
     @classmethod
     def _trend(cls, start, end, company_id, warehouse_id, vendor_id, product_id):
@@ -1675,6 +1719,7 @@ class PurchaseDashboardView(APIView):
 
         pay_now = self._payment_stats(start, end, company_id, vendor_id, product_id, inc, source=source, _dup_cache=_dup_cache)
         pay_prev = self._payment_stats(prev_start, prev_end, company_id, vendor_id, product_id, inc, source=source, _dup_cache=_dup_cache)
+        _status_split = self._payment_status_split(start, end, company_id, vendor_id, product_id, inc, source=source, msme=msme, _dup_cache=_dup_cache)
 
         return Response({
             'period': {
@@ -1728,8 +1773,10 @@ class PurchaseDashboardView(APIView):
                     'previous_total': pay_prev['total'],
                     'paid_by_account': pay_now.get('paid_by_account', []),
                     'paid_by_account_total': pay_now.get('paid_by_account_total'),
+                    'status_split': _status_split,
                 },
                 'outstanding_payables': self._outstanding_payables(company_id, vendor_id, product_id, start, end, inc, source=source, msme=msme, transfers_only=t_only, _dup_cache=_dup_cache),
+                'payment_status_split': _status_split,
             },
             'top_vendors': self._top_vendors(start, end, company_id, warehouse_id, vendor_id, product_id),
             'vendor_breakdown': self._vendor_breakdown(company_id, vendor_id, product_id, start, end, inc, msme=msme),

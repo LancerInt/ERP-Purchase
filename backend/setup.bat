@@ -22,10 +22,14 @@ if errorlevel 1 goto :err
 echo === Seeding admin user, company, warehouse, roles ===
 "%PY%" manage.py setup_admin
 
+echo === Seeding demo data (vendors, bills, payments, staff...) ===
+"%PY%" manage.py seed_demo
+
 echo.
 echo === DONE ===
 echo   Login:    admin / Admin@123
 echo   Start the API with:  run_server.bat
+echo   (Re-seed demo data anytime with:  manage.py seed_demo --wipe)
 goto :eof
 
 :err

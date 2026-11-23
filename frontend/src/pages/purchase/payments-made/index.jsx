@@ -239,45 +239,8 @@ export default function PaymentsMadeList() {
         subtitle="Track payments made to vendors"
         breadcrumbs={[{ label: 'Payments Made' }]}
         actions={{
-          onFilter: () => setShowFilters(!showFilters),
-          // Imported HERE, in a modal, and the payments land in this list.
-          // It deliberately does not navigate to the Bank module: this page is
-          // not reconciling anything, it is using the statement as the source
-          // of the payments. Only the debit rows are shown (side="debit").
-          right: (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => navigate('/purchase/payables-overview')}
-                title="Payables Overview — roll-forward, outstanding, paid/partial/open, month-by-month"
-                className="h-9 inline-flex items-center gap-1.5 px-3 rounded-lg border border-indigo-200 bg-indigo-50 text-xs font-medium text-indigo-700 hover:bg-indigo-100 whitespace-nowrap"
-              >
-                <Wallet size={14} />
-                Overview
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/purchase/payments-made/reconcile')}
-                title="Link Apr–Sep payments to their bills from the Tally Day Book (dry-run first)"
-                className="h-9 inline-flex items-center gap-1.5 px-3 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap"
-              >
-                <Link2 size={14} />
-                Reconcile from Tally
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/import/payments')}
-                title="Import a bank statement (CSV/Excel/PDF) and record the payments in it"
-                className="h-9 inline-flex items-center gap-1.5 px-3 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap"
-              >
-                <Upload size={14} />
-                Upload Bank Statement
-              </button>
-              {/* Revert imported payments in a date range (preview-first) —
-                  the TallyImportButton's built-in payments-only revert. */}
-              <TallyImportButton what="transactions" action="revert" paymentsOnly />
-            </div>
-          ),
+          // Standalone (no Tally): Overview, Reconcile from Tally, Upload Bank
+          // Statement, the Tally revert, and the Filter toggle removed.
           ...(canCreate('Payment Made') ? { createLink: '/purchase/payments-made/new', createLabel: 'New Payment' } : {}),
         }}
       />
@@ -339,7 +302,7 @@ export default function PaymentsMadeList() {
               );
             })}
           </div>
-          <UnifiedFilterPanel filterFields={FILTER_FIELDS} filter={filter} showFilters={showFilters} onClose={() => setShowFilters(false)} />
+          {/* Standalone: filter panel removed. */}
           {/* Summary: total payments + sales receipts for linked vendors */}
           {filteredData.length > 0 && (
             <div className="mb-3 flex flex-wrap items-center gap-x-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">

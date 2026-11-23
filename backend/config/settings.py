@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'bank',
     'inventory',
     'ai_parser',
+    'finance',
     'purchase',
 ]
 

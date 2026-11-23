@@ -3880,16 +3880,26 @@ export default function PurchaseDashboard() {
             })()}
             {(() => {
               const b = stats.bills || {};
+              const tp = stats.total_purchase || {};
+              // Billed is GROSS bills; the reductions to the real (net) purchase
+              // are purchase returns + debit notes. Show that gap when it exists.
+              const retVal = Number(tp.returns || 0);
+              const dnVal = Number(tp.credit_notes || 0);
+              const diff = Math.round((retVal + dnVal) * 100) / 100;
+              const netExGst = Number(tp.net_purchase || 0);
               return (
                 <PHeadCard label="Amount Billed" tone="bills"
-                  value={`${fmtINRc(b.amount)}`}
+                  value={fmtINRfull(b.amount)}
                   words={`${fmtInt(b.count)} bills · incl GST`}
                   context="bills booked this period"
                   title="Open the Bills list." onClick={() => navigate(billsHref())}
                   popTitle="This period"
                   popRows={[
                     { label: 'Vouchers', value: fmtInt(b.count) },
-                    { label: 'Total value', value: fmtINRc(b.amount) },
+                    { label: 'Gross billed', value: fmtINRc(b.amount) },
+                    retVal ? { label: 'Less: Purchase returns', value: `−${fmtINRc(retVal)}`, tone: 'text-rose-600' } : null,
+                    dnVal ? { label: 'Less: Debit notes', value: `−${fmtINRc(dnVal)}`, tone: 'text-rose-600' } : null,
+                    diff > 0 ? { label: 'Net purchase (ex-GST)', value: fmtINRc(netExGst), tone: 'text-indigo-700' } : null,
                     Number(b.count) ? { label: 'Avg / bill', value: fmtINRc(Number(b.amount || 0) / Number(b.count)) } : null,
                   ]} />
               );
@@ -3902,29 +3912,44 @@ export default function PurchaseDashboard() {
               // Maize / Bought Note / Packing / Fruit) — always known, so there
               // is no "Untagged" bucket.
               const byAcct = stats.amount_paid?.paid_by_account || [];
+              // Bill-count split: how many of the period's bills are fully
+              // paid / partially paid / still pending.
+              const sp = stats.payment_status_split || {};
+              const splitRows = (sp.paid || sp.partial || sp.unpaid) ? [
+                { label: `Paid · ${fmtInt(sp.paid?.count || 0)} bill(s)`, value: fmtINRc(sp.paid?.amount || 0), tone: 'text-emerald-700' },
+                { label: `Partial · ${fmtInt(sp.partial?.count || 0)} bill(s)`, value: fmtINRc(sp.partial?.paid || 0), tone: 'text-amber-600' },
+                { label: `Pending · ${fmtInt(sp.unpaid?.count || 0)} bill(s)`, value: fmtINRc(sp.unpaid?.amount || 0), tone: 'text-rose-600' },
+              ] : [];
               return (
                 <PHeadCard label="Amount Paid" tone="paid"
                   value={paid ? fmtINRfull(Math.abs(paid)) : '₹0'}
                   words={paid ? `₹${fmtWords(paid)}` : undefined}
                   context={paidCount ? `${paidCount} payment(s)` : 'no payment data yet'}
-                  popTitle={byAcct.length ? 'By category' : undefined}
-                  popRows={byAcct.slice(0, 5).map((a) => ({ label: a.label || a.account || a.name || '—', value: fmtINRc(a.amount), tone: 'text-emerald-700' }))} />
+                  popTitle="Bills by payment status"
+                  popRows={[...splitRows,
+                    ...(byAcct.length ? [{ label: '— by category —', value: '' }] : []),
+                    ...byAcct.slice(0, 4).map((a) => ({ label: a.label || a.account || a.name || '—', value: fmtINRc(a.amount), tone: 'text-emerald-700' }))]} />
               );
             })()}
             {(() => {
               const op = stats.outstanding_payables || {};
               const live = Number(op.forward_total || op.total || 0);
               const sub = op.forward_total ? 'Tally Sundry Creditors closing' : `${op.count || 0} unpaid bill(s)`;
+              const sp = stats.payment_status_split || {};
+              const splitRows = (sp.paid || sp.partial || sp.unpaid) ? [
+                { label: `Paid · ${fmtInt(sp.paid?.count || 0)} bill(s)`, value: fmtINRc(sp.paid?.amount || 0), tone: 'text-emerald-700' },
+                { label: `Partial · ${fmtInt(sp.partial?.count || 0)} bill(s)`, value: fmtINRc(sp.partial?.balance || 0), tone: 'text-amber-600' },
+                { label: `Pending · ${fmtInt(sp.unpaid?.count || 0)} bill(s)`, value: fmtINRc(sp.unpaid?.amount || 0), tone: 'text-rose-600' },
+              ] : [];
               return (
                 <PHeadCard label="Payable" tone="outstanding"
                   value={fmtINRfull(Math.abs(live))}
                   words={`₹${fmtWords(live)}`}
                   context={sub}
                   title="Unpaid payables. Click for the ageing." onClick={openPayables}
-                  popTitle="Payables"
-                  popRows={[
-                    { label: 'Payable', value: fmtINRc(op.total), tone: 'text-rose-600' },
-                    { label: 'Unpaid bills', value: fmtInt(op.count || 0) },
+                  popTitle="Bills by payment status"
+                  popRows={[...splitRows,
+                    { label: 'Total payable', value: fmtINRc(op.total), tone: 'text-rose-600' },
                     op.forward_total ? { label: 'Tally closing', value: fmtINRc(op.forward_total) } : null,
                   ]} />
               );

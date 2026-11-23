@@ -48,7 +48,8 @@ from purchase.report_views import ConsolidatedReportView
 from purchase.tds_summary_views import TdsSummaryView
 from purchase.tds_bill_views import TdsBillsView
 from ai_parser.gst2b_views import Gst2BUploadView, Gst2BListView, Gst2BReportView
-from bank.views import BankAccountViewSet
+from bank.views import BankAccountViewSet, BankStatementUploadViewSet
+from finance.ledger_views import VendorLedgerEntriesView
 from ai_parser.scan_views import (
     ScanUploadView, ScanBatchListView, ScanBatchDetailView, ScanBillDetailView,
     ScanBillActionView, ScanSuggestView, GstinLookupView, ScanConvertedView,
@@ -60,6 +61,12 @@ from ai_parser.scan_views import (
 
 def health(_request):
     return JsonResponse({'status': 'ok'})
+
+
+def empty_list(_request):
+    """Stub for optional lookups not shipped in this standalone (finance
+    ledgers, sales receivables) so the UI's dropdowns resolve to empty."""
+    return JsonResponse({'count': 0, 'results': []})
 
 
 router = DefaultRouter()
@@ -90,6 +97,9 @@ router.register(r'product-attachments', MasterAttachmentViewSet, basename='produ
 
 # Bank accounts (for the payment "paid from" picker)
 router.register(r'bank/accounts', BankAccountViewSet, basename='bank-account')
+# Bank statement upload + parse (standalone, no Tally reconcile). Mounted at
+# the path the frontend ImportBankStatements page already calls.
+router.register(r'finance/bank-statements', BankStatementUploadViewSet, basename='bank-statement')
 
 # Purchase
 router.register(r'purchase/requests', PurchaseRequestViewSet, basename='purchase-request')
@@ -137,6 +147,13 @@ urlpatterns = [
 
     # Master party-match helper
     path('api/master/party-match/', party_match_preview, name='master-party-match'),
+
+    # Vendor Ledger — running statement per vendor (bills vs payments).
+    path('api/finance/vendor-ledger-entries/', VendorLedgerEntriesView.as_view(), name='finance-vendor-ledger-entries'),
+
+    # Optional lookups not shipped here (finance/sales) — empty so UI resolves.
+    path('api/finance/ledgers/', empty_list, name='finance-ledgers-stub'),
+    path('api/sales/receivables/', empty_list, name='sales-receivables-stub'),
 
     # Purchase extra views (non-router)
     path('api/purchase/items/', PurchaseItemsView.as_view(), name='purchase-items'),

@@ -123,7 +123,7 @@ export const NAV_SECTIONS = [
       // Overview, Mappings, bank-statement import and the Tally Import pages
       // removed (they need the Tally/finance plumbing not shipped here).
       { name: 'Scan Inbox', path: '/import/scan', module: 'Import Scan Inbox', icon: ScanLine },
-      { name: 'Payments Made', path: '/purchase/payments-made', module: 'Payment Made', icon: CreditCard },
+      // Payments Made moved to the FINANCE group (it's an accounts task).
     ],
   },
   {
@@ -232,20 +232,13 @@ export const NAV_SECTIONS = [
     tabLabel: 'Finance',
     groupIcon: Wallet,
     items: [
-      { name: 'Dashboard', path: '/finance/dashboard', module: 'Finance Dashboard', icon: LayoutDashboard },
-      // Deviations moved to Reports › Deviations (same /finance/deviations page).
-      // 'Ledgers' moved to Import Data › Ledgers (/import/ledgers).
-      { name: 'Freight Ledger (All)', path: '/finance/freight-ledger-all', module: 'Freight Ledger', icon: Truck },
-      { name: 'Wage Ledger (All)', path: '/finance/wage-ledger-all', module: 'Wage Ledger', icon: BookOpen },
+      // Standalone finance/accounts pages that work on purchase data (no Tally,
+      // no separate ledger tables). Full ERP's GST / petty cash / customer /
+      // expense ledgers need the finance backend not shipped here.
+      { name: 'Payments Made', path: '/import/payments', module: 'Import Payments Made', icon: CreditCard },
       { name: 'Vendor Ledger', path: '/finance/vendor-ledger', module: 'Vendor Ledger', icon: BookOpen },
-      { name: 'Vendor Notes & Advances', path: '/purchase/vendor-credits', module: 'Vendor Credit', icon: FileCheck },
       { name: 'Vendor Dues', path: '/purchase/vendor-dues', module: 'Vendor Dues', icon: DollarSign },
-      { name: 'Customer Ledger', path: '/finance/customer-ledger', module: 'Customer Ledger', icon: BookOpen },
-      { name: 'Payments', path: '/finance/payments', module: 'Payment Advice', icon: CreditCard },
-      { name: 'GST', path: '/finance/gst', module: 'GST Report', icon: BarChart3 },
-      { name: 'Petty Cash', path: '/finance/petty-cash', module: 'Petty Cash', icon: DollarSign },
-      { name: 'Expense Ledger', path: '/finance/expense-ledger', module: 'Expense Ledger', icon: BookOpen },
-      { name: 'Petty Cash Ledger', path: '/finance/petty-cash-ledger', module: 'Petty Cash Ledger', icon: BookOpen },
+      { name: 'Vendor Notes & Advances', path: '/purchase/vendor-credits', module: 'Vendor Credit', icon: FileCheck },
     ],
   },
   {
@@ -330,7 +323,7 @@ export const NAV_SECTIONS = [
 // Masters, and HR Staff. Hide every other module from the sidebar so the
 // nav matches what actually has a backend here. Mutate in place so the
 // SECTION_BY_ID map and all helpers below see the trimmed list.
-const STANDALONE_SECTION_IDS = ['sourcing', 'purchase', 'tax', 'import_data', 'masters', 'hr', 'admin'];
+const STANDALONE_SECTION_IDS = ['sourcing', 'purchase', 'finance', 'tax', 'import_data', 'masters', 'hr', 'admin'];
 NAV_SECTIONS.splice(
   0,
   NAV_SECTIONS.length,
