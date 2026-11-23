@@ -1,0 +1,833 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global keyboard focus fallback: the shared <Button> already has a
+   focus-visible ring, but the many hand-rolled inline <button>s across
+   pages don't. This gives every un-migrated button/link a visible ring
+   for keyboard users without touching each page. Mouse clicks are
+   unaffected (:focus-visible only triggers for keyboard/AT). */
+@layer base {
+  button:focus-visible,
+  [role="button"]:focus-visible,
+  a:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid theme('colors.primary.500');
+    outline-offset: 1px;
+    border-radius: 2px;
+  }
+
+  /* Zebra striping for every table (light / light-dark alternating rows).
+     This lives in the base layer, so any explicit row-background utility — a
+     hover state, a selected/expanded row, a totals row, a status colour — sits
+     in Tailwind's utilities layer and overrides it. It therefore only paints
+     otherwise-plain even rows, leaving intentional backgrounds untouched. */
+  table tbody tr:nth-child(even) {
+    background-color: rgb(241 245 249 / 0.7); /* slate-100 @ 70% — a touch darker */
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Reduced motion. The OS-level "Reduce Motion" switch (iOS Accessibility,
+   Android, Windows, macOS) was being ignored entirely — there was not one
+   prefers-reduced-motion rule in the app, while buttons carry a global
+   `transition-all`, drawers fade, and toasts slide.
+
+   Animation is cut to a single frame rather than removed outright: a
+   `display:none` style approach would break components that wait for
+   transitionend, and 0.01ms still fires those events. `animate-spin` is
+   deliberately EXEMPT — a spinner is not decoration, it is the only signal
+   that a request is still running, and freezing it would read as a hung app.
+   ───────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Loading affordances keep moving — they carry meaning, not flourish. */
+  .animate-spin,
+  .spinner {
+    animation-duration: 0.8s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+/* Base Styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-neutral-50 text-neutral-900 antialiased;
+}
+
+/* App-shell scroll model — the DOCUMENT must never scroll.
+   Every MainLayout page is `h-dvh` and scrolls inside its own <main>, so
+   a scrollable <html>/<body> only ever produces a spurious SECOND
+   scrollbar that scrolls the whole app into empty space (e.g. a fixed
+   toast container reporting stray height). We lock html/body to the
+   viewport and hand any full-page scrolling (tall auth/error screens) to
+   #root, which fits the app shell exactly and never grows for a
+   MainLayout page. */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Typography.
+
+   Fluid rather than fixed: a bare h1 was 36px at every width, which is a
+   third of a 375px phone's screen before the page has said anything. clamp()
+   scales it between phone and desktop with no breakpoint to maintain, and
+   the top of each range is the previous fixed value, so desktop is unchanged.
+
+   These are ELEMENT selectors (specificity 0-0-1), so any page that sets its
+   own `text-xl` etc. on a heading still wins — this only governs headings
+   that were never given a size. */
+h1 {
+  font-size: clamp(1.75rem, 1.25rem + 2.2vw, 2.25rem);   /* 28 → 36px */
+  line-height: 1.15;
+  @apply font-bold tracking-tight;
+}
+
+h2 {
+  font-size: clamp(1.5rem, 1.15rem + 1.6vw, 1.875rem);   /* 24 → 30px */
+  line-height: 1.2;
+  @apply font-bold tracking-tight;
+}
+
+h3 {
+  font-size: clamp(1.25rem, 1.05rem + 0.9vw, 1.5rem);    /* 20 → 24px */
+  line-height: 1.25;
+  @apply font-semibold;
+}
+
+h4 {
+  font-size: clamp(1.125rem, 1.05rem + 0.35vw, 1.25rem); /* 18 → 20px */
+  line-height: 1.3;
+  @apply font-semibold;
+}
+
+h5 {
+  @apply text-lg font-semibold;
+}
+
+h6 {
+  @apply text-base font-semibold;
+}
+
+p {
+  @apply text-base leading-relaxed;
+}
+
+/* Default link styling for text links only. The `:not([class*="bg-"])`
+   guard excludes anchors that are really buttons (rendered via <Link>
+   with a bg-* utility, e.g. PageHeader's "New" button) — otherwise this
+   global rule's hover color overrode their own text colour, turning a
+   solid button's label the same colour as its background on hover. */
+a:not([class*='bg-']) {
+  @apply text-primary-600 hover:text-primary-700 transition-colors duration-150;
+}
+
+/* Form Styles — only the basics. Per-input visual styling lives in the
+   shared form primitives at components/common/forms (FormCard / Field /
+   Input / Select / Textarea) so we don't have to fight CSS specificity
+   between the global rule and the components' utility classes. Legacy
+   forms supply their own classes inline and keep working unchanged. */
+input[type='checkbox'],
+input[type='radio'] {
+  @apply cursor-pointer;
+}
+
+/* Button Styles */
+button {
+  @apply font-medium transition-all duration-150;
+}
+
+button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+/* Table Styles.
+
+   Density is set by INPUT DEVICE, not by screen width, because "compact" and
+   "tappable" want opposite things and a breakpoint cannot tell them apart —
+   a 1024px iPad and a 1024px laptop window are the same width and need
+   different row heights.
+
+     mouse / trackpad  tighter rows, so more of the ledger is on screen at once
+     touch             taller rows, so a row and its actions can be hit
+
+   Cells stay at the comfortable size by default and TIGHTEN for fine
+   pointers; that way anything without pointer support degrades to the
+   touch-safe size rather than the cramped one. */
+table {
+  @apply w-full border-collapse;
+}
+
+thead {
+  @apply bg-neutral-100 border-b border-neutral-300;
+}
+
+th {
+  @apply px-4 py-3 text-left font-semibold text-neutral-700;
+}
+
+td {
+  @apply px-4 py-3 border-b border-neutral-200;
+}
+
+@media (pointer: fine) {
+  th,
+  td {
+    @apply px-2.5 py-1.5;
+  }
+}
+
+/* Touch hit targets for icon-only controls.
+
+   An icon button in this app is typically a 15-18px glyph in a p-1/p-1.5 shell
+   — 26 to 27px, well under the 44px Apple / 48dp Material minimum. Table row
+   actions sit shoulder to shoulder, so a miss doesn't just fail, it fires the
+   WRONG action; dialog close buttons are small targets right beside the screen
+   edge. There are 77 such buttons across the app.
+
+   `:has(> svg:only-child)` is the precise test for "this button is nothing but
+   an icon" — a button with a label beside its icon already has a wide enough
+   target and is left alone. Only the HIT AREA grows, and only on touch, so
+   nothing looks bulkier under a mouse.
+
+   Centring is forced because most of these shells were built with padding
+   alone; without it the glyph would sit in the top-left of the new 44px box. */
+@media (pointer: coarse) {
+  button:has(> svg:only-child),
+  a:has(> svg:only-child) {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+tbody tr:hover {
+  @apply bg-neutral-50 transition-colors duration-150;
+}
+
+/* Unified input shell — applicable to <input>, <select>, <textarea>
+   AND to <div>s that render read-only / mock field surfaces (used by
+   the Leave Application page for "auto-filled" display fields). Kept
+   visually consistent with the global input styling above. */
+.input {
+  @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200;
+}
+
+textarea.input {
+  @apply resize-y;
+}
+
+/* Card Styles */
+/* p-4 not p-6, and a hairline shadow instead of shadow-md: a card in a
+   data-dense screen is a grouping device, not a raised object. The heavier
+   shadow read as decoration and the 24px inset pushed real content down. */
+.card {
+  @apply bg-white rounded-lg shadow-sm p-4 border border-neutral-200;
+}
+
+.card-header {
+  @apply border-b border-neutral-200 pb-4 mb-4;
+}
+
+.card-body {
+  @apply p-0;
+}
+
+.card-footer {
+  @apply border-t border-neutral-200 pt-4 mt-4;
+}
+
+/* Compact KPI metric grid — replicated from the approved "Compact" review
+   prototype. Cards size to their CONTENT and pack as many per row as fit at a
+   216px floor (so a wide desktop shows 5–6 tight tiles instead of 4 roomy ones
+   with dead space), then collapse to two-up on phones. Replaces the fixed
+   grid-cols-2 md:3 lg:4 the dashboards used, which forced oversized cards and
+   whitespace on wide screens. */
+.metric-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 216px), 1fr));
+  /* Each tile sizes to its OWN content instead of stretching to the row's
+     tallest card — so a short tile (Sales Orders, Debit Notes) stays short
+     next to a dense one (Total Sales / TDS) instead of being padded out with a
+     big empty bottom. */
+  align-items: start;
+}
+@media (max-width: 639px) {
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
+
+/* Instrument band — the dense metric strip at the top of an analytics page.
+
+   One row of hairline-divided cells instead of a row of padded cards: a card
+   grid spends most of its width on padding and borders to show one number
+   each, which on a 1440px screen left three ~490px cards holding a single
+   figure. The band packs every headline metric into the same vertical space
+   and keeps them all on screen — no drill-down needed to read a number.
+
+   The 1px grid gap over a hairline background IS the divider, so there is no
+   per-cell border arithmetic and no double rules where cells wrap. */
+.metric-band {
+  display: grid;
+  gap: 1px;
+  /* The divider/hairline colour. Darkened from #e2e8f0 so the cells read as
+     separate tiles and the whole strip lifts off the white page — the band was
+     white-on-white with near-invisible rules, so it had no contrast. */
+  background: #cbd5e1;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  overflow: hidden;
+  /* A soft elevation so the strip sits ABOVE the page rather than melting into
+     it. This is the contrast fix, shared by Purchase and Sales analytics. */
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 2px 6px rgba(15, 23, 42, 0.05);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 158px), 1fr));
+}
+.metric-band > * {
+  background: #fff;
+}
+/* Fixed 4-up grid — 8 tiles land as a tidy 2 rows of 4 instead of one long
+   auto-fit row. Used by Sales analytics' KEY METRICS. */
+.metric-band--grid4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 1023px) and (min-width: 640px) {
+  .metric-band--grid4 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 639px) {
+  .metric-band,
+  .metric-band--grid4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Ageing band cards. Sized against their OWN container, not the viewport:
+   once the panel sits in a half-width column beside another panel, a
+   viewport-keyed `lg:grid-cols-6` still asks for six tracks and squeezes a
+   ₹1,56,89,308.10 Cr figure into ~120px. auto-fit lets the row carry however
+   many bands actually fit wherever the panel is placed. */
+.age-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr));
+}
+
+/* Currency / numeric figure token.
+
+   A money amount is a SINGLE value and must read as one: the Indian
+   grouping and the paise are part of the number, so it must never wrap
+   mid-figure (the Mac-laptop bug where ₹1,85,71,65,859.18 split as
+   "₹1,85,71,65,85" / "9.18") nor be clipped to an ellipsis. Pair the
+   no-wrap rule with tabular figures so columns of amounts line up and
+   don't jitter as digits change. Apply to any element that renders a
+   formatted amount (KPI values, table totals, ledger figures). Keep the
+   amount in a container wide enough to hold it — shrink the font or make
+   the card a full-width row before you ever let the value wrap. */
+.money {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Badge Styles */
+.badge {
+  @apply inline-block px-2 py-1 text-xs font-semibold rounded-full;
+}
+
+.badge-primary {
+  @apply bg-primary-100 text-primary-700;
+}
+
+.badge-secondary {
+  @apply bg-secondary-100 text-secondary-700;
+}
+
+.badge-success {
+  @apply bg-success-100 text-success-700;
+}
+
+.badge-danger {
+  @apply bg-danger-100 text-danger-700;
+}
+
+.badge-warning {
+  @apply bg-warning-100 text-warning-700;
+}
+
+.badge-neutral {
+  @apply bg-neutral-100 text-neutral-700;
+}
+
+/* Alert Styles */
+.alert {
+  @apply relative w-full px-4 py-3 rounded-md border;
+}
+
+.alert-primary {
+  @apply bg-primary-50 border-primary-300 text-primary-700;
+}
+
+.alert-success {
+  @apply bg-success-50 border-success-300 text-success-700;
+}
+
+.alert-danger {
+  @apply bg-danger-50 border-danger-300 text-danger-700;
+}
+
+.alert-warning {
+  @apply bg-warning-50 border-warning-300 text-warning-700;
+}
+
+/* Loading Spinner */
+.spinner {
+  @apply inline-block animate-spin rounded-full border-4 border-neutral-300 border-t-primary-600;
+}
+
+.spinner-sm {
+  @apply w-4 h-4;
+}
+
+.spinner-md {
+  @apply w-6 h-6;
+}
+
+.spinner-lg {
+  @apply w-8 h-8;
+}
+
+/* Responsive Grid */
+.grid-responsive {
+  @apply grid gap-6;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+/* Utility Classes */
+.truncate-1 {
+  @apply truncate;
+}
+
+.truncate-2 {
+  @apply line-clamp-2;
+}
+
+.truncate-3 {
+  @apply line-clamp-3;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Fade-in for the global styled tooltip (GlobalTooltip.jsx). */
+@keyframes tipFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Right-anchored slide-over (e.g. the Bills quick-view card). Enters from just
+   off the right edge; respects reduced-motion below. */
+@keyframes slideInRight {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[slideInRight_160ms_ease-out\],
+  .animate-\[fadeIn_120ms_ease-out\] {
+    animation: none !important;
+  }
+}
+
+/* Scrollbar Styles.
+
+   4px reads well but is barely grabbable with a mouse — and the widest
+   tables in this app are scrolled horizontally by dragging that bar. Size
+   it by INPUT DEVICE rather than by screen size: a touch screen flicks the
+   surface directly and wants the thin, unobtrusive bar; a mouse needs a
+   target it can actually hit. `pointer: fine` is true for mouse/trackpad
+   (laptop, desktop, Mac) and false for touch (phone, tablet, most
+   interactive panels), which is exactly the split that matters here. */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@media (pointer: fine) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  /* Inset the thumb so it reads as the same slim bar until you aim at it,
+     while the hit area stays the full 10px. */
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   iOS / Mobile responsive helpers
+   ────────────────────────────────────────────────────────────── */
+
+/* Kill the gray tap-flash iOS Safari paints on every clickable
+   element. Buttons, links, summary, [role=button]. */
+button,
+a,
+summary,
+[role='button'],
+[role='link'] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Inputs at <16px font-size cause iOS Safari to zoom the page on
+   focus. Keep our input shells legible without that side effect. */
+@supports (-webkit-touch-callout: none) {
+  input[type='text'],
+  input[type='email'],
+  input[type='password'],
+  input[type='number'],
+  input[type='tel'],
+  input[type='search'],
+  input[type='url'],
+  input[type='date'],
+  input[type='datetime-local'],
+  input[type='month'],
+  input[type='time'],
+  input[type='week'],
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Safe-area inset utilities — these read from the iOS notch /
+   Dynamic Island / home-indicator insets. They no-op on devices
+   without insets, so it's safe to apply everywhere. Requires the
+   viewport meta to include `viewport-fit=cover` (set in index.html). */
+.pt-safe   { padding-top:    env(safe-area-inset-top); }
+.pb-safe   { padding-bottom: env(safe-area-inset-bottom); }
+.pl-safe   { padding-left:   env(safe-area-inset-left); }
+.pr-safe   { padding-right:  env(safe-area-inset-right); }
+.mt-safe   { margin-top:     env(safe-area-inset-top); }
+.mb-safe   { margin-bottom:  env(safe-area-inset-bottom); }
+.inset-safe-top    { top:    env(safe-area-inset-top); }
+.inset-safe-bottom { bottom: env(safe-area-inset-bottom); }
+
+/* Combine with existing padding — use these when an element already
+   has px-N/py-N and you just want to extend the inset. */
+.px-safe { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+.py-safe { padding-top:  env(safe-area-inset-top);  padding-bottom: env(safe-area-inset-bottom); }
+
+/* Dynamic viewport height — iOS Safari's `100vh` is taller than the
+   actual visible area because it doesn't subtract the URL bar. The
+   `dvh` unit is the modern fix; we fall back to `vh` on engines
+   that don't support it yet. */
+.h-dvh    { height:     100vh; height:     100dvh; }
+.min-h-dvh{ min-height: 100vh; min-height: 100dvh; }
+.max-h-dvh{ max-height: 100vh; max-height: 100dvh; }
+
+/* iOS-friendly scroll container — smooth momentum + contains the
+   HORIZONTAL axis only (rubber-band / swipe-to-go-back).
+
+   We deliberately do NOT contain the vertical axis. Almost every user of
+   this class is a horizontally-scrolling table (`overflow-x-auto`), and
+   because `overflow-x:auto` makes the browser COMPUTE `overflow-y:auto`
+   too, a full `overscroll-behavior:contain` turns the table into a
+   vertical scroll-trap: the mouse wheel over it scrolls nothing (the
+   table has no vertical overflow) and the page can't scroll either.
+   Leaving the vertical axis to chain fixes that. Vertical scrollers that
+   genuinely need their overscroll contained (sidebar nav, bottom sheet,
+   dropdowns) opt in with an explicit `overscroll-y-contain`. */
+.ios-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+/* Hide the scrollbar on horizontally-scrolling chip rows / tabs while
+   keeping the scroll behavior. Used by MobileFilterChips so the row
+   doesn't show an ugly track on Windows touch laptops. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* When the body has this class, the page beneath the drawer is
+   pinned. Used by the mobile sidebar drawer. iOS Safari ignores
+   plain `overflow: hidden` on <body>, so we lock position too —
+   the `top` offset is restored by the JS that adds the class so
+   the visible scroll position doesn't jump. */
+body.body-scroll-lock {
+  position: fixed;
+  inset-inline: 0;
+  width: 100%;
+  overflow: hidden;
+  /* `top` is set inline by the lock helper to -scrollY */
+}
+
+/* Apple HIG specifies a 44pt minimum hit target. Use this on icon-
+   only buttons that would otherwise be too small to tap reliably. */
+.tap-target-44 {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Print Styles */
+@media print {
+  /* Reset page chrome — A4 portrait with reasonable margins. */
+  @page {
+    size: A4 portrait;
+    margin: 12mm 12mm 14mm 12mm;
+  }
+
+  html, body {
+    @apply bg-white;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Strip every element flagged for hiding during print. The app
+     shell (Sidebar / Header / MainLayout breadcrumbs / PageHeader)
+     adds this class itself, as does every page that has chrome it
+     doesn't want on paper. */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Let the main scroll container open up — we don't want a tiny
+     printable viewport. */
+  main, [class*="overflow-auto"] {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Drop the slate page background and give the document the full width. */
+  .bg-slate-50 {
+    @apply bg-white;
+  }
+
+  /* Wider canvas for the invoice document specifically. */
+  .max-w-5xl, .max-w-6xl, .max-w-7xl {
+    max-width: 100% !important;
+  }
+
+  .no-print {
+    @apply hidden;
+  }
+
+  table {
+    @apply border-collapse;
+  }
+
+  thead {
+    @apply bg-neutral-200;
+  }
+
+  /* Avoid page-breaks inside line-item rows. */
+  tr, td, th {
+    page-break-inside: avoid;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Number inputs: hide the up/down spinner arrows everywhere. They were
+   easy to click by accident, and (together with the wheel guard in
+   main.jsx) this stops mouse-wheel scrolling from silently changing the
+   value of a focused numeric field.
+   ───────────────────────────────────────────────────────────────────── */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   EditGate — a form region wrapped in <fieldset disabled> when the user has
+   view-only access. The fieldset already locks every control; this makes the
+   locked fields *look* read-only (muted, not-allowed) instead of misleadingly
+   live. Scoped to .edit-gate so ordinary disabled inputs elsewhere keep their
+   own styling.
+   ───────────────────────────────────────────────────────────────────── */
+.edit-gate:disabled input:not([type="checkbox"]):not([type="radio"]),
+.edit-gate:disabled textarea,
+.edit-gate:disabled select {
+  background-color: #f8fafc !important;
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b;   /* keep disabled text legible in Safari */
+  cursor: not-allowed;
+  opacity: 1;
+}
+/* Mark add/remove-row buttons or other edit-only affordances with `edit-only`
+   to hide them entirely for view-only users. */
+.edit-gate:disabled .edit-only { display: none !important; }
+
+/* ═════════════════════════════════════════════════════════════════════
+   PURCHASE MODULE — COMPACT DENSITY LAYER
+
+   One scoped layer that makes the whole Purchase module read tighter:
+   smaller type, shorter table rows, less card padding, and condensed
+   vertical rhythm — so a dense ledger/dashboard/document shows more per
+   screen with no dead bands of whitespace.
+
+   Hook: MainLayout adds `.pg-dense` to the page-content wrapper for every
+   `/purchase/*` route, so this cascades to all Purchase pages at once
+   without touching each file. Flagship pages (overview, orders, bills,
+   requests) are additionally hand-tuned.
+
+   Design rules this layer deliberately follows:
+     • Only remaps NON-responsive utilities (text-sm, p-6, space-y-6 …) —
+       these dominate the Purchase pages. Responsive header sizes get
+       explicit wrapped overrides below so the mobile→desktop step still
+       works instead of collapsing to one size at all widths.
+     • Leaves component-level spacing (p-1…p-3, gap-1…gap-4) alone so
+       buttons, pills and inputs keep their 44px touch targets — we remove
+       dead LAYOUT space, not interaction space.
+     • Wrapped in `@media screen`, so a printed PO / invoice keeps its
+       A4-legible sizing from the @page + document styles; only the
+       on-screen preview compacts.
+   ═════════════════════════════════════════════════════════════════════ */
+@media screen {
+  /* ── Type scale (desktop-dense; inputs still 16px on iOS via the
+        -webkit-touch-callout guard above, so no focus-zoom) ── */
+  .pg-dense .text-xs   { font-size: 11px;   line-height: 1.35; }
+  .pg-dense .text-sm   { font-size: 12px;   line-height: 1.4;  }
+  .pg-dense .text-base { font-size: 13px;   line-height: 1.45; }
+  .pg-dense .text-lg   { font-size: 15px;   line-height: 1.4;  }
+  .pg-dense .text-xl   { font-size: 17px;   line-height: 1.4;  }
+  .pg-dense .text-2xl  { font-size: 20px;   line-height: 1.3;  }
+  .pg-dense .text-3xl  { font-size: 24px;   line-height: 1.25; }
+
+  /* Responsive header sizes used by PageHeader + the dashboards. Kept in
+     their own media queries so each width tier shrinks correctly instead
+     of one override winning at every width. */
+  @media (min-width: 640px) {
+    .pg-dense .sm\:text-sm   { font-size: 12px; }
+    .pg-dense .sm\:text-base { font-size: 13px; }
+    .pg-dense .sm\:text-lg   { font-size: 15px; }
+    .pg-dense .sm\:text-xl   { font-size: 17px; }
+    .pg-dense .sm\:text-2xl  { font-size: 20px; }
+  }
+  @media (min-width: 1024px) {
+    .pg-dense .lg\:text-base { font-size: 13px; }
+    .pg-dense .lg\:text-lg   { font-size: 15px; }
+    .pg-dense .lg\:text-xl   { font-size: 17px; }
+    .pg-dense .lg\:text-2xl  { font-size: 20px; }
+  }
+
+  /* Element headings (pages that use bare h1–h4) shrink too — these
+     override the fluid clamp() sizes set globally above. */
+  .pg-dense h1 { font-size: clamp(1.25rem, 1rem + 1vw, 1.5rem); line-height: 1.2; }
+  .pg-dense h2 { font-size: clamp(1.125rem, 1rem + 0.55vw, 1.3rem); line-height: 1.25; }
+  .pg-dense h3 { font-size: 1.05rem; line-height: 1.3; }
+  .pg-dense h4 { font-size: 0.95rem; line-height: 1.3; }
+
+  /* ── Vertical rhythm — only LARGE stacks collapse; small gaps stay ── */
+  .pg-dense .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+  .pg-dense .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.75rem; }
+  .pg-dense .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.625rem; }
+  .pg-dense .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.5rem; }
+
+  .pg-dense .gap-8 { gap: 1rem; }
+  .pg-dense .gap-6 { gap: 0.75rem; }
+  .pg-dense .gap-5 { gap: 0.625rem; }
+  .pg-dense .gap-4 { gap: 0.625rem; }
+
+  .pg-dense .mb-8 { margin-bottom: 1rem; }
+  .pg-dense .mb-6 { margin-bottom: 0.75rem; }
+  .pg-dense .mb-5 { margin-bottom: 0.625rem; }
+  .pg-dense .mb-4 { margin-bottom: 0.5rem; }
+  .pg-dense .mt-8 { margin-top: 1rem; }
+  .pg-dense .mt-6 { margin-top: 0.75rem; }
+  .pg-dense .mt-4 { margin-top: 0.5rem; }
+  .pg-dense .my-6 { margin-top: 0.75rem; margin-bottom: 0.75rem; }
+
+  /* ── Container padding — card/section insets. p-4/px-4 are the standard
+        card inset across these pages, so collapsing them is the biggest
+        dead-space win; p-1…p-3 stay put so controls keep their hit area. ── */
+  .pg-dense .p-6  { padding: 1rem; }
+  .pg-dense .p-5  { padding: 0.875rem; }
+  .pg-dense .p-4  { padding: 0.625rem; }
+  .pg-dense .px-6 { padding-left: 1rem; padding-right: 1rem; }
+  .pg-dense .px-5 { padding-left: 0.875rem; padding-right: 0.875rem; }
+  .pg-dense .px-4 { padding-left: 0.75rem; padding-right: 0.75rem; }
+  .pg-dense .py-6 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+  .pg-dense .py-5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+  .pg-dense .py-4 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+  .pg-dense .py-3 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+
+  /* ── Shared primitives ── */
+  .pg-dense .card        { padding: 0.75rem; }
+  .pg-dense .card-header { padding-bottom: 0.625rem; margin-bottom: 0.625rem; }
+  .pg-dense .card-footer { padding-top: 0.625rem; margin-top: 0.625rem; }
+  .pg-dense .badge       { padding: 0.125rem 0.5rem; font-size: 10.5px; }
+
+  /* ── Tables — tighter than the global pointer:fine rule, and with the
+        small, tabular figures a dense ledger wants ── */
+  .pg-dense th { padding: 0.375rem 0.5rem; font-size: 11px; }
+  .pg-dense td { padding: 0.3rem 0.5rem; font-size: 12px; }
+  @media (pointer: fine) {
+    .pg-dense th,
+    .pg-dense td { padding: 0.25rem 0.5rem; }
+  }
+}

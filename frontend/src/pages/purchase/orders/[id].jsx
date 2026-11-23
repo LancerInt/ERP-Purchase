@@ -1,0 +1,1266 @@
+import CustomDatePicker from "@/components/ui/CustomDatePicker";
+import CustomSelect from "@/components/ui/CustomSelect";
+import { promptText } from '@/components/common/prompt';
+import POAmendment from '../components/POAmendment';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import {
+  ArrowLeft,
+  CheckCircle,
+  XCircle,
+  Send,
+  Mail,
+  FileText,
+  Edit3,
+  Trash2,
+  PackageCheck,
+  FileDown,
+} from 'lucide-react';
+import MainLayout from '../../../components/layout/MainLayout';
+import StatusBadge from '../../../components/common/StatusBadge';
+import apiClient from '../../../utils/api.js';
+import usePermissions from '../../../hooks/usePermissions.js';
+import useFieldPermissions from '../../../hooks/useFieldPermissions.js';
+import useLookup from '../../../hooks/useLookup.js';
+import FileAttachments from '../components/FileAttachments';
+import ActivityLog from '@/components/common/ActivityLog';
+import { confirm } from '@/components/common/confirm';
+import { formatDate as fmtDate } from '@/utils/formatters';
+import { getApiErrorMessage } from '@/utils/formHelpers';
+import { PAYMENT_TERM_OPTIONS, FREIGHT_TERM_OPTIONS, withCurrent, paymentTermMessage } from '@/constants/purchaseTerms';
+
+// Base edit-mode input classes pulled from this page's inline styling so
+// the field-permission lock state can reuse them.
+const inputClass = "w-full mt-1 px-2 py-1 border border-slate-300 rounded text-sm";
+const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
+
+export default function PurchaseOrderDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  // Back honours a `backTo` URL passed by the caller (dashboard drawers,
+  // filtered lists) so Back restores the exact view they came from; otherwise
+  // falls back to the existing history-aware default.
+  const goBack = () => {
+    const backTo = location.state?.backTo;
+    if (backTo) navigate(backTo);
+    else if (window.history.state?.idx > 0) navigate(-1);
+    else navigate('/purchase/orders');
+  };
+  const { canCreate, canEdit, canDelete, canApprove, canSendEmail, canRequestAmendment, canApproveAmendment } = usePermissions();
+  const { isHidden, isReadOnly } = useFieldPermissions('Purchase Order');
+  const { isHidden: isLineHidden, isReadOnly: isLineRO } = useFieldPermissions('Purchase Order Line');
+
+  const [po, setPO] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isIssuing, setIsIssuing] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  // Split-into-batches modal (DRAFT single-line POs only).
+  const [splitOpen, setSplitOpen] = useState(false);
+  const [splitBatches, setSplitBatches] = useState([]); // [{quantity, delivery_date}]
+  const [isSplitting, setIsSplitting] = useState(false);
+  const [editData, setEditData] = useState({});
+
+  // Broker master — drives the Broker Name dropdown so PO users can only
+  // pick brokers that have been added to the master (no free-text typos).
+  const { raw: brokerList } = useLookup('/api/brokers/');
+  // Lookups for edit-mode parity with the Create page.
+  const { options: vendorOptions } = useLookup('/api/vendors/');
+  const { options: companyOptions } = useLookup('/api/companies/');
+  const { options: rfqOptions } = useLookup('/api/purchase/rfq/');
+  const { raw: prRaw } = useLookup('/api/purchase/requests/', { labelField: 'pr_no' });
+  const prOptions = (prRaw || [])
+    .filter(p => p.approval_status === 'APPROVED' || p.approval_status === 'PARTIALLY_APPROVED')
+    .map(p => ({ value: p.id, label: p.pr_no }));
+
+  const handleDelete = async () => {
+    if (!(await confirm({ message: 'Are you sure you want to delete this purchase order? This action cannot be undone.', isDangerous: true, confirmLabel: 'Delete' }))) return;
+    try {
+      await apiClient.delete(`/api/purchase/orders/${id}/`);
+      toast.success('Purchase order deleted successfully');
+      navigate('/purchase/orders');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || err.response?.data?.error || 'Failed to delete');
+    }
+  };
+
+  const [editLines, setEditLines] = useState([]);
+  // Warehouse list narrows to the (editable) selected company in edit mode.
+  const { options: warehouseOptions } = useLookup(
+    editData.company ? `/api/warehouses/?company=${editData.company}&scope=true` : null
+  );
+  const handleEditToggle = () => {
+    setIsEditing(true);
+    setEditData({
+      ...po,
+      // Coerce linked_prs (array on detail) → single id for the dropdown,
+      // mirroring the Create page (CustomSelect handles a single value).
+      linked_prs: Array.isArray(po.linked_prs) && po.linked_prs.length > 0 ? po.linked_prs[0] : (po.linked_prs || ''),
+    });
+    setEditLines((po.po_lines || []).map(l => ({ ...l })));
+  };
+  const handleEditCancel = () => { setIsEditing(false); setEditData({}); setEditLines([]); };
+  // Remove one line from a DRAFT PO (backend action). Frees the linked
+  // PR line so the same item can be re-picked under a different vendor
+  // on a new PO — the intended workflow when the wrong product was
+  // grouped into this vendor's PO by mistake.
+  const handleRemoveLine = async (line, idx) => {
+    if (!line.id) {
+      // Unsaved line — just drop from local state.
+      setEditLines(prev => prev.filter((_, i) => i !== idx));
+      return;
+    }
+    if (!(await confirm({
+      message: `Remove '${line.item_name || line.product_name || 'this line'}' from the PO? The PR line becomes available for a new PO to a different vendor.`,
+      isDangerous: true,
+      confirmLabel: 'Remove line',
+    }))) return;
+    try {
+      const res = await apiClient.delete(`/api/purchase/orders/${id}/lines/${line.id}/`);
+      setPO(res.data);
+      setEditLines((res.data.po_lines || []).map(l => ({ ...l })));
+      toast.success('Line removed.');
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.response?.data?.detail || 'Failed to remove line.');
+    }
+  };
+  const handleEditLineChange = (idx, field, value) => {
+    setEditLines(prev => prev.map((l, i) => i === idx ? { ...l, [field]: value } : l));
+  };
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    // Changing company invalidates the previously-picked warehouse, same
+    // behavior as the Create page.
+    if (name === 'company') {
+      setEditData(prev => ({ ...prev, company: value, warehouse: '' }));
+      return;
+    }
+    setEditData(prev => ({ ...prev, [name]: value }));
+  };
+  const handleEditSave = async () => {
+    setIsSaving(true);
+    try {
+      const res = await apiClient.patch(`/api/purchase/orders/${id}/`, {
+        vendor: editData.vendor || null,
+        company: editData.company || null,
+        warehouse: editData.warehouse || null,
+        linked_prs: editData.linked_prs ? [editData.linked_prs] : [],
+        linked_rfq: editData.linked_rfq || null,
+        payment_terms: editData.payment_terms || '',
+        freight_terms: editData.freight_terms || '',
+        currency: editData.currency || 'INR',
+        broker_name: editData.broker_name || '',
+        terms_and_conditions: editData.terms_and_conditions || '',
+        expected_delivery_start: editData.expected_delivery_start || null,
+        expected_delivery_end: editData.expected_delivery_end || null,
+        po_lines: editLines.map(l => ({
+          id: l.id,
+          unit_price: l.unit_price || '0',
+          gst: l.gst || '0',
+          quantity_ordered: l.quantity_ordered,
+          uom: l.uom || '',
+          // pr_line_category is a read-only derived field on the
+          // serializer — sending it back has no effect, but we keep
+          // the value in editLines so the UI shows the operator's
+          // override until refresh.
+        })),
+      });
+      setPO(res.data);
+      setIsEditing(false);
+      setEditLines([]);
+      toast.success('Purchase Order updated');
+    } catch (err) { toast.error(getApiErrorMessage(err)); }
+    finally { setIsSaving(false); }
+  };
+
+  // Fetch PO data
+  useEffect(() => {
+    fetchPO();
+  }, [id]);
+
+  const fetchPO = async () => {
+    setIsLoading(true);
+    try {
+      const res = await apiClient.get(`/api/purchase/orders/${id}/`);
+      setPO(res.data);
+    } catch (err) {
+      if (err.response?.status !== 404) toast.error(getApiErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Status checks
+  const poStatus = po?.status || 'DRAFT';
+  const isDraft = poStatus === 'DRAFT';
+  const isApproved = poStatus === 'APPROVED';
+  const isIssued = poStatus === 'ISSUED';
+  const isClosed = poStatus === 'CLOSED';
+  const isCancelled = poStatus === 'CANCELLED';
+
+  // Permission checks
+  const hasEditPerm = canEdit('Purchase Order');
+  const hasDeletePerm = canDelete('Purchase Order');
+  const canApprovePO = isDraft && canApprove('Purchase Order');
+  // Split action is only visible on DRAFT + single-line POs. Multi-line
+  // POs would need per-line batching (should be done at PR-approve time).
+  const canSplitPO = isDraft
+    && hasEditPerm
+    && (po?.po_lines || []).length === 1
+    && parseFloat((po?.po_lines || [])[0]?.quantity_ordered || 0) > 0;
+  const canSendPOEmail = (isApproved || isIssued) && !isCancelled && !isClosed && canSendEmail('Purchase Order');
+  const canCreateReceipt = canCreate('Receipt Advice');
+
+  // Handle approve
+  const handleApprove = async () => {
+    if (!(await confirm({ message: 'Are you sure you want to approve this Purchase Order?' }))) return;
+    setIsApproving(true);
+    try {
+      const res = await apiClient.post(`/api/purchase/orders/${id}/approve/`);
+      toast.success(res.data?.message || 'PO approved successfully!');
+      fetchPO();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to approve PO');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  // Open the Split modal — DRAFT single-line POs only. Seeds with 2
+  // equal-half batches, matching the Approve-modal split UX.
+  const openSplitModal = () => {
+    const line = (po?.po_lines || [])[0];
+    if (!line) return;
+    const orderedQty = parseFloat(line.quantity_ordered) || 0;
+    const half = orderedQty / 2;
+    setSplitBatches([
+      { quantity: half ? String(half) : '', delivery_date: '' },
+      { quantity: half ? String(half) : '', delivery_date: '' },
+    ]);
+    setSplitOpen(true);
+  };
+
+  const submitSplit = async () => {
+    const line = (po?.po_lines || [])[0];
+    const lineQty = parseFloat(line?.quantity_ordered) || 0;
+    // Client-side sanity — backend re-validates.
+    if (splitBatches.some(s => !(parseFloat(s.quantity) > 0))) {
+      toast.error('Every batch quantity must be greater than 0.');
+      return;
+    }
+    const sum = splitBatches.reduce((a, s) => a + (parseFloat(s.quantity) || 0), 0);
+    if (Math.abs(sum - lineQty) > 0.0001) {
+      toast.error(`Batch quantities (${sum}) must add up to the PO line quantity (${lineQty}).`);
+      return;
+    }
+    if (!(await confirm({
+      message: (
+        `Split ${po.po_no} into ${splitBatches.length} DRAFT POs? `
+        + `The original PO will be marked SPLIT (kept for audit trail, with a note pointing at the new PO numbers).`
+      ),
+      confirmLabel: 'Split PO',
+    }))) return;
+    setIsSplitting(true);
+    try {
+      const res = await apiClient.post(`/api/purchase/orders/${id}/split/`, {
+        splits: splitBatches.map(s => ({
+          quantity: s.quantity,
+          delivery_date: s.delivery_date || '',
+        })),
+      });
+      toast.success(res.data?.message || 'PO split successfully.');
+      setSplitOpen(false);
+      // Land on the Orders list — the current PO is now CANCELLED
+      // and there's N new DRAFTs to look at.
+      navigate('/purchase/orders');
+    } catch (err) {
+      toast.error(err.response?.data?.error || getApiErrorMessage(err, 'Failed to split PO.'));
+    } finally {
+      setIsSplitting(false);
+    }
+  };
+
+  // Handle issue
+  const handleIssue = async () => {
+    if (!(await confirm({ message: 'Are you sure you want to issue this Purchase Order?' }))) return;
+    setIsIssuing(true);
+    try {
+      const res = await apiClient.post(`/api/purchase/orders/${id}/issue/`);
+      toast.success('PO issued successfully!');
+      fetchPO();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.response?.data?.detail || 'Failed to issue PO');
+    } finally {
+      setIsIssuing(false);
+    }
+  };
+
+  // Handle reject
+  const handleReject = async () => {
+    const reason = await promptText({ title: 'Reject Purchase Order', label: 'Rejection reason', placeholder: 'Why is this PO being rejected?', multiline: true, required: true, confirmLabel: 'Reject', isDangerous: true });
+    if (reason === null) return;
+    setIsRejecting(true);
+    try {
+      await apiClient.post(`/api/purchase/orders/${id}/reject/`, { reason });
+      toast.success('PO rejected/cancelled');
+      fetchPO();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to reject PO');
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
+  // Format helpers
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    return fmtDate(dateStr);
+  };
+
+  const formatCurrency = (value) => {
+    const num = Number(value);
+    if (isNaN(num)) return '-';
+    return `\u20B9${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="space-y-4 max-w-6xl">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-32 bg-slate-200 rounded animate-pulse" />
+          ))}
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Not found state
+  if (!po) {
+    return (
+      <MainLayout>
+        <div className="text-center py-12">
+          <FileText className="mx-auto text-slate-300 mb-4" size={48} />
+          <p className="text-slate-600 text-lg">Purchase Order not found</p>
+          <button
+            onClick={goBack}
+            className="mt-4 px-4 py-2 text-blue-600 hover:text-blue-800 transition"
+          >
+            Back to Purchase Orders
+          </button>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  const poNumber = po.po_no || `PO-${id}`;
+  const lineItems = po.po_lines || [];
+
+  // A PO can only be approved once every line carries a real unit price.
+  // Approving at 0 would lock in a zero-value order (and post a zero-cost
+  // receipt later), so the Approve button stays disabled until each line
+  // has unit_price > 0.
+  const allLinesPriced = lineItems.length > 0 &&
+    lineItems.every(l => Number(l.unit_price) > 0);
+
+  // Compute financial summary (use editLines when editing, lineItems otherwise)
+  const summaryLines = isEditing ? editLines : lineItems;
+  const subtotal = summaryLines.reduce((sum, line) => {
+    const qty = Number(line.quantity_ordered) || 0;
+    const price = Number(line.unit_price) || 0;
+    return sum + (qty * price);
+  }, 0);
+
+  const totalTax = summaryLines.reduce((sum, line) => {
+    const qty = Number(line.quantity_ordered) || 0;
+    const price = Number(line.unit_price) || 0;
+    const gst = Number(line.gst) || 0;
+    return sum + ((qty * price) * gst / 100);
+  }, 0);
+
+  const grandTotal = subtotal + totalTax;
+
+  const breadcrumbs = [
+    { label: 'Purchase', href: '/purchase/orders' },
+    { label: 'Orders', href: '/purchase/orders' },
+    { label: poNumber },
+  ];
+
+  return (
+    <MainLayout breadcrumbs={breadcrumbs}>
+      <div className="max-w-6xl space-y-4 sm:space-y-6">
+        {/* Header with title, status badge, and action buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <button
+                onClick={goBack}
+                className="p-1 text-slate-500 hover:text-slate-700 transition"
+                title="Back to list"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <h1 className="text-xl sm:text-3xl font-bold text-slate-900">{poNumber}</h1>
+            </div>
+            <div className="flex items-center justify-between gap-3 ml-8">
+              <div className="flex items-center gap-3 min-w-0">
+                <StatusBadge status={po?.fulfillment_status || poStatus} />
+                <p className="text-slate-600 text-sm truncate">
+                  Created on {formatDate(po.po_date || po.created_at)}
+                </p>
+              </div>
+              {po?.email_sent && (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-sm shrink-0 whitespace-nowrap">
+                  <CheckCircle size={14} /> Mail Sent
+                </span>
+              )}
+            </div>
+            {(() => {
+              // Pulled directly from the saved PO's payment_terms — handles
+              // both the new labels ("30 DAYS", "IMMEDIATE", "ADVANCE") and
+              // legacy "NET_30" / "COD" values.
+              const message = paymentTermMessage(po?.payment_terms);
+              if (!message) return null;
+              return (
+                <div className="ml-8 mt-3">
+                  <p className="inline-block bg-amber-100 border border-amber-300 text-amber-800 text-sm font-semibold px-4 py-2 rounded-lg">
+                    {message}
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3 flex-wrap ml-8 sm:ml-0">
+            {/* PO Document — opens the printable, editable PO document that
+                replicates the standard PO print format. Available in any
+                status (it's a read/print view; edits there are gated by
+                the same Purchase Order edit permission). */}
+            {!isEditing && (
+              <button
+                onClick={() => navigate(`/purchase/orders/${id}/document`)}
+                className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition text-sm font-medium"
+              >
+                <FileDown size={16} />
+                PO Document
+              </button>
+            )}
+            {/* Edit & Delete buttons — only for DRAFT */}
+            {!isEditing && isDraft && hasEditPerm && (
+              <button
+                onClick={handleEditToggle}
+                className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition text-sm font-medium"
+              >
+                <Edit3 size={16} />
+                Edit
+              </button>
+            )}
+            {!isEditing && isDraft && hasDeletePerm && (
+              <button
+                onClick={handleDelete}
+                className="flex items-center gap-2 px-4 py-2 border border-red-300 rounded-lg text-red-600 hover:bg-red-50 transition text-sm font-medium"
+              >
+                <Trash2 size={16} />
+                Delete
+              </button>
+            )}
+            {isEditing && (
+              <>
+                <button onClick={handleEditCancel} className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 text-sm font-medium">
+                  <XCircle size={16} /> Cancel
+                </button>
+                <button onClick={handleEditSave} disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium disabled:opacity-50">
+                  <CheckCircle size={16} /> {isSaving ? 'Saving...' : 'Save'}
+                </button>
+              </>
+            )}
+
+            {/* Approve button — hidden while the PO is being edited.
+                Approving a draft that has unsaved edits would either
+                throw away those edits or persist them as approved
+                without confirmation, so the user must Save (or Cancel)
+                first. The button reappears once edit mode exits. */}
+            {canApprovePO && !isEditing && (
+              <button
+                onClick={handleApprove}
+                disabled={isApproving || !allLinesPriced}
+                title={!allLinesPriced ? 'Enter a unit price on every line item before approving' : undefined}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <CheckCircle size={16} />
+                {isApproving ? 'Approving...' : 'Approve'}
+              </button>
+            )}
+
+            {/* Split into batches — DRAFT single-line only.
+                Cancels the current PO and creates N new DRAFT POs. */}
+            {canSplitPO && !isEditing && (
+              <button
+                onClick={openSplitModal}
+                className="flex items-center gap-2 px-4 py-2 border border-amber-400 text-amber-800 bg-amber-50 rounded-lg hover:bg-amber-100 transition text-sm font-medium"
+                title="Split this DRAFT PO into multiple DRAFT POs by batch quantity"
+              >
+                Split into batches
+              </button>
+            )}
+
+
+            {/* Send / Resend Email — hidden only mid-edit (must Save / Cancel
+                first so the mail reflects the saved state). Once already sent,
+                it stays available as a subtler "Resend Email" so the PO can be
+                re-sent to a different vendor address (or after an amendment).
+                The green "Mail Sent" chip in the header remains the status. */}
+            {canSendPOEmail && !isEditing && (
+              <button
+                onClick={() => navigate(`/purchase/orders/${id}/send-email`)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-medium ${po?.email_sent ? 'border border-primary-300 text-primary-700 hover:bg-primary-50' : 'bg-primary-600 text-white hover:bg-primary-700'}`}
+              >
+                <Mail size={16} />
+                {po?.email_sent ? 'Resend Email' : 'Send Email'}
+              </button>
+            )}
+
+            {/* Receipt button — visible once the PO mail has been sent
+                OR a receipt has already been raised (fulfillment_status
+                === 'PARTIALLY_RECEIVED'); the email gate guards the
+                first receipt only. Hidden in edit mode for the same
+                reason as Send Email above. */}
+            {canCreateReceipt && (isApproved || isIssued) && !po?.is_fully_received && (po?.email_sent || po?.fulfillment_status === 'PARTIALLY_RECEIVED') && !isEditing && (
+              <button
+                onClick={() => navigate(`/purchase/receipts/new?po_id=${id}`)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium"
+              >
+                <PackageCheck size={16} />
+                Receipt
+              </button>
+            )}
+
+            {/* Reject button removed */}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Main content (2 cols) */}
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+
+            {/* SPLIT banner — explains why there are no active
+                actions on this PO and links to the child DRAFT POs
+                (parsed from the "[Split into N POs: ...]" note the
+                split endpoint writes into terms_and_conditions). */}
+            {po?.status === 'SPLIT' && (() => {
+              const m = (po?.terms_and_conditions || '').match(/\[Split into \d+ POs?:\s*([^\]]+)\]/i);
+              const children = m ? m[1].split(',').map(s => s.trim()).filter(Boolean) : [];
+              return (
+                <div className="rounded-lg border border-purple-300 bg-purple-50 p-4">
+                  <h3 className="text-sm font-semibold text-purple-900 mb-1">This PO was split</h3>
+                  <p className="text-xs text-purple-800 mb-2">
+                    The obligation has moved to {children.length || 'the'} child DRAFT PO{children.length === 1 ? '' : 's'}.
+                    Edit / Approve / Send Email lives on {children.length === 1 ? 'that' : 'each of those'} PO{children.length === 1 ? '' : 's'}.
+                    This record stays here for audit trail.
+                  </p>
+                  {children.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {children.map((poNo) => (
+                        <button
+                          key={poNo}
+                          onClick={async () => {
+                            // Look up the child PO id by its number so we
+                            // can jump straight to its detail page. Falls
+                            // back to the Orders list if the lookup fails.
+                            try {
+                              const res = await apiClient.get(`/api/purchase/orders/?search=${encodeURIComponent(poNo)}`);
+                              const rows = res.data?.results || res.data || [];
+                              const hit = Array.isArray(rows) ? rows.find(r => r.po_no === poNo) : null;
+                              if (hit?.id) {
+                                navigate(`/purchase/orders/${hit.id}`);
+                                return;
+                              }
+                            } catch { /* ignore */ }
+                            navigate('/purchase/orders');
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-white border border-purple-300 text-purple-800 rounded-lg hover:bg-purple-100"
+                          title={`Open ${poNo}`}
+                        >
+                          → {poNo}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* PO amendment (request / review) — only on approved/issued POs */}
+            <POAmendment po={po} canRequest={canRequestAmendment('Purchase Order')} canApprove={canApproveAmendment('Purchase Order')} onApplied={fetchPO} />
+
+            {/* PO Details */}
+            <div className="bg-white rounded-lg border border-slate-200 p-3.5 sm:p-5">
+              <h2 className="text-base sm:text-lg font-semibold text-slate-900 mb-3 sm:mb-4">PO Details</h2>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:gap-y-3">
+                {!isHidden('po_no') && (
+                <div>
+                  <p className="text-sm text-slate-600 font-medium">PO Number</p>
+                  <p className="text-slate-900 font-semibold mt-1">{poNumber}</p>
+                </div>
+                )}
+                {!isHidden('vendor') && (
+                <div>
+                  <p className="text-sm text-slate-600 font-medium">Vendor</p>
+                  {isEditing ? (
+                    <CustomSelect name="vendor" value={editData.vendor || ''} onChange={handleEditChange} disabled={isReadOnly('vendor')} className={isReadOnly('vendor') ? lockedInputClass : inputClass}>
+                      <option value="">Select Vendor</option>
+                      {vendorOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </CustomSelect>
+                  ) : (
+                    <p className="text-slate-900 font-semibold mt-1">{po.vendor_name || '-'}</p>
+                  )}
+                </div>
+                )}
+                {!isHidden('company') && (
+                <div>
+                  <p className="text-sm text-slate-600 font-medium">Company</p>
+                  {isEditing ? (
+                    <CustomSelect name="company" value={editData.company || ''} onChange={handleEditChange} disabled={isReadOnly('company')} className={isReadOnly('company') ? lockedInputClass : inputClass}>
+                      <option value="">Select Company</option>
+                      {companyOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </CustomSelect>
+                  ) : (
+                    <p className="text-slate-900 font-semibold mt-1">{po.company_name || '-'}</p>
+                  )}
+                </div>
+                )}
+                {!isHidden('warehouse') && (
+                <div>
+                  <p className="text-sm text-slate-600 font-medium">Warehouse</p>
+                  {isEditing ? (
+                    <CustomSelect name="warehouse" value={editData.warehouse || ''} onChange={handleEditChange} disabled={isReadOnly('warehouse') || !editData.company} className={isReadOnly('warehouse') ? lockedInputClass : "w-full mt-1 px-2 py-1 border border-slate-300 rounded text-sm disabled:bg-slate-100"}>
+                      <option value="">{editData.company ? 'Select Warehouse' : 'Select company first...'}</option>
+                      {warehouseOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </CustomSelect>
+                  ) : (
+                    <p className="text-slate-900 font-semibold mt-1">{po.warehouse_name || '-'}</p>
+                  )}
+                </div>
+                )}
+                {!isHidden('payment_terms') && (
+                <div>
+                  <p className="text-sm text-slate-600 font-medium">Payment Terms</p>
+                  {isEditing ? (
+                    <CustomSelect name="payment_terms" value={editData.payment_terms || ''} onChange={handleEditChange} disabled={isReadOnly('payment_terms')} className={isReadOnly('payment_terms') ? lockedInputClass : inputClass}>
+                      <option value="">Select...</option>
+                      {withCurrent(PAYMENT_TERM_OPTIONS, editData.payment_terms).map(o => <option key={o} value={o}>{o}</option>)}
+                    </CustomSelect>
+                  ) : (
+                    <p className="text-slate-900 font-semibold mt-1">{po.payment_terms || '-'}</p>
+                  )}
+                </div>
+                )}
+                {!isHidden('freight_terms') && (
+                <div>
+                  <p className="text-sm text-slate-600 font-medium">Freight Terms</p>
+                  {isEditing ? (
+                    <CustomSelect name="freight_terms" value={editData.freight_terms || ''} onChange={handleEditChange} disabled={isReadOnly('freight_terms')} className={isReadOnly('freight_terms') ? lockedInputClass : inputClass}>
+                      <option value="">Select...</option>
+                      {withCurrent(FREIGHT_TERM_OPTIONS, editData.freight_terms).map(o => <option key={o} value={o}>{o}</option>)}
+                    </CustomSelect>
+                  ) : (
+                    <p className="text-slate-900 font-semibold mt-1">{po.freight_terms || '-'}</p>
+                  )}
+                </div>
+                )}
+                {!(isHidden('expected_delivery_start') && isHidden('expected_delivery_end')) && (
+                <div>
+                  <p className="text-sm text-slate-600 font-medium">Expected Delivery</p>
+                  {isEditing ? (
+                    <div className="flex gap-2 mt-1">
+                      {!isHidden('expected_delivery_start') && (
+                        <CustomDatePicker name="expected_delivery_start" value={editData.expected_delivery_start || ''} onChange={handleEditChange} disabled={isReadOnly('expected_delivery_start')} className={isReadOnly('expected_delivery_start') ? "flex-1 px-2 py-1 border border-slate-300 rounded text-sm bg-slate-100 cursor-not-allowed" : "flex-1 px-2 py-1 border border-slate-300 rounded text-sm"} />
+                      )}
+                      {!isHidden('expected_delivery_end') && (
+                        <CustomDatePicker name="expected_delivery_end" value={editData.expected_delivery_end || ''} onChange={handleEditChange} disabled={isReadOnly('expected_delivery_end')} className={isReadOnly('expected_delivery_end') ? "flex-1 px-2 py-1 border border-slate-300 rounded text-sm bg-slate-100 cursor-not-allowed" : "flex-1 px-2 py-1 border border-slate-300 rounded text-sm"} />
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-slate-900 font-semibold mt-1">
+                      {po.expected_delivery_start || po.expected_delivery_end
+                        ? `${formatDate(po.expected_delivery_start)} - ${formatDate(po.expected_delivery_end)}`
+                        : '-'
+                      }
+                    </p>
+                  )}
+                </div>
+                )}
+                {!isHidden('linked_prs') && (
+                <div>
+                  <p className="text-sm text-slate-600 font-medium">Linked PRs</p>
+                  {isEditing ? (
+                    <CustomSelect name="linked_prs" value={editData.linked_prs || ''} onChange={handleEditChange} disabled={isReadOnly('linked_prs')} className={isReadOnly('linked_prs') ? lockedInputClass : inputClass}>
+                      <option value="">Select Purchase Request</option>
+                      {prOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </CustomSelect>
+                  ) : (
+                    <p className="text-slate-900 font-semibold mt-1">
+                      {po.linked_pr_numbers && po.linked_pr_numbers.length > 0
+                        ? po.linked_pr_numbers.join(', ')
+                        : '-'
+                      }
+                    </p>
+                  )}
+                </div>
+                )}
+                {!isHidden('linked_rfq') && (
+                <div>
+                  <p className="text-sm text-slate-600 font-medium">Linked RFQ</p>
+                  {isEditing ? (
+                    <CustomSelect name="linked_rfq" value={editData.linked_rfq || ''} onChange={handleEditChange} disabled={isReadOnly('linked_rfq')} className={isReadOnly('linked_rfq') ? lockedInputClass : inputClass}>
+                      <option value="">Select RFQ</option>
+                      {rfqOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </CustomSelect>
+                  ) : (
+                    <p className="text-slate-900 font-semibold mt-1">
+                      {(() => {
+                        const rfq = (rfqOptions || []).find(o => String(o.value) === String(po.linked_rfq));
+                        return rfq?.label || po.linked_rfq || '-';
+                      })()}
+                    </p>
+                  )}
+                </div>
+                )}
+                {!isHidden('currency') && (
+                <div>
+                  <p className="text-sm text-slate-600 font-medium">Currency</p>
+                  {isEditing ? (
+                    <CustomSelect name="currency" value={editData.currency || 'INR'} onChange={handleEditChange} disabled={isReadOnly('currency')} className={isReadOnly('currency') ? lockedInputClass : inputClass}>
+                      <option value="INR">INR</option>
+                      <option value="USD">USD</option>
+                    </CustomSelect>
+                  ) : (
+                    <p className="text-slate-900 font-semibold mt-1">{po.currency || '-'}</p>
+                  )}
+                </div>
+                )}
+                {!isHidden('broker_name') && (
+                <div>
+                  <p className="text-sm text-slate-600 font-medium">Broker Name</p>
+                  {isEditing ? (
+                    // Pull from the Broker master so PO captures a known
+                    // broker by name. broker_name is still stored as a
+                    // string on PurchaseOrder — we just constrain the
+                    // input to the master list to keep names consistent.
+                    <CustomSelect
+                      name="broker_name"
+                      value={editData.broker_name || ''}
+                      onChange={handleEditChange}
+                      disabled={isReadOnly('broker_name')}
+                      className={isReadOnly('broker_name') ? lockedInputClass : inputClass}
+                    >
+                      <option value="">Select broker (optional)</option>
+                      {(brokerList || []).map((b) => (
+                        <option key={b.id} value={b.broker_name}>
+                          {b.broker_name}{b.broker_code ? ` (${b.broker_code})` : ''}
+                        </option>
+                      ))}
+                    </CustomSelect>
+                  ) : (
+                    <p className="text-slate-900 font-semibold mt-1">{po.broker_name || '-'}</p>
+                  )}
+                </div>
+                )}
+                {!isHidden('terms_and_conditions') && (
+                <div>
+                  <p className="text-sm text-slate-600 font-medium">Terms & Conditions</p>
+                  {isEditing ? (
+                    <textarea name="terms_and_conditions" value={editData.terms_and_conditions || ''} onChange={handleEditChange} rows={3} disabled={isReadOnly('terms_and_conditions')} className={isReadOnly('terms_and_conditions') ? lockedInputClass : inputClass} />
+                  ) : (
+                    <p className="text-slate-900 mt-1 whitespace-pre-wrap">{po.terms_and_conditions || '-'}</p>
+                  )}
+                </div>
+                )}
+              </div>
+            </div>
+
+            {/* Line Items */}
+            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
+              <h2 className="text-xl font-semibold text-slate-900 mb-4 sm:mb-6">
+                Line Items ({lineItems.length})
+              </h2>
+              {lineItems.length === 0 ? (
+                <p className="text-slate-500 text-center py-4 sm:py-6">No line items</p>
+              ) : (
+                <>
+                {/* Mobile-stacked cards — one card per PO line, with
+                    the same data the desktop table shows. Editing
+                    works the same way (the inputs are reused). */}
+                <div className="sm:hidden space-y-3 mb-4">
+                  {(isEditing ? editLines : lineItems).map((line, idx) => {
+                    const qty = Number(line.quantity_ordered) || 0;
+                    const price = Number(line.unit_price) || 0;
+                    const gst = Number(line.gst) || 0;
+                    const lineSubtotal = qty * price;
+                    const lineTax = lineSubtotal * gst / 100;
+                    const lineTotal = lineSubtotal + lineTax;
+                    return (
+                      <div key={`m-${line.id || idx}`} className="border border-slate-200 rounded-lg bg-white overflow-hidden">
+                        <div className="flex items-start justify-between px-3 py-2 bg-slate-50 border-b border-slate-100 gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] uppercase tracking-wide text-slate-500">Line #{line.line_no || idx + 1}</p>
+                            <p className="text-sm font-semibold text-slate-800 break-words">{line.item_name || line.product_name || '-'}</p>
+                            {(line.item_code || line.product_code) && (
+                              <p className="text-[11px] text-slate-500 mt-0.5">{line.item_code || line.product_code}</p>
+                            )}
+                            {line.item_type && line.item_type !== 'PRODUCT' && (
+                              <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                line.item_type === 'MACHINERY' ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'
+                              }`}>
+                                {line.item_type === 'MACHINERY' ? 'Machinery' : 'Service'}
+                              </span>
+                            )}
+                          </div>
+                          <p className="shrink-0 text-sm font-bold text-slate-900 whitespace-nowrap">{formatCurrency(lineTotal)}</p>
+                        </div>
+                        <div className="px-3 py-2 grid grid-cols-3 gap-x-3 gap-y-2 text-xs">
+                          {!isLineHidden('quantity_ordered') && (
+                          <div>
+                            <p className="text-[10px] uppercase text-slate-500">Qty</p>
+                            <p className="text-slate-800 font-medium">{qty.toLocaleString()} {!isLineHidden('uom') && <span className="text-slate-400">{line.uom || ''}</span>}</p>
+                          </div>
+                          )}
+                          {!isLineHidden('unit_price') && (
+                          <div>
+                            <p className="text-[10px] uppercase text-slate-500">Unit Price</p>
+                            {isEditing ? (
+                              <input type="number" step="0.01" min="0" value={line.unit_price} onChange={e => handleEditLineChange(idx, 'unit_price', e.target.value)} disabled={isLineRO('unit_price')} className={`w-full px-2 py-1 border border-slate-300 rounded text-xs text-right${isLineRO('unit_price') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
+                            ) : <p className="text-slate-700">{formatCurrency(price)}</p>}
+                          </div>
+                          )}
+                          {!isLineHidden('gst') && (
+                          <div>
+                            <p className="text-[10px] uppercase text-slate-500">GST</p>
+                            {isEditing ? (
+                              <input type="number" step="0.01" min="0" max="100" value={line.gst} onChange={e => handleEditLineChange(idx, 'gst', e.target.value)} disabled={isLineRO('gst')} className={`w-full px-2 py-1 border border-slate-300 rounded text-xs text-right${isLineRO('gst') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
+                            ) : <p className="text-slate-700">{gst}%</p>}
+                          </div>
+                          )}
+                          {!isLineHidden('description') && line.description && (
+                            <div className="col-span-3">
+                              <p className="text-[10px] uppercase text-slate-500">Description</p>
+                              <p className="text-slate-700 break-words">{line.description}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200">
+                        {!isLineHidden('line_no') && (
+                        <th className="text-left py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">#</th>
+                        )}
+                        {!isLineHidden('product_service') && (
+                        <th className="text-left py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Product</th>
+                        )}
+                        {/* Category column reads pr_line_category — the
+                            PR-line category the POLineSerializer resolves
+                            via linked_pr_line (or the RFQ-chain fallback
+                            for legacy quotes). Surfacing it on the PO
+                            detail makes it obvious at a glance which
+                            lines will route to Packing Materials when
+                            the receipt gets created. */}
+                        <th className="text-left py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Category</th>
+                        {!isLineHidden('quantity_ordered') && (
+                        <th className="text-right py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Qty</th>
+                        )}
+                        {/* Per-line receipt progress — received qty + a
+                            Full / Partial / Pending pill. View mode only
+                            (edit rows don't carry received_quantity). */}
+                        {!isEditing && !isLineHidden('quantity_ordered') && (
+                        <th className="text-right py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Received</th>
+                        )}
+                        {/* Qty still owed by the vendor (Qty − Received). Over-
+                            delivery is allowed by policy (vendor production
+                            variance can ship a few extra units), so a negative
+                            balance shows as "+N over" rather than clamping to 0
+                            and hiding it. */}
+                        {!isEditing && !isLineHidden('quantity_ordered') && (
+                        <th className="text-right py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Balance</th>
+                        )}
+                        {!isLineHidden('uom') && (
+                        <th className="text-left py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">UOM</th>
+                        )}
+                        {!isLineHidden('unit_price') && (
+                        <th className="text-right py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Unit Price</th>
+                        )}
+                        {!isLineHidden('gst') && (
+                        <th className="text-right py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">GST %</th>
+                        )}
+                        <th className="text-right py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Total</th>
+                        {isEditing && isDraft && (
+                          <th className="py-3 px-2 w-10"></th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(isEditing ? editLines : lineItems).map((line, idx) => {
+                        const qty = Number(line.quantity_ordered) || 0;
+                        const price = Number(line.unit_price) || 0;
+                        const gst = Number(line.gst) || 0;
+                        const lineSubtotal = qty * price;
+                        const lineTax = lineSubtotal * gst / 100;
+                        const lineTotal = lineSubtotal + lineTax;
+                        return (
+                          <tr key={line.id || idx} className="hover:bg-primary-50/40 transition-colors">
+                            {!isLineHidden('line_no') && (
+                            <td className="py-3 px-3 text-slate-500">{line.line_no || idx + 1}</td>
+                            )}
+                            {!isLineHidden('product_service') && (
+                            <td className="py-3 px-3">
+                              {/* `item_name`/`item_code` come from POLineSerializer
+                                  and resolve to whichever of Product / Machinery /
+                                  ServiceCatalogue this line points at. The
+                                  product_name/code fallback keeps older Goods
+                                  rows rendering when item_* fields are absent. */}
+                              <p className="font-medium text-slate-800">{line.item_name || line.product_name || '-'}</p>
+                              {(line.item_code || line.product_code) && (
+                                <p className="text-xs text-slate-500">{line.item_code || line.product_code}</p>
+                              )}
+                              {line.item_type && line.item_type !== 'PRODUCT' && (
+                                <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                  line.item_type === 'MACHINERY' ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'
+                                }`}>
+                                  {line.item_type === 'MACHINERY' ? 'Machinery' : 'Service'}
+                                </span>
+                              )}
+                              {line.description && <p className="text-xs text-slate-500 mt-0.5">{line.description}</p>}
+                            </td>
+                            )}
+                            <td className="py-3 px-3">
+                              {isEditing ? (
+                                <CustomSelect
+                                  value={line.pr_line_category || ''}
+                                  onChange={e => handleEditLineChange(idx, 'pr_line_category', e.target.value)}
+                                  className="w-full px-2 py-1 border border-slate-300 rounded text-xs"
+                                >
+                                  <option value="">-</option>
+                                  <option value="RAW_MATERIAL">Raw Material</option>
+                                  <option value="PACKING_MATERIAL">Packing Material</option>
+                                  <option value="FINISHED_GOODS">Finished Goods</option>
+                                  {line.pr_line_category
+                                    && !['RAW_MATERIAL', 'PACKING_MATERIAL', 'FINISHED_GOODS'].includes(String(line.pr_line_category).toUpperCase())
+                                    && <option value={line.pr_line_category}>{line.pr_line_category}</option>}
+                                </CustomSelect>
+                              ) : (
+                                /* Category cell. Known enum values get a
+                                   human label + colour-coded pill so
+                                   Packing Material is visually obvious
+                                   (it's the one that changes the receipt
+                                   routing). Free-form / blank categories
+                                   fall back to '-'. */
+                                (() => {
+                                  const raw = (line.pr_line_category || '').toString().trim().toUpperCase();
+                                  if (!raw) return <span className="text-slate-400">-</span>;
+                                  const map = {
+                                    PACKING_MATERIAL: { label: 'Packing Material', cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
+                                    RAW_MATERIAL:     { label: 'Raw Material',     cls: 'bg-blue-50 text-blue-700 border border-blue-200' },
+                                    FINISHED_GOODS:   { label: 'Finished Goods',   cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
+                                  };
+                                  const meta = map[raw];
+                                  if (meta) {
+                                    return <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${meta.cls}`}>{meta.label}</span>;
+                                  }
+                                  // Free-form category text (Machinery / Services PR lines)
+                                  return <span className="text-xs text-slate-600">{line.pr_line_category}</span>;
+                                })()
+                              )}
+                            </td>
+                            {!isLineHidden('quantity_ordered') && (
+                            <td className="py-3 px-3 text-right font-medium">
+                              {isEditing ? (
+                                <input type="number" step="0.01" min="0.01" value={line.quantity_ordered || ''} onChange={e => handleEditLineChange(idx, 'quantity_ordered', e.target.value)} disabled={isLineRO('quantity_ordered')} className={`w-20 px-2 py-1 border border-slate-300 rounded text-sm text-right focus:ring-1 focus:ring-primary-500${isLineRO('quantity_ordered') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
+                              ) : qty.toLocaleString()}
+                            </td>
+                            )}
+                            {!isEditing && !isLineHidden('quantity_ordered') && (
+                            <td className="py-3 px-3 text-right whitespace-nowrap">
+                              {(() => {
+                                const rcvd = Number(line.received_quantity) || 0;
+                                const full = qty > 0 && rcvd >= qty;
+                                const pill = full
+                                  ? { label: 'Full', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+                                  : rcvd > 0
+                                    ? { label: 'Partial', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
+                                    : { label: 'Pending', cls: 'bg-slate-50 text-slate-500 border-slate-200' };
+                                return (
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <span className="font-medium text-slate-700">{rcvd.toLocaleString('en-IN')}</span>
+                                    <span className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${pill.cls}`}>{pill.label}</span>
+                                  </span>
+                                );
+                              })()}
+                            </td>
+                            )}
+                            {!isEditing && !isLineHidden('quantity_ordered') && (
+                            <td className="py-3 px-3 text-right whitespace-nowrap">
+                              {(() => {
+                                const rcvd = Number(line.received_quantity) || 0;
+                                const bal = qty - rcvd;
+                                if (bal > 0) return <span className="font-medium text-slate-700">{bal.toLocaleString('en-IN')}</span>;
+                                if (bal < 0) return (
+                                  <span className="font-medium text-rose-600" title="Vendor delivered more than ordered">
+                                    +{Math.abs(bal).toLocaleString('en-IN')} over
+                                  </span>
+                                );
+                                return <span className="text-slate-400">0</span>;
+                              })()}
+                            </td>
+                            )}
+                            {!isLineHidden('uom') && (
+                            <td className="py-3 px-3 text-slate-600">
+                              {isEditing ? (
+                                <input type="text" value={line.uom || ''} onChange={e => handleEditLineChange(idx, 'uom', e.target.value)} disabled={isLineRO('uom')} className={`w-16 px-2 py-1 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-primary-500${isLineRO('uom') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
+                              ) : (line.uom || '-')}
+                            </td>
+                            )}
+                            {!isLineHidden('unit_price') && (
+                            <td className="py-3 px-3 text-right">
+                              {isEditing ? (
+                                <input type="number" step="0.01" min="0" value={line.unit_price} onChange={e => handleEditLineChange(idx, 'unit_price', e.target.value)} disabled={isLineRO('unit_price')} className={`w-24 px-2 py-1 border border-slate-300 rounded text-sm text-right focus:ring-1 focus:ring-primary-500${isLineRO('unit_price') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
+                              ) : formatCurrency(price)}
+                            </td>
+                            )}
+                            {!isLineHidden('gst') && (
+                            <td className="py-3 px-3 text-right">
+                              {isEditing ? (
+                                <input type="number" step="0.01" min="0" max="100" value={line.gst} onChange={e => handleEditLineChange(idx, 'gst', e.target.value)} disabled={isLineRO('gst')} className={`w-16 px-2 py-1 border border-slate-300 rounded text-sm text-right focus:ring-1 focus:ring-primary-500${isLineRO('gst') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
+                              ) : <span className="text-slate-600">{gst}%</span>}
+                            </td>
+                            )}
+                            <td className="py-3 px-3 text-right font-medium">{formatCurrency(lineTotal)}</td>
+                            {/* Remove-line trash — only visible in edit mode
+                                on a DRAFT PO. Backend enforces both rules;
+                                the button is a UX affordance, not the gate. */}
+                            {isEditing && isDraft && (
+                              <td className="py-3 px-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveLine(line, idx)}
+                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                                  title="Remove this line (frees the PR line for a new PO to a different vendor)"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {/* Financial Summary */}
+                  <div className="border-t border-slate-200 mt-2 pt-4 flex justify-end">
+                    <div className="w-64 space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Subtotal</span>
+                        <span className="font-medium">{formatCurrency(subtotal)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Tax</span>
+                        <span className="font-medium">{formatCurrency(totalTax)}</span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2 text-base">
+                        <span className="font-semibold text-slate-800">Grand Total</span>
+                        <span className="font-bold text-slate-900">{formatCurrency(grandTotal)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile totals strip — same numbers, stacked. */}
+                <div className="sm:hidden bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1 text-sm mt-3">
+                  <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-medium text-slate-800">{formatCurrency(subtotal)}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Tax</span><span className="font-medium text-slate-700">{formatCurrency(totalTax)}</span></div>
+                  <div className="flex justify-between pt-2 mt-1 border-t border-slate-300">
+                    <span className="text-slate-700 font-semibold">Grand Total</span>
+                    <span className="text-base font-bold text-slate-900">{formatCurrency(grandTotal)}</span>
+                  </div>
+                </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Sidebar (1 col) */}
+          <div className="space-y-4">
+            {/* Status Summary */}
+            <div className="bg-white rounded-lg border border-slate-200 p-3.5 sm:p-5">
+              <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-3">Summary</h3>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div>
+                    <p className="text-xs text-slate-500">Status</p>
+                    <div className="mt-1"><StatusBadge status={po?.fulfillment_status || poStatus} /></div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Total Value</p>
+                    <p className="text-lg font-bold text-slate-900 mt-0.5">
+                      {formatCurrency(subtotal || po.total_order_value || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Tax Amount</p>
+                    <p className="text-base font-semibold text-slate-700 mt-0.5">
+                      {formatCurrency(totalTax)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Grand Total</p>
+                    <p className="text-lg font-bold text-green-700 mt-0.5">
+                      {formatCurrency(grandTotal || po.total_order_value || 0)}
+                    </p>
+                  </div>
+                </div>
+                {/* Fulfilment + approval as one compact, divided stat row.
+                    Vendor lives in PO Details, so there's no Vendor card. */}
+                {(() => {
+                  const totalOrdered = lineItems.reduce((sum, l) => sum + (Number(l.quantity_ordered) || 0), 0);
+                  const totalReceived = lineItems.reduce((sum, l) => sum + (Number(l.received_quantity) || 0), 0);
+                  const approvalText = isDraft ? 'Pending' : isCancelled ? 'Cancelled'
+                    : isApproved ? 'Approved' : isIssued ? 'Issued' : isClosed ? 'Closed' : poStatus;
+                  const approvalCls = isDraft ? 'text-amber-600' : isCancelled ? 'text-red-600' : 'text-green-700';
+                  const balance = Math.max(0, Math.round((totalOrdered - totalReceived) * 10000) / 10000);
+                  const cells = [
+                    { label: 'Ordered', value: totalOrdered.toLocaleString('en-IN'), cls: 'text-slate-800' },
+                    { label: 'Received', value: totalReceived.toLocaleString('en-IN'), cls: 'text-green-700' },
+                    // Balance qty still to receive. (This cell previously
+                    // showed po.total_received — a QUANTITY — formatted as
+                    // currency under a "Recd Value" label.)
+                    { label: 'Balance', value: balance.toLocaleString('en-IN'), cls: balance > 0 ? 'text-amber-600' : 'text-green-700' },
+                    { label: 'Receipt', value: po.is_fully_received ? 'Full' : (totalReceived > 0 ? 'Partial' : 'Pending'), cls: po.is_fully_received ? 'text-green-700' : totalReceived > 0 ? 'text-amber-600' : 'text-slate-500' },
+                    { label: 'Approval', value: approvalText, cls: approvalCls },
+                  ];
+                  return (
+                    <div className="border-t border-slate-200 pt-3">
+                      <div className="grid grid-cols-5 divide-x divide-slate-200 border border-slate-200 rounded-lg overflow-hidden text-center">
+                        {cells.map((c, i) => (
+                          <div key={i} className="px-1 py-2 min-w-0">
+                            <p className="text-[9px] uppercase tracking-tight text-slate-500 leading-tight truncate">{c.label}</p>
+                            <p className={`text-xs font-semibold mt-0.5 truncate ${c.cls}`}>{c.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <FileAttachments module="PO" recordId={id} readOnly={!isEditing} />
+
+      <div className="mt-4">
+        <ActivityLog module="Purchase Order" recordId={id} />
+      </div>
+
+      {/* Split-into-batches modal — CANCELS the current DRAFT PO and
+          creates N new DRAFT POs, each with a slice of the qty and
+          its own delivery date. Same vendor / warehouse / terms
+          copied through. */}
+      {splitOpen && (() => {
+        const line = (po?.po_lines || [])[0];
+        const lineQty = parseFloat(line?.quantity_ordered) || 0;
+        const uom = line?.uom || '';
+        const sum = splitBatches.reduce((a, s) => a + (parseFloat(s.quantity) || 0), 0);
+        const balance = Math.round((lineQty - sum) * 100) / 100;
+        const updateBatch = (i, key, value) => {
+          setSplitBatches(prev => prev.map((s, idx) => idx === i ? { ...s, [key]: value } : s));
+        };
+        const addBatch = () => {
+          if (splitBatches.length >= 10) return;
+          setSplitBatches(prev => [...prev, { quantity: '', delivery_date: '' }]);
+        };
+        const removeBatch = (i) => {
+          if (splitBatches.length <= 2) return;
+          setSplitBatches(prev => prev.filter((_, idx) => idx !== i));
+        };
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !isSplitting && setSplitOpen(false)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-800">Split {po?.po_no} into batches</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Original PO is kept for audit trail (status: SPLIT). Each batch lands as its own DRAFT PO.
+                  </p>
+                </div>
+                <button type="button" className="text-slate-500 hover:text-slate-800" disabled={isSplitting} onClick={() => setSplitOpen(false)}>×</button>
+              </div>
+              <div className="px-4 sm:px-6 py-4 space-y-2">
+                <p className="text-xs text-slate-600 mb-1">
+                  Line qty: <span className="font-medium">{lineQty} {uom}</span> · Vendor: {po?.vendor_name || '-'}
+                </p>
+                {splitBatches.map((s, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-[11px] text-slate-500 w-14 shrink-0">Batch {i + 1}</span>
+                    <input
+                      type="number" step="any" min="0"
+                      value={s.quantity ?? ''}
+                      onChange={(e) => updateBatch(i, 'quantity', e.target.value)}
+                      placeholder="Qty"
+                      className="w-28 border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-right"
+                    />
+                    <CustomDatePicker
+                      value={s.delivery_date || ''}
+                      onChange={(e) => updateBatch(i, 'delivery_date', e.target.value)}
+                      className="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeBatch(i)}
+                      disabled={splitBatches.length <= 2}
+                      className="text-slate-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed text-lg leading-none px-1"
+                      title={splitBatches.length <= 2 ? 'At least 2 batches required' : 'Remove batch'}
+                    >×</button>
+                  </div>
+                ))}
+                <p className="text-[11px] text-slate-500 italic pl-14">
+                  Delivery date is optional — leave blank if it's not decided yet. You can set it later on the batch's PO.
+                </p>
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={addBatch}
+                    disabled={splitBatches.length >= 10}
+                    className="text-xs text-primary-600 hover:text-primary-800 hover:underline disabled:opacity-50"
+                  >
+                    + Add another batch
+                  </button>
+                  <span className={`text-xs font-medium ${balance === 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                    Sum: {sum} / {lineQty} {uom}
+                    {balance !== 0 && ` · Off by ${balance > 0 ? '−' : '+'}${Math.abs(balance)}`}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 px-4 sm:px-6 py-4 border-t">
+                <button type="button" onClick={() => setSplitOpen(false)} disabled={isSplitting} className="px-4 py-2 text-sm border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-50">Cancel</button>
+                <button type="button" onClick={submitSplit} disabled={isSplitting || balance !== 0} className="px-4 py-2 text-sm font-medium bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50">
+                  {isSplitting ? 'Splitting…' : `Split into ${splitBatches.length} DRAFT POs`}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </MainLayout>
+  );
+}

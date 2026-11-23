@@ -1,0 +1,990 @@
+{
+ "source": "Tally Stock master (C:/Users/Lancer International/Desktop/Stock.xml)",
+ "items": {
+  "5kg pouch": {
+   "name": "5kg Pouch",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "anfd machinery": {
+   "name": "ANFD Machinery",
+   "family": "",
+   "group": ""
+  },
+  "azadirachtin": {
+   "name": "Azadirachtin",
+   "family": "",
+   "group": ""
+  },
+  "azadirachtin 0.03 %": {
+   "name": "Azadirachtin 0.03 %",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03% -100 ml": {
+   "name": "Azadirachtin 0.03% -100 Ml",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03% -100 ml - 12%": {
+   "name": "Azadirachtin 0.03% -100 Ml - 12%",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03 % - 1 ltr": {
+   "name": "Azadirachtin 0.03 % - 1 LTR",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03 % - 1 ltr - 12%": {
+   "name": "Azadirachtin 0.03 % - 1 LTR - 12%",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03% - 250 ml": {
+   "name": "Azadirachtin 0.03% - 250 Ml",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03% - 250 ml - 12%": {
+   "name": "Azadirachtin 0.03% - 250 Ml - 12%",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03 % - 500 ml": {
+   "name": "Azadirachtin 0.03 % - 500 Ml",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03 % - 500 ml - 12%": {
+   "name": "Azadirachtin 0.03 % - 500 Ml - 12%",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03 % - 5 ltr": {
+   "name": "Azadirachtin 0.03 % - 5 LTR",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03 % - 5 ltr - 12%": {
+   "name": "Azadirachtin 0.03 % - 5 LTR - 12%",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03% ec - 200 ml": {
+   "name": "Azadirachtin 0.03% EC - 200 ML",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03% ec - 200 ml - 12%": {
+   "name": "Azadirachtin 0.03% EC - 200 ML - 12%",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03% ec bulk": {
+   "name": "Azadirachtin 0.03% EC Bulk",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.03% ec bulk - 12%": {
+   "name": "Azadirachtin 0.03% EC Bulk - 12%",
+   "family": "Azadirachtin 300 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.045% ec bulk": {
+   "name": "Azadirachtin 0.045% EC Bulk",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.1% ec bulk": {
+   "name": "Azadirachtin 0.1% EC Bulk",
+   "family": "Azadirachtin 1000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.15%": {
+   "name": "Azadirachtin 0.15%",
+   "family": "Azadirachtin 1500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.15 % ec - 100 ml": {
+   "name": "Azadirachtin 0.15 % EC - 100 ML",
+   "family": "Azadirachtin 1500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.15 % ec - 100 ml - 12%": {
+   "name": "Azadirachtin 0.15 % EC - 100 ML - 12%",
+   "family": "Azadirachtin 1500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.15 % ec - 1 ltr": {
+   "name": "Azadirachtin 0.15 % EC - 1 Ltr",
+   "family": "Azadirachtin 1500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.15 % ec - 1 ltr - 12%": {
+   "name": "Azadirachtin 0.15 % EC - 1 Ltr - 12%",
+   "family": "Azadirachtin 1500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.15 % ec - 250 ml": {
+   "name": "Azadirachtin 0.15 % EC - 250 ML",
+   "family": "Azadirachtin 1500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.15 % ec - 250 ml - 12%": {
+   "name": "Azadirachtin 0.15 % EC - 250 ML - 12%",
+   "family": "Azadirachtin 1500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.15 % ec - 500 ml": {
+   "name": "Azadirachtin 0.15 % EC - 500 ML",
+   "family": "Azadirachtin 1500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.15 % ec - 500 ml - 12%": {
+   "name": "Azadirachtin 0.15 % EC - 500 ML - 12%",
+   "family": "Azadirachtin 1500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.15 % ec - 5 ltr": {
+   "name": "Azadirachtin 0.15 % EC - 5 Ltr",
+   "family": "Azadirachtin 1500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.15 % ec - 5 ltr - 12%": {
+   "name": "Azadirachtin 0.15 % EC - 5 Ltr - 12%",
+   "family": "Azadirachtin 1500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.15 % ec bulk": {
+   "name": "Azadirachtin 0.15 % EC Bulk",
+   "family": "Azadirachtin 1500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.15 % ec bulk - 12%": {
+   "name": "Azadirachtin 0.15 % EC Bulk - 12%",
+   "family": "Azadirachtin 1500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.25% ec bulk": {
+   "name": "Azadirachtin 0.25% EC Bulk",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.3% ec": {
+   "name": "Azadirachtin 0.3% EC",
+   "family": "Azadirachtin 3000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.3% ec - 12%": {
+   "name": "Azadirachtin 0.3% EC - 12%",
+   "family": "Azadirachtin 3000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.35% ec bulk": {
+   "name": "Azadirachtin 0.35% EC Bulk",
+   "family": "Azadirachtin 3500 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.4 % ec": {
+   "name": "Azadirachtin  0.4 % EC",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.5 % ec": {
+   "name": "Azadirachtin  0.5 % EC",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.5% ec bulk": {
+   "name": "Azadirachtin 0.5% EC Bulk",
+   "family": "Azadirachtin 5000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.7% ec": {
+   "name": "Azadirachtin 0.7% EC",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.7% ec - 12%": {
+   "name": "Azadirachtin 0.7% EC - 12%",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 0.7% wsc bulk": {
+   "name": "Azadirachtin 0.7% WSC Bulk",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1 % ec - 100 ml": {
+   "name": "Azadirachtin 1 % EC - 100 Ml",
+   "family": "Azadirachtin 10000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1 % ec - 100 ml - 12%": {
+   "name": "Azadirachtin 1 % EC - 100 Ml - 12%",
+   "family": "Azadirachtin 10000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1 % ec - 1 ltr": {
+   "name": "Azadirachtin  1 % EC - 1 Ltr",
+   "family": "Azadirachtin 10000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1 % ec - 1 ltr - 12%": {
+   "name": "Azadirachtin  1 % EC - 1 Ltr - 12%",
+   "family": "Azadirachtin 10000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1 % ec - 250 ml": {
+   "name": "Azadirachtin 1 % EC - 250 Ml",
+   "family": "Azadirachtin 10000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1 % ec - 250 ml - 12 %": {
+   "name": "Azadirachtin 1 % EC - 250 Ml - 12 %",
+   "family": "Azadirachtin 10000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1 % ec - 500 ml": {
+   "name": "Azadirachtin 1 % EC - 500 Ml",
+   "family": "Azadirachtin 10000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1 % ec - 500 ml - 12%": {
+   "name": "Azadirachtin 1 % EC - 500 Ml - 12%",
+   "family": "Azadirachtin 10000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1 % ec - 5 ltr": {
+   "name": "Azadirachtin 1 % EC - 5 Ltr",
+   "family": "Azadirachtin 10000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1 % ec - 5 ltr - 12%": {
+   "name": "Azadirachtin 1 % EC - 5 Ltr - 12%",
+   "family": "Azadirachtin 10000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1% ec bulk": {
+   "name": "Azadirachtin 1% EC Bulk",
+   "family": "Azadirachtin 10000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1% ec bulk - 12%": {
+   "name": "Azadirachtin 1% EC Bulk - 12%",
+   "family": "Azadirachtin 10000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1% wsc bulk": {
+   "name": "Azadirachtin 1% WSC Bulk",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1.2 % ec - tvp": {
+   "name": "Azadirachtin 1.2 % EC - TVP",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1.2 % ec - tvp - 12%": {
+   "name": "Azadirachtin 1.2 % EC - TVP - 12%",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 1.5 % ec": {
+   "name": "Azadirachtin 1.5 % EC",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 25% w/w": {
+   "name": "Azadirachtin 25% W/W",
+   "family": "Azadirachtin Technical - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 3%": {
+   "name": "Azadirachtin 3%",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 3% - 12%": {
+   "name": "Azadirachtin 3% - 12%",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 3% exp": {
+   "name": "Azadirachtin 3% Exp",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 30000 ppm": {
+   "name": "Azadirachtin 30000 PPM",
+   "family": "Azadirachtin Export Formulation - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 5 % ec - 100 ml": {
+   "name": "Azadirachtin 5 % EC - 100 Ml",
+   "family": "Azadirachtin 50000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 5 % ec - 100 ml - 12%": {
+   "name": "Azadirachtin 5 % EC - 100 Ml - 12%",
+   "family": "Azadirachtin 50000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 5% ec-1 ltr": {
+   "name": "Azadirachtin 5% EC-1 LTR",
+   "family": "Azadirachtin 50000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 5 % ec - 250 ml": {
+   "name": "Azadirachtin 5 % EC - 250 Ml",
+   "family": "Azadirachtin 50000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 5 % ec - 500 ml": {
+   "name": "Azadirachtin 5 % EC - 500 Ml",
+   "family": "Azadirachtin 50000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 5% ec-5 ltr": {
+   "name": "Azadirachtin 5% EC-5 LTR",
+   "family": "Azadirachtin 50000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 5% ec-5 ltr - 12%": {
+   "name": "Azadirachtin 5% EC-5 LTR - 12%",
+   "family": "Azadirachtin 50000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 5% ec bulk": {
+   "name": "Azadirachtin 5% EC Bulk",
+   "family": "Azadirachtin 50000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin 5% ec bulk - 12%": {
+   "name": "Azadirachtin 5% EC Bulk - 12%",
+   "family": "Azadirachtin 50000 PPM - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin concentrate - tvp": {
+   "name": "Azadirachtin Concentrate - TVP",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "azadirachtin technical": {
+   "name": "Azadirachtin Technical",
+   "family": "Azadirachtin Technical - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin technical - 12%": {
+   "name": "Azadirachtin Technical - 12%",
+   "family": "Azadirachtin Technical - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin technical - 15% - imported": {
+   "name": "Azadirachtin Technical - 15% - Imported",
+   "family": "Azadirachtin Technical - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin technical - 15% w/w": {
+   "name": "Azadirachtin Technical - 15% W/W",
+   "family": "Azadirachtin Technical - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin technical-20%": {
+   "name": "Azadirachtin Technical-20%",
+   "family": "Azadirachtin Technical - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "azadirachtin technical - 35%w/w": {
+   "name": "Azadirachtin Technical - 35%W/W",
+   "family": "Azadirachtin Technical - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "aza technical": {
+   "name": "Aza Technical",
+   "family": "Azadirachtin Technical - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "bags": {
+   "name": "Bags",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "barrels": {
+   "name": "Barrels",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "biostimulant - protein hydrolysate": {
+   "name": "Biostimulant - Protein Hydrolysate",
+   "family": "",
+   "group": "Protein Hydrolysate - TP"
+  },
+  "botanical extract liquid": {
+   "name": "Botanical Extract Liquid",
+   "family": "Botanical Extracts Formulations - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "bronopol": {
+   "name": "Bronopol",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "caps": {
+   "name": "Caps",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "carton box": {
+   "name": "Carton Box",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "casein": {
+   "name": "Casein",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "citric acid": {
+   "name": "Citric Acid",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "colloid mill": {
+   "name": "Colloid Mill",
+   "family": "",
+   "group": ""
+  },
+  "compost manure": {
+   "name": "Compost Manure",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "container": {
+   "name": "Container",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "container gallon": {
+   "name": "Container Gallon",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "containers 10 ltr": {
+   "name": "Containers 10 Ltr",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "containers 1 ltr": {
+   "name": "Containers 1 Ltr",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "containers 500 ml": {
+   "name": "Containers 500 Ml",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "containers-50 ltr-open top": {
+   "name": "Containers-50 Ltr-Open Top",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "containers 5 ltr": {
+   "name": "Containers 5 Ltr",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "copper sulphate": {
+   "name": "Copper Sulphate",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "corrugated box": {
+   "name": "Corrugated Box",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "cover": {
+   "name": "COVER",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "debug carton box": {
+   "name": "Debug Carton Box",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "debug turbo - optimo": {
+   "name": "Debug Turbo - Optimo",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "de oiled extracted neem cake": {
+   "name": "De Oiled Extracted Neem Cake",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "dm water": {
+   "name": "DM Water",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "emulsifier": {
+   "name": "Emulsifier",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "-emulsifier-ltr": {
+   "name": "-Emulsifier-Ltr",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "ethyle acetate -slp": {
+   "name": "Ethyle Acetate -SLP",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "ethyle acetate - tvp": {
+   "name": "Ethyle Acetate - TVP",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "ferrous sulphate": {
+   "name": "Ferrous Sulphate",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "gibberellic acid-0.001% l": {
+   "name": "Gibberellic Acid-0.001% L",
+   "family": "",
+   "group": ""
+  },
+  "hdpe 50 ltr open top drum 2.5kg(light blue)": {
+   "name": "HDPE 50 Ltr Open Top Drum 2.5kg(Light Blue)",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "hdpe container": {
+   "name": "HDPE Container",
+   "family": "",
+   "group": ""
+  },
+  "hexane": {
+   "name": "Hexane",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "ipa - solvent": {
+   "name": "IPA - Solvent",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "karanja oil": {
+   "name": "Karanja Oil",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "karanja oil ec": {
+   "name": "Karanja Oil EC",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "karanja oil_ec": {
+   "name": "Karanja Oil_EC",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "label": {
+   "name": "LABEL",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "leaflet": {
+   "name": "Leaflet",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "liguite powder": {
+   "name": "Liguite Powder",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "liqued organic manure-granules": {
+   "name": "Liqued Organic Manure-Granules",
+   "family": "Organic  - Granules",
+   "group": "FINISHED GOODS"
+  },
+  "liquid organic manure": {
+   "name": "Liquid Organic Manure",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "liquid wetting agent": {
+   "name": "Liquid Wetting Agent",
+   "family": "Wetting Agent - TVP",
+   "group": "FINISHED GOODS"
+  },
+  "magnesium sulphate": {
+   "name": "Magnesium Sulphate",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "manganese sulphate": {
+   "name": "Manganese Sulphate",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "milk powder": {
+   "name": "Milk Powder",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "natural plant probiotics": {
+   "name": "Natural Plant Probiotics",
+   "family": "",
+   "group": ""
+  },
+  "natural plant probiotics active": {
+   "name": "Natural Plant Probiotics Active",
+   "family": "",
+   "group": ""
+  },
+  "neem based botanical insecticides": {
+   "name": "Neem Based Botanical Insecticides",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "neem based ec": {
+   "name": "Neem Based EC",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "neem cake": {
+   "name": "Neem Cake",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "neem extract (10)": {
+   "name": "Neem Extract (10)",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem extract (30%)": {
+   "name": "Neem Extract (30%)",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem extract 37%": {
+   "name": "Neem Extract 37%",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "neem extract powder": {
+   "name": "Neem Extract Powder",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem formulation - tvp": {
+   "name": "Neem Formulation - TVP",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem fruit / seed - exempted": {
+   "name": "Neem Fruit / Seed - Exempted",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem fruit/seed-nkp": {
+   "name": "Neem Fruit/seed-NKP",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem fruit / seed - slp": {
+   "name": "Neem Fruit / Seed - SLP",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem fruit / seed - tvp": {
+   "name": "Neem Fruit / Seed - TVP",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem husk": {
+   "name": "Neem Husk",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem kernal cake": {
+   "name": "Neem Kernal Cake",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem kernals - slp": {
+   "name": "Neem Kernals - SLP",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem kernals - tvp": {
+   "name": "Neem Kernals - TVP",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem oil ec": {
+   "name": "Neem Oil EC",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "neem oil ec - 12%": {
+   "name": "Neem Oil EC - 12%",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "neem oil-kgs": {
+   "name": "Neem Oil-KGS",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem oil - ltr": {
+   "name": "Neem Oil - LTR",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem oil_ec": {
+   "name": "Neem Oil_EC",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "neem oil_ec (0.3)": {
+   "name": "Neem Oil_EC (0.3)",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "neem seed - excempted": {
+   "name": "Neem Seed - Excempted",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "neem_cake": {
+   "name": "Neem_Cake",
+   "family": "",
+   "group": ""
+  },
+  "oils - kgs - tvp": {
+   "name": "Oils - Kgs - TVP",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "oils - ltrs - tvp": {
+   "name": "Oils - Ltrs - TVP",
+   "family": "",
+   "group": "FINISHED GOODS"
+  },
+  "organic coated - granules": {
+   "name": "Organic Coated - Granules",
+   "family": "Organic  - Granules",
+   "group": "FINISHED GOODS"
+  },
+  "organic granules - e - tvp": {
+   "name": "Organic Granules - E - TVP",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "organic manure": {
+   "name": "Organic Manure",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "organic manure - spent cake": {
+   "name": "Organic Manure - Spent Cake",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "packing materials-sales": {
+   "name": "Packing Materials-Sales",
+   "family": "",
+   "group": ""
+  },
+  "pgr - 100 ml": {
+   "name": "PGR - 100 ML",
+   "family": "Plant Growth Regulator",
+   "group": "Plant Growth Regulator"
+  },
+  "pgr - 1 ltr": {
+   "name": "PGR - 1 LTR",
+   "family": "Plant Growth Regulator",
+   "group": "Plant Growth Regulator"
+  },
+  "pgr - 250 ml": {
+   "name": "PGR - 250 ML",
+   "family": "Plant Growth Regulator",
+   "group": "Plant Growth Regulator"
+  },
+  "pgr - 500 ml": {
+   "name": "PGR - 500 ML",
+   "family": "Plant Growth Regulator",
+   "group": "Plant Growth Regulator"
+  },
+  "pgr - 50 ml": {
+   "name": "PGR - 50 ML",
+   "family": "Plant Growth Regulator",
+   "group": "Plant Growth Regulator"
+  },
+  "pgr - 5 ltr": {
+   "name": "PGR - 5 LTR",
+   "family": "Plant Growth Regulator",
+   "group": "Plant Growth Regulator"
+  },
+  "pgr - bulk": {
+   "name": "PGR - BULK",
+   "family": "Plant Growth Regulator",
+   "group": "Plant Growth Regulator"
+  },
+  "phosphoric acid": {
+   "name": "Phosphoric Acid",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "plant growth regulator": {
+   "name": "Plant Growth Regulator",
+   "family": "Plant Growth Regulator",
+   "group": "Plant Growth Regulator"
+  },
+  "plant growth regulator - 1000 ml - tr": {
+   "name": "Plant Growth Regulator - 1000 ML - TR",
+   "family": "Plant Growth Regulator - TR",
+   "group": "Plant Growth Regulator - TR"
+  },
+  "plant growth regulator - 100 ml - tr": {
+   "name": "Plant Growth Regulator - 100 ML - TR",
+   "family": "Plant Growth Regulator - TR",
+   "group": "Plant Growth Regulator - TR"
+  },
+  "plant growth regulator - 250 ml - tr": {
+   "name": "Plant Growth Regulator - 250 ML - TR",
+   "family": "Plant Growth Regulator - TR",
+   "group": "Plant Growth Regulator - TR"
+  },
+  "plant growth regulator - 5000 ml - tr": {
+   "name": "Plant Growth Regulator - 5000 ML - TR",
+   "family": "Plant Growth Regulator - TR",
+   "group": "Plant Growth Regulator - TR"
+  },
+  "plant growth regulator - 500 ml - tr": {
+   "name": "Plant Growth Regulator - 500 ML - TR",
+   "family": "Plant Growth Regulator - TR",
+   "group": "Plant Growth Regulator - TR"
+  },
+  "plant growth regulator - 50 ml - tr": {
+   "name": "Plant Growth Regulator - 50 ML - TR",
+   "family": "Plant Growth Regulator - TR",
+   "group": "Plant Growth Regulator - TR"
+  },
+  "plant growth regulator - bulk": {
+   "name": "Plant Growth Regulator - Bulk",
+   "family": "Plant Growth Regulator",
+   "group": "Plant Growth Regulator"
+  },
+  "potassiun sulphate": {
+   "name": "Potassiun Sulphate",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "protein hydrolysate - technical concentrate": {
+   "name": "Protein Hydrolysate - Technical Concentrate",
+   "family": "",
+   "group": "Protein Hydrolysate - TP"
+  },
+  "ring neck jerry can": {
+   "name": "Ring Neck Jerry Can",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "seaweed": {
+   "name": "Seaweed",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "sleeves": {
+   "name": "Sleeves",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "sleeves - 100ml (export)": {
+   "name": "Sleeves - 100ml (Export)",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "sleeves - 1 ltr": {
+   "name": "Sleeves - 1 Ltr",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "sleeves - 250ml": {
+   "name": "Sleeves - 250ml",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "sleeves - 500ml": {
+   "name": "Sleeves - 500ml",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "sleeves - 5 ltr": {
+   "name": "Sleeves - 5 Ltr",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "sleeves - 5 ltr (export)": {
+   "name": "Sleeves - 5 Ltr (Export)",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "sodium benziate": {
+   "name": "Sodium Benziate",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "solvent - gr - tvp": {
+   "name": "Solvent - GR - TVP",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "soya": {
+   "name": "Soya",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "testing charges": {
+   "name": "Testing Charges",
+   "family": "",
+   "group": ""
+  },
+  "used machinery": {
+   "name": "Used Machinery",
+   "family": "",
+   "group": "PACKING MATERIALS"
+  },
+  "wetting agent concentrate - tvp": {
+   "name": "Wetting Agent Concentrate - TVP",
+   "family": "",
+   "group": "RAW MATERIALS"
+  },
+  "xanthan gum (compost)": {
+   "name": "Xanthan Gum (Compost)",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  },
+  "yellow maize": {
+   "name": "Yellow Maize",
+   "family": "",
+   "group": ""
+  },
+  "zinc sulphate": {
+   "name": "Zinc Sulphate",
+   "family": "RM - PGR",
+   "group": "RAW MATERIALS"
+  }
+ }
+}

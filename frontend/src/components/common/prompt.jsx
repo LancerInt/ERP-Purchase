@@ -1,0 +1,93 @@
+import { useState, useEffect } from 'react';
+import Modal from '../ui/Modal';
+
+/**
+ * App-wide text-input dialog — a styled, accessible replacement for the
+ * native `window.prompt`. Mount <PromptHost /> once near the app root, then
+ * call `await promptText({ ... })` anywhere; it resolves to the entered
+ * string, or `null` if cancelled — same contract as window.prompt, so
+ * `result === null` cancel checks at the call site keep working.
+ *
+ *   const reason = await promptText({ title: 'Reject', label: 'Reason',
+ *                                     multiline: true, required: true });
+ *   if (reason === null) return;
+ *
+ * Falls back to the native prompt if the host isn't mounted, so it never
+ * silently no-ops.
+ */
+let openPrompt = null;
+
+export function promptText(options = {}) {
+  const opts = typeof options === 'string' ? { label: options } : options;
+  return new Promise((resolve) => {
+    if (!openPrompt) {
+      resolve(window.prompt(opts.label || opts.message || ''));
+      return;
+    }
+    openPrompt({ ...opts, resolve });
+  });
+}
+
+export function PromptHost() {
+  const [state, setState] = useState(null);
+  const [value, setValue] = useState('');
+
+  useEffect(() => {
+    openPrompt = (s) => { setValue(s.defaultValue || ''); setState(s); };
+    return () => { openPrompt = null; };
+  }, []);
+
+  if (!state) return null;
+
+  const required = !!state.required;
+  const canSubmit = !required || value.trim().length > 0;
+  const finish = (result) => { state.resolve(result); setState(null); setValue(''); };
+  const onCancel = () => finish(null);
+  const onSubmit = (e) => { if (e) e.preventDefault(); if (!canSubmit) return; finish(value); };
+
+  return (
+    <Modal isOpen onClose={onCancel} title={state.title || 'Enter a value'} size="sm">
+      <form onSubmit={onSubmit}>
+        {state.label && (
+          <label className="block text-sm text-slate-600 mb-1.5">
+            {state.label}{required && <span className="text-red-500"> *</span>}
+          </label>
+        )}
+        {state.multiline ? (
+          <textarea
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={state.placeholder || ''}
+            rows={3}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          />
+        ) : (
+          <input
+            autoFocus
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={state.placeholder || ''}
+            onKeyDown={(e) => { if (e.key === 'Enter') onSubmit(e); }}
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+          />
+        )}
+        <div className="flex justify-end gap-2 mt-5">
+          <button type="button" onClick={onCancel} className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">
+            {state.cancelLabel || 'Cancel'}
+          </button>
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            className={`px-4 py-2 text-sm rounded-lg text-white disabled:opacity-50 ${state.isDangerous ? 'bg-red-600 hover:bg-red-700' : 'bg-primary-600 hover:bg-primary-700'}`}
+          >
+            {state.confirmLabel || 'OK'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+export default promptText;

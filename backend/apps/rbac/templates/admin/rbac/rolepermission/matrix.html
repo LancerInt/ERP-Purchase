@@ -1,0 +1,242 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% load rbac_extras %}
+
+{% block title %}Role Permission Management{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .perm-page { padding: 16px 24px; }
+  .perm-header { margin-bottom: 18px; }
+  .perm-header h1 { margin: 0; font-size: 22px; }
+  .perm-header p { margin: 4px 0 0; color: var(--body-quiet-color); font-size: 13px; }
+  .perm-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--darkened-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .perm-toolbar label { font-weight: 600; }
+  .perm-toolbar select {
+    min-width: 280px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: var(--body-bg);
+    color: var(--body-fg);
+  }
+  .perm-toolbar .save-btn {
+    margin-left: auto;
+    background: #2563eb;
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .perm-toolbar .save-btn:hover { background: #1d4ed8; }
+  .perm-toolbar .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .perm-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--body-quiet-color);
+    margin-bottom: 12px;
+    padding: 0 4px;
+  }
+  .perm-legend strong { color: var(--body-fg); margin-right: 6px; }
+  .perm-legend .crud { color: #2563eb; font-weight: 600; }
+  .perm-legend .workflow { color: #059669; font-weight: 600; }
+  .perm-legend .utility { color: #d97706; font-weight: 600; }
+  .perm-table-wrap {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: auto;
+    max-height: 70vh;
+  }
+  table.perm-grid {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+  }
+  table.perm-grid th, table.perm-grid td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+    text-align: center;
+    white-space: nowrap;
+  }
+  table.perm-grid thead th {
+    position: sticky;
+    top: 0;
+    background: var(--darkened-bg);
+    z-index: 2;
+    font-weight: 600;
+  }
+  table.perm-grid th.module-col, table.perm-grid td.module-col {
+    text-align: left;
+    min-width: 240px;
+    position: sticky;
+    left: 0;
+    background: var(--body-bg);
+    z-index: 1;
+  }
+  table.perm-grid thead th.module-col { background: var(--darkened-bg); z-index: 3; }
+  table.perm-grid tr.category-row td {
+    background: var(--darkened-bg);
+    font-weight: 700;
+    text-align: left;
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    color: #7c3aed;
+  }
+  table.perm-grid tr.category-row td.module-col { background: var(--darkened-bg); }
+  table.perm-grid input[type=checkbox] { cursor: pointer; }
+  table.perm-grid th.col-group {
+    background: var(--darkened-bg);
+    font-size: 11px;
+    color: var(--body-quiet-color);
+    border-bottom: 2px solid var(--border-color);
+  }
+  table.perm-grid th.crud-col { color: #2563eb; }
+  table.perm-grid th.workflow-col { color: #059669; }
+  table.perm-grid th.utility-col { color: #d97706; }
+  .empty-state {
+    text-align: center;
+    padding: 40px 16px;
+    color: var(--body-quiet-color);
+  }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label='rbac' %}">Role-Based Access Control</a>
+  &rsaquo; Role Permission Management
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="perm-page">
+  <div class="perm-header">
+    <h1>Role Permission Management</h1>
+    <p>Manage role-based module permissions — 14 granular action controls per module.</p>
+  </div>
+
+  <form method="get" id="role-select-form">
+    <div class="perm-toolbar">
+      <label for="role_id">Select Role</label>
+      <select name="role_id" id="role_id" onchange="document.getElementById('role-select-form').submit()">
+        <option value="">-- Select a role --</option>
+        {% for r in roles %}
+          <option value="{{ r.id }}" {% if selected_role and selected_role.id == r.id %}selected{% endif %}>{{ r.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+
+  {% if selected_role %}
+    <form method="post" id="perm-form">
+      {% csrf_token %}
+      <input type="hidden" name="role_id" value="{{ selected_role.id }}" />
+
+      <div class="perm-toolbar">
+        <strong>{{ selected_role.name }}</strong>
+        <span style="color: var(--body-quiet-color); font-size: 12px;">
+          {{ modules|length }} module{{ modules|length|pluralize }}
+        </span>
+        <button type="submit" class="save-btn">Save Permissions</button>
+      </div>
+
+      <div class="perm-legend">
+        <span><strong class="crud">CRUD:</strong> View · Create · Edit · Delete</span>
+        <span><strong class="workflow">Workflow:</strong> Approve · Reject · Confirm · Close · Cancel · Issue · Convert</span>
+        <span><strong class="utility">Utility:</strong> Email · Export · Print</span>
+      </div>
+
+      <div class="perm-table-wrap">
+        <table class="perm-grid">
+          <thead>
+            <tr>
+              <th class="module-col" rowspan="2">Module</th>
+              <th rowspan="2">All</th>
+              <th colspan="4" class="col-group crud-col">CRUD</th>
+              <th colspan="7" class="col-group workflow-col">WORKFLOW</th>
+              <th colspan="3" class="col-group utility-col">UTILITY</th>
+            </tr>
+            <tr>
+              <th>View</th><th>Create</th><th>Edit</th><th>Delete</th>
+              <th>Approve</th><th>Reject</th><th>Confirm</th><th>Close</th><th>Cancel</th><th>Issue</th><th>Convert</th>
+              <th>Email</th><th>Export</th><th>Print</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for group in grouped_modules %}
+              <tr class="category-row">
+                <td class="module-col" colspan="16">{{ group.label }} <span style="color: var(--body-quiet-color); font-weight: 400;">({{ group.modules|length }})</span></td>
+              </tr>
+              {% for m in group.modules %}
+                <tr data-module-row="{{ m.id }}">
+                  <td class="module-col">{{ m.name }}</td>
+                  <td><input type="checkbox" class="row-all" data-module-id="{{ m.id }}" /></td>
+                  {% for action in actions %}
+                    <td>
+                      <input
+                        type="checkbox"
+                        name="perm_{{ m.id }}_{{ action }}"
+                        data-module-id="{{ m.id }}"
+                        class="perm-check"
+                        {% if m.current|dictlookup:action %}checked{% endif %}
+                      />
+                    </td>
+                  {% endfor %}
+                </tr>
+              {% endfor %}
+            {% endfor %}
+            {% if not grouped_modules %}
+              <tr><td class="empty-state" colspan="16">No active modules.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </form>
+
+    <script>
+      (function() {
+        // "All" checkbox toggles every action checkbox in the same row.
+        document.querySelectorAll('.row-all').forEach(function(allCb) {
+          var moduleId = allCb.dataset.moduleId;
+          var rowChecks = document.querySelectorAll('input.perm-check[data-module-id="' + moduleId + '"]');
+
+          function refresh() {
+            var total = rowChecks.length;
+            var checked = 0;
+            rowChecks.forEach(function(c) { if (c.checked) checked++; });
+            allCb.checked = total > 0 && checked === total;
+            allCb.indeterminate = checked > 0 && checked < total;
+          }
+
+          allCb.addEventListener('change', function() {
+            rowChecks.forEach(function(c) { c.checked = allCb.checked; });
+            refresh();
+          });
+          rowChecks.forEach(function(c) {
+            c.addEventListener('change', refresh);
+          });
+          refresh();
+        });
+      })();
+    </script>
+  {% else %}
+    <div class="empty-state">Pick a role above to view and edit its permissions.</div>
+  {% endif %}
+</div>
+{% endblock %}
