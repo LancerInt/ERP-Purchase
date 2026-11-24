@@ -771,6 +771,12 @@ export default function VendorBillList({ expenseOnly = false } = {}) {
       const today = new Date(); today.setHours(0, 0, 0, 0);
       result = result.filter((r) => Number(r.balance_due) > 0 && r.due_date && new Date(r.due_date) < today);
     }
+    // Data-quality drill from the Report's "Bills data-health" tab (?dq=...):
+    // show only the flagged bills so they can be opened and fixed.
+    const dq = searchParams.get('dq');
+    if (dq === 'no_invoice') result = result.filter((r) => !(r.vendor_invoice_no || '').trim());
+    else if (dq === 'unclassified') result = result.filter((r) => !(r.purchase_category || '').trim() || r.purchase_category === 'Unclassified');
+    else if (dq === 'no_due') result = result.filter((r) => !(r.due_date || '').trim());
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
       // Four fields, as asked for: bill date, invoice number, vendor, total.

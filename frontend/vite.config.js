@@ -37,14 +37,16 @@ export default defineConfig({
       interval: 300,
     },
     proxy: {
+      // This standalone's Django dev server runs on :8200 (see run_server.bat),
+      // not the ERP default :8000. Proxy /api and /media there.
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8200',
         changeOrigin: true,
       },
       // Uploaded media (e.g. staff photos) is served by Django in dev —
       // proxy it so file_url (/media/...) resolves through Vite.
       '/media': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8200',
         changeOrigin: true,
       },
     },

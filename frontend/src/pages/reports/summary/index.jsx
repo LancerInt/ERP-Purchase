@@ -1142,10 +1142,13 @@ export default function ReportsSummary() {
     const unclassified = filtered.filter((r) => !(r.purchase_category || '').trim() || r.purchase_category === 'Unclassified');
     const noDue = filtered.filter((r) => !(r.due_date || '').trim());
     const sum = (arr) => arr.reduce((s, r) => s + num(r.total_amount), 0);
+    const ids = (arr) => arr.map((r) => r.id).filter(Boolean);
+    // `dq` = the data-quality code the Bills page filters on (?dq=), so clicking
+    // a row opens exactly the flagged bills, ready to fix.
     return [
-      { issue: 'Bills missing an invoice number', count: noInv.length, value: sum(noInv), sev: noInv.length ? 'warn' : 'ok' },
-      { issue: 'Unclassified category', count: unclassified.length, value: sum(unclassified), sev: unclassified.length ? 'warn' : 'ok' },
-      { issue: 'Bills missing a due date', count: noDue.length, value: sum(noDue), sev: noDue.length ? 'warn' : 'ok' },
+      { issue: 'Bills missing an invoice number', dq: 'no_invoice', count: noInv.length, value: sum(noInv), ids: ids(noInv), sev: noInv.length ? 'warn' : 'ok' },
+      { issue: 'Unclassified category', dq: 'unclassified', count: unclassified.length, value: sum(unclassified), ids: ids(unclassified), sev: unclassified.length ? 'warn' : 'ok' },
+      { issue: 'Bills missing a due date', dq: 'no_due', count: noDue.length, value: sum(noDue), ids: ids(noDue), sev: noDue.length ? 'warn' : 'ok' },
     ];
   };
 
@@ -1645,17 +1648,18 @@ export default function ReportsSummary() {
             };
             return (
               <div className="space-y-3">
-                {/* running totals — green bar on both calendars (Payables & Receivables) */}
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl px-5 py-3.5 text-white bg-emerald-900">
+                {/* running totals banner — uses the app's indigo theme (matches
+                    the active tabs / buttons), not a stray green. */}
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl px-5 py-3.5 text-white bg-indigo-700">
                   <div>
-                    <div className="text-[11px] uppercase tracking-wider font-semibold text-emerald-200">{inflow ? 'Total to collect' : 'Total to clear'}</div>
+                    <div className="text-[11px] uppercase tracking-wider font-semibold text-indigo-200">{inflow ? 'Total to collect' : 'Total to clear'}</div>
                     <div className="text-xl font-extrabold">{INR(grand)}</div>
                   </div>
-                  <div className="text-xs text-emerald-100">
+                  <div className="text-xs text-indigo-100">
                     Overdue <b className="text-white">{INR(overdueTot)}</b>
-                    <span className="mx-1.5 text-emerald-500">·</span>
+                    <span className="mx-1.5 text-indigo-300">·</span>
                     Next 30 days <b className="text-white">{INR(next30)}</b>
-                    <span className="mx-1.5 text-emerald-500">·</span>
+                    <span className="mx-1.5 text-indigo-300">·</span>
                     {count} {noun}{count === 1 ? '' : 's'}
                   </div>
                 </div>
@@ -2137,13 +2141,28 @@ export default function ReportsSummary() {
                     <th className="px-3 py-2 text-right font-semibold">Value</th>
                   </tr></thead>
                   <tbody className="divide-y divide-slate-100">
-                    {rows.map((r) => (
-                      <tr key={r.issue} className="hover:bg-blue-50/60">
-                        <td className="px-3 py-2 font-medium text-slate-800">{r.issue}</td>
-                        <td className="px-3 py-2 text-right"><span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold ${r.sev === 'bad' ? 'bg-rose-100 text-rose-700' : r.sev === 'warn' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>{r.count}</span></td>
-                        <td className="px-3 py-2 text-right tabular-nums text-rose-600">{r.value ? INR(r.value) : '—'}</td>
-                      </tr>
-                    ))}
+                    {rows.map((r) => {
+                      const clickable = r.count > 0;
+                      const go = () => {
+                        const q = new URLSearchParams();
+                        q.set('dq', r.dq);
+                        if (company) q.set('company', company);
+                        navigate(`/purchase/bills?${q.toString()}`);
+                      };
+                      return (
+                        <tr key={r.issue}
+                          className={`${clickable ? 'hover:bg-blue-50/60 cursor-pointer' : 'opacity-60'}`}
+                          onClick={clickable ? go : undefined}
+                          title={clickable ? 'Open these bills to fix them' : 'No bills with this issue'}>
+                          <td className="px-3 py-2 font-medium text-slate-800">
+                            {r.issue}
+                            {clickable && <span className="ml-2 text-[11px] text-blue-600">— fix →</span>}
+                          </td>
+                          <td className="px-3 py-2 text-right"><span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold ${r.sev === 'bad' ? 'bg-rose-100 text-rose-700' : r.sev === 'warn' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>{r.count}</span></td>
+                          <td className="px-3 py-2 text-right tabular-nums text-rose-600">{r.value ? INR(r.value) : '—'}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
