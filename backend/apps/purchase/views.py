@@ -8542,6 +8542,39 @@ class PurchaseItemsView(APIView):
                     )
                     for r in stock_rows
                 }
+
+                # This standalone derives stock (no InventoryLedger postings):
+                # on-hand = OpeningStock + (ledger in-out) - StockIssue, matching
+                # the Stock page. Fold Opening + Issues in so Available Stock on
+                # the PR form reflects real seeded/opening quantities, not 0.
+                try:
+                    from inventory.models import OpeningStock
+                    os_rows = (
+                        OpeningStock.objects
+                        .filter(warehouse_id=warehouse_id, product_id__in=product_ids,
+                                is_active=True)
+                        .values('product_id')
+                        .annotate(q=Sum('quantity'))
+                    )
+                    for r in os_rows:
+                        pid = str(r['product_id'])
+                        stock_by_pid[pid] = stock_by_pid.get(pid, Decimal('0')) + (r['q'] or Decimal('0'))
+                except Exception:
+                    pass
+                try:
+                    from inventory.models import StockIssue
+                    iss_qs = StockIssue.objects.filter(
+                        warehouse_id=warehouse_id, product_id__in=product_ids)
+                    if godown_id and any(
+                        f.name == 'godown' for f in StockIssue._meta.get_fields()):
+                        iss_qs = iss_qs.filter(godown_id=godown_id)
+                    iss_rows = iss_qs.values('product_id').annotate(q=Sum('quantity'))
+                    for r in iss_rows:
+                        pid = str(r['product_id'])
+                        stock_by_pid[pid] = stock_by_pid.get(pid, Decimal('0')) - (r['q'] or Decimal('0'))
+                except Exception:
+                    pass
+
                 for row in product_rows:
                     row['current_stock'] = str(stock_by_pid.get(row['item_id'], Decimal('0')))
 

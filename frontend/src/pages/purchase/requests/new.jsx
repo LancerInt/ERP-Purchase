@@ -528,7 +528,6 @@ export default function CreatePurchaseRequest() {
               <label className="block text-xs font-semibold text-slate-700 mb-0.5">Requirement Type <span className="text-red-500">*</span></label>
               <CustomSelect name="requirement_type" value={formData.requirement_type} onChange={handleChange} required disabled={isReadOnly('requirement_type')} className={isReadOnly('requirement_type') ? lockedInputClass : inputClass}>
                 <option value="GOODS">Goods</option>
-                <option value="SERVICES">Services</option>
                 <option value="MACHINERY">Machinery</option>
               </CustomSelect>
             </div>

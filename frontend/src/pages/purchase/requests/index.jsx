@@ -108,7 +108,7 @@ const FILTER_FIELDS = [
     { value: 'LOW', label: 'Low' }, { value: 'MEDIUM', label: 'Medium' }, { value: 'HIGH', label: 'High' },
   ]},
   { value: 'requirement_type', label: 'Requirement Type', type: 'select', options: [
-    { value: 'GOODS', label: 'Goods' }, { value: 'SERVICES', label: 'Services' }, { value: 'MACHINERY', label: 'Machinery' },
+    { value: 'GOODS', label: 'Goods' }, { value: 'MACHINERY', label: 'Machinery' },
   ]},
   // Organisation
   { value: 'company_name', label: 'Company', type: 'text' },

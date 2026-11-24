@@ -1145,7 +1145,6 @@ export default function PurchaseRequestDetailPage() {
                       className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="GOODS">Goods</option>
-                      <option value="SERVICES">Services</option>
                       <option value="MACHINERY">Machinery</option>
                     </CustomSelect>
                   ) : (

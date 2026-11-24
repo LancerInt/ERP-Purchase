@@ -207,9 +207,14 @@ class WarehouseViewSet(SoftDeleteMixin, BulkImportMixin, viewsets.ModelViewSet):
             # at module import time — keeps the Sales↔core dependency
             # one-directional (Sales depends on core, never the reverse).
             # The resolver is warehouse-scope-generic, not sales-specific.
-            from sales.mixins import _user_allowed_warehouse_ids
-
-            allowed = _user_allowed_warehouse_ids(self.request.user)
+            # Sales is dropped in this standalone carve-out — if the mixin
+            # isn't present, fall back to "no restriction" (same as the
+            # superuser/bypass path below), so the warehouse list still loads.
+            try:
+                from sales.mixins import _user_allowed_warehouse_ids
+                allowed = _user_allowed_warehouse_ids(self.request.user)
+            except ModuleNotFoundError:
+                allowed = None
             if allowed is None:
                 return qs  # bypass-roled user / superuser / legacy
             if not allowed:
