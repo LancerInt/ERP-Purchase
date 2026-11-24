@@ -27,11 +27,62 @@ import useFieldPermissions from '../../../hooks/useFieldPermissions.js';
 import useLookup from '../../../hooks/useLookup.js';
 import { UOM_OPTIONS, UOM_VALUES } from '../../../constants/uom.js';
 import useAllProducts from '../components/useAllProducts.js';
-import FileAttachments from '../components/FileAttachments';
+import FileAttachments, { uploadPendingFiles } from '../components/FileAttachments';
 import ActivityLog from '@/components/common/ActivityLog';
 import { formatDate as fmtSharedDate, formatDateTime as fmtSharedDateTime } from '@/utils/formatters';
 import { getApiErrorMessage } from '@/utils/formHelpers';
 import { PAYMENT_TERM_OPTIONS, FREIGHT_TERM_OPTIONS, withCurrent } from '@/constants/purchaseTerms';
+
+// Voice notes recorded as the "Reason for change" land as VOICE_NOTE
+// attachments on the PR. This panel lists them with an inline audio player so
+// the spoken reason can be heard on the PR's own page.
+function VoiceNotesPanel({ recordId, refreshKey }) {
+  const [notes, setNotes] = useState([]);
+  const [urls, setUrls] = useState({});
+
+  useEffect(() => {
+    if (!recordId) return;
+    let alive = true;
+    apiClient.get('/api/purchase/attachments/', { params: { module: 'PR', record_id: recordId, category: 'VOICE_NOTE' } })
+      .then((res) => { if (alive) setNotes(res.data?.results || res.data || []); })
+      .catch(() => { if (alive) setNotes([]); });
+    return () => { alive = false; };
+  }, [recordId, refreshKey]);
+
+  useEffect(() => {
+    notes.forEach((n) => {
+      if (urls[n.id]) return;
+      apiClient.get(`/api/purchase/attachments/${n.id}/signed-url/`)
+        .then((res) => {
+          const url = res.data?.url || res.data?.signed_url || res.data;
+          if (url) setUrls((u) => ({ ...u, [n.id]: url }));
+        })
+        .catch(() => {});
+    });
+  }, [notes]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!notes.length) return null;
+
+  return (
+    <div className="mt-4 bg-white rounded-xl border border-slate-200 p-4">
+      <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+        🎙 Voice Notes <span className="text-xs font-normal text-slate-400">({notes.length})</span>
+      </h3>
+      <div className="space-y-2">
+        {notes.map((n) => (
+          <div key={n.id} className="flex items-center gap-3 text-sm">
+            {urls[n.id]
+              ? <audio controls src={urls[n.id]} className="h-8" />
+              : <span className="text-xs text-slate-400">Loading…</span>}
+            <span className="text-xs text-slate-500">
+              {n.uploaded_by_name || n.uploaded_by || ''} · {fmtSharedDateTime(n.created_at)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function PurchaseRequestDetailPage() {
   const { id } = useParams();
@@ -258,9 +309,16 @@ export default function PurchaseRequestDetailPage() {
     // appends it to the PR's change trail and rejects the edit without one.
     // DRAFT saves are unchanged.
     let editReason = null;
+    let reasonAudio = null;
     if (!isDraft) {
-      editReason = await promptText({ title: 'Reason for change', label: 'Why is this being changed?', multiline: true, required: true, confirmLabel: 'Save' });
-      if (editReason === null) return;
+      const r = await promptText({ title: 'Reason for change', label: 'Why is this being changed? (type or record a voice note)', multiline: true, required: true, voice: true, confirmLabel: 'Save' });
+      if (r === null) return;
+      // voice:true resolves to { text, audioFile }.
+      editReason = (r.text || '').trim();
+      reasonAudio = r.audioFile || null;
+      // A voice-only reason (clip, no text) still counts — label it so the
+      // change trail isn't blank.
+      if (!editReason && reasonAudio) editReason = '[Voice note attached]';
     }
 
     setIsSaving(true);
@@ -297,6 +355,16 @@ export default function PurchaseRequestDetailPage() {
       if (editReason !== null) payload.edit_reason = editReason;
 
       const res = await apiClient.post(`/api/purchase/requests/${id}/edit/`, payload);
+      // Attach the spoken reason as a voice-note clip on the PR, so it plays
+      // back on this page's attachments. Non-fatal: a failed upload must not
+      // undo the saved edit.
+      if (reasonAudio) {
+        try {
+          await uploadPendingFiles('PR', id, [reasonAudio], 'VOICE_NOTE');
+        } catch (e) {
+          toast.error('Edit saved, but the voice note could not be attached.');
+        }
+      }
       setPr(res.data);
       setEditData(res.data);
       setEditLines((res.data.lines || res.data.line_items || []).map(l => ({ ...l })));
@@ -1829,6 +1897,8 @@ export default function PurchaseRequestDetailPage() {
       </div>
 
       <FileAttachments module="PR" recordId={id} readOnly={!isEditing} />
+
+      <VoiceNotesPanel recordId={id} refreshKey={pr?.updated_at} />
 
       <div className="mt-4">
         <ActivityLog module="Purchase Request" recordId={id} />
