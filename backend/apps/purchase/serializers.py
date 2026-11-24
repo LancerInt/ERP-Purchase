@@ -236,13 +236,19 @@ class PRLineSerializer(FieldPermissionMixin, serializers.ModelSerializer):
         # simply absent from the map, which lands on the same answer the old
         # aggregate gave for an empty set: Sum() returns None, None or 0 gives
         # Decimal('0'), and str() of that is '0'.
+        # This standalone derives stock (nothing posts to InventoryLedger):
+        # on-hand = OpeningStock + (ledger in-out) - StockIssue, matching the
+        # Stock page and the PR create form's Available Stock. The opening/issue
+        # adjustment is computed once per page (see _opening_issue_adj).
+        adj = self._opening_issue_adj().get((warehouse_id, product_id), Decimal('0'))
+
         maps = self._page_stock_maps()
         m = maps['wpg'] if godown_id else maps['wp']
         if m is not None:
             key = ((warehouse_id, product_id, godown_id) if godown_id
                    else (warehouse_id, product_id))
             got_in, got_out = m.get(key, (None, None))
-            return str((got_in or Decimal('0')) - (got_out or Decimal('0')))
+            return str((got_in or Decimal('0')) - (got_out or Decimal('0')) + adj)
 
         try:
             from django.db.models import Sum
@@ -253,9 +259,42 @@ class PRLineSerializer(FieldPermissionMixin, serializers.ModelSerializer):
             if godown_id:
                 qs = qs.filter(godown_id=godown_id)
             agg = qs.aggregate(in_total=Sum('quantity_in'), out_total=Sum('quantity_out'))
-            return str((agg['in_total'] or Decimal('0')) - (agg['out_total'] or Decimal('0')))
+            return str((agg['in_total'] or Decimal('0')) - (agg['out_total'] or Decimal('0')) + adj)
         except Exception:
             return None
+
+    def _opening_issue_adj(self):
+        """{(warehouse_id, product_id): OpeningStock - StockIssue} for the pairs
+        this page asks about, cached on the serializer context. Added on top of
+        ledger movement so derived stock (no ledger postings) still shows real
+        opening quantities. Keyed by (warehouse, product) only — opening stock
+        and issues in this standalone are not godown-scoped."""
+        store = ctx_store(self, '_pr_open_issue')
+        if 'built' in store:
+            return store['adj']
+        store['built'] = True
+        adj = {}
+        store['adj'] = adj
+        try:
+            from django.db.models import Sum
+            from inventory.models import OpeningStock
+            for r in (OpeningStock.objects.filter(is_active=True)
+                      .values('warehouse_id', 'product_id')
+                      .annotate(q=Sum('quantity'))):
+                adj[(r['warehouse_id'], r['product_id'])] = (r['q'] or Decimal('0'))
+        except Exception:
+            pass
+        try:
+            from django.db.models import Sum
+            from inventory.models import StockIssue
+            for r in (StockIssue.objects
+                      .values('warehouse_id', 'product_id')
+                      .annotate(q=Sum('quantity'))):
+                key = (r['warehouse_id'], r['product_id'])
+                adj[key] = adj.get(key, Decimal('0')) - (r['q'] or Decimal('0'))
+        except Exception:
+            pass
+        return adj
 
     def _page_stock_maps(self):
         """On-hand in/out totals for every pair this page will ask about, in at

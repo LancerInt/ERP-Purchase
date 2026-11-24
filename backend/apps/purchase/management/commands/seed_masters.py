@@ -102,4 +102,23 @@ class Command(BaseCommand):
                     n_os += 1
         w(self.style.SUCCESS(f'Seeded {n_os} opening-stock row(s).'))
 
+        # ── 4) backfill godown on receipt lines ──────────────────────────────
+        # Seeding godowns flips on the "godown required per line" approval check
+        # (purchase/views receipt approve). Existing receipt lines were created
+        # before any godown existed, so stamp each line with its warehouse's
+        # Main Store godown — otherwise every seeded receipt fails approval.
+        from purchase.models import ReceiptLine
+        godown_by_wh = {g.warehouse_id: g for g in Godown.objects.filter(is_active=True)}
+        n_rl = 0
+        for rl in ReceiptLine.objects.filter(
+                godown_location__isnull=True, service_catalogue__isnull=True
+        ).select_related('receipt'):
+            wh_id = getattr(rl.receipt, 'warehouse_id', None)
+            g = godown_by_wh.get(wh_id)
+            if g:
+                rl.godown_location = g
+                rl.save(update_fields=['godown_location'])
+                n_rl += 1
+        w(self.style.SUCCESS(f'Backfilled godown on {n_rl} receipt line(s).'))
+
         w(self.style.SUCCESS('Masters ready — PR/RFQ/PO forms can now be filled.'))
