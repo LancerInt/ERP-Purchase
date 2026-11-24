@@ -60,7 +60,7 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
     if (!form.gst_treatment) errs.gst_treatment = 'Required';
     if (isRegisteredTreatment(form.gst_treatment) && !form.gstin.trim()) errs.gstin = 'GSTIN required for registered vendor';
     if (form.gstin.trim() && !isValidGstin(form.gstin.trim())) errs.gstin = errs.gstin || 'Invalid GSTIN format (e.g. 22AAAAA0000A1Z5)';
-    if (!form.pan.trim()) errs.pan = 'Required';
+    if (isRegisteredTreatment(form.gst_treatment) && !form.pan.trim()) errs.pan = 'PAN required for registered vendor';
     if (!form.contact_email.trim()) errs.contact_email = 'Required';
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
@@ -154,7 +154,7 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
               {errors.gstin && <p className="mt-1 text-xs text-red-600">{errors.gstin}</p>}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">PAN <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">PAN {isRegisteredTreatment(form.gst_treatment) && <span className="text-red-500">*</span>}</label>
               <input type="text" name="pan" value={form.pan} onChange={handleChange} maxLength={10} className={fieldClass('pan')} placeholder="Enter PAN" />
               {errors.pan && <p className="mt-1 text-xs text-red-600">{errors.pan}</p>}
             </div>

@@ -157,6 +157,9 @@ urlpatterns = [
     path('api/finance/ledgers/', empty_list, name='finance-ledgers-stub'),
     path('api/sales/receivables/', empty_list, name='sales-receivables-stub'),
 
+    # Communications (email templates, logs, sending)
+    path('api/communications/', include('communications.urls')),
+
     # Purchase extra views (non-router)
     path('api/purchase/items/', PurchaseItemsView.as_view(), name='purchase-items'),
     path('api/purchase/dashboard/', PurchaseDashboardView.as_view(), name='purchase-dashboard'),

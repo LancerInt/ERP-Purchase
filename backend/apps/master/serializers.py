@@ -150,6 +150,8 @@ class ProductSerializer(serializers.ModelSerializer):
             'warehouse': {'required': False, 'allow_null': True},
             'godown':    {'required': False, 'allow_null': True},
             'division':  {'required': False, 'allow_null': True},
+            'is_active': {'required': False, 'default': True},
+            'active_flag': {'required': False, 'default': True},
         }
 
     def get_preferred_vendors_detail(self, obj):
@@ -427,6 +429,8 @@ class VendorSerializer(serializers.ModelSerializer):
             'gstin_certificate': {'required': False, 'allow_null': True},
             'is_rcm': {'required': False},
             'is_also_customer': {'required': False},
+            'is_active': {'required': False, 'default': True},
+            'active_flag': {'required': False, 'default': True},
         }
 
     # ── Create / update: run the party-linking after the save ───────────────
@@ -927,6 +931,8 @@ class CustomerSerializer(serializers.ModelSerializer):
             'contact_email': {'required': False, 'allow_blank': True},
             'contact_phone': {'required': False, 'allow_blank': True},
             'is_also_vendor': {'required': False},
+            'is_active': {'required': False, 'default': True},
+            'active_flag': {'required': False, 'default': True},
         }
 
     def get_shipping_address_count(self, obj):
@@ -1174,6 +1180,8 @@ class TransporterSerializer(serializers.ModelSerializer):
             'ifsc_code': {'required': False, 'allow_blank': True},
             'beneficiary_name': {'required': False, 'allow_blank': True},
             'account_no': {'required': False, 'allow_blank': True},
+            'is_active': {'required': False, 'default': True},
+            'active_flag': {'required': False, 'default': True},
         }
 
 
@@ -1190,6 +1198,8 @@ class ExpensePartySerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'gstin': {'required': False, 'allow_null': True},
             'tally_group': {'required': False, 'allow_blank': True},
+            'is_active': {'required': False, 'default': True},
+            'active_flag': {'required': False, 'default': True},
         }
 
 

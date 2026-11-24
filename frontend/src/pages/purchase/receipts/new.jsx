@@ -1863,6 +1863,18 @@ export default function CreateReceiptAdvice() {
       .map((l, i) => ({ line: l, flag: getReceiptLineFlag(l), index: i }))
       .filter(x => x.flag);
     if (flagged.length > 0) {
+      // Require remarks on every flagged line
+      for (const { line, index } of flagged) {
+        if (!(line.remarks || '').trim()) {
+          toast.error(`Line ${index + 1} (${line.item_name || 'item'}): Remarks is required when quantity differs from invoice.`);
+          return;
+        }
+      }
+      // Require at least one attachment when any line has a quantity deviation
+      if (pendingAttachmentsRef.current.length === 0) {
+        toast.error('At least one attachment (photo) is required when there is a quantity deviation.');
+        return;
+      }
       const bullets = flagged.map(({ line, flag, index }) => {
         const label = line.item_name || line._itemName || `Line ${index + 1}`;
         const parts = [];
@@ -3086,7 +3098,7 @@ export default function CreateReceiptAdvice() {
               return (
                 <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                   <div className="font-medium mb-1">
-                    {flagged.length} line{flagged.length > 1 ? 's' : ''} with quantity deviations — will require confirmation on save
+                    {flagged.length} line{flagged.length > 1 ? 's' : ''} with quantity deviations — remarks &amp; attachment required
                   </div>
                   <ul className="text-xs space-y-0.5">
                     {flagged.map((x, i) => {
@@ -3465,7 +3477,7 @@ export default function CreateReceiptAdvice() {
                       </td>
                       )}
                       <td className="px-3 py-2">
-                        <input type="text" value={line.remarks} onChange={(e) => handleReceiptLineChange(index, 'remarks', e.target.value)} className={inputClass} style={{ minWidth: '120px' }} />
+                        <input type="text" value={line.remarks} onChange={(e) => handleReceiptLineChange(index, 'remarks', e.target.value)} placeholder={getReceiptLineFlag(line) ? 'Reason required' : ''} className={`${inputClass} ${getReceiptLineFlag(line) && !(line.remarks || '').trim() ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : ''}`} style={{ minWidth: '120px' }} />
                       </td>
                       <td className="px-3 py-2">
                         <button type="button" onClick={() => removeReceiptLine(index)} disabled={receiptLines.length <= 1} className="text-red-500 hover:text-red-700 disabled:opacity-30">

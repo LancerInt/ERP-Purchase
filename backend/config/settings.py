@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'ai_parser',
     'finance',
     'purchase',
+    'communications',
 ]
 
 MIDDLEWARE = [
