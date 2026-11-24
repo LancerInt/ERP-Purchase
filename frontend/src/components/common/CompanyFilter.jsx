@@ -15,6 +15,7 @@ export default function CompanyFilter({ className = '' }) {
         const active = String(company) === String(c.id);
         return (
           <button key={c.id} type="button"
+            // Toggle: clicking the active company deselects it → all companies.
             onClick={() => setCompany(active ? '' : String(c.id))}
             title={c.legal_name}
             className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition whitespace-nowrap ${active
@@ -24,10 +25,6 @@ export default function CompanyFilter({ className = '' }) {
           </button>
         );
       })}
-      {company && (
-        <button type="button" onClick={() => setCompany('')}
-          className="text-xs text-slate-400 hover:text-slate-600 underline ml-0.5">All</button>
-      )}
     </div>
   );
 }

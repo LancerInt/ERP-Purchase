@@ -24,6 +24,8 @@ export const setGlobalCompany = (id) => {
 // Cached company list so every consumer doesn't refetch.
 let _companiesCache = null;
 let _companiesPromise = null;
+// Apply the SS-Biochem default only once per app session.
+let _defaultApplied = false;
 const loadCompanies = () => {
   if (_companiesCache) return Promise.resolve(_companiesCache);
   if (!_companiesPromise) {
@@ -39,7 +41,16 @@ export function useGlobalCompany() {
   const [companies, setCompanies] = useState(_companiesCache || []);
 
   useEffect(() => {
-    loadCompanies().then(setCompanies);
+    loadCompanies().then((list) => {
+      setCompanies(list);
+      // Default to SS Biochem on first load (no company chosen yet), so every
+      // page opens scoped to SS until the user picks another or toggles it off.
+      if (!getGlobalCompany() && !_defaultApplied) {
+        _defaultApplied = true;
+        const ss = (list || []).find((c) => /biochem/i.test(c.trade_name || c.legal_name || ''));
+        if (ss) setGlobalCompany(String(ss.id));
+      }
+    });
     const onChange = (e) => setCompanyState(e.detail ?? getGlobalCompany());
     const onStorage = (e) => { if (e.key === KEY) setCompanyState(e.newValue || ''); };
     window.addEventListener(EVT, onChange);
