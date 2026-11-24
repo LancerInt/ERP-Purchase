@@ -6081,6 +6081,9 @@ class VendorBillViewSet(BulkImportMixin, viewsets.ModelViewSet):
             'vendor_id': vendor_id,
             'vendor_name': (vend.vendor_name if vend else
                             ('All vendors' if not vendor_id else '')),
+            'company_name': (getattr(vend.company, 'legal_name', '') if (vend and vend.company_id) else ''),
+            'is_msme': bool(getattr(vend, 'is_msme', False)) if vend else False,
+            'msme_category': (getattr(vend, 'msme_category', '') or '') if vend else '',
             'all_vendors': not vendor_id,
             'vendors': len({r['vendor_name'] for r in rows if r['vendor_name']}),
             'opening_balance': str(opening),

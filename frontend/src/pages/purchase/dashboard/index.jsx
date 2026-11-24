@@ -1689,8 +1689,19 @@ function VendorLedgerModal({ vendorId, vendorName, period0, anchor0, from0, to0,
         <div className="flex items-start justify-between gap-3 px-4 sm:px-5 py-3 border-b border-slate-100 flex-wrap">
           <div className="flex items-center gap-2 min-w-0 shrink-0">
             <Wallet size={18} className="text-indigo-600 shrink-0" />
-            <div className="min-w-0">
+            <div className="min-w-0 flex items-center gap-1.5">
               <h2 className="text-base sm:text-lg font-semibold text-slate-800 truncate">{data?.vendor_name || vendorName || 'Vendor'}</h2>
+              {/* Company (SS / UAI) + MSME badges, like the Vendor Details table. */}
+              {data?.company_name && (() => {
+                const short = /biochem/i.test(data.company_name) ? 'SS' : /united\s*agro/i.test(data.company_name) ? 'UAI' : '';
+                if (!short) return null;
+                const cls = short === 'SS' ? 'text-sky-700 bg-sky-50 border-sky-200' : 'text-violet-700 bg-violet-50 border-violet-200';
+                return <span className={`shrink-0 text-[9px] font-bold uppercase tracking-wide rounded px-1 py-0.5 border ${cls}`}>{short}</span>;
+              })()}
+              {data?.is_msme && (
+                <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide rounded px-1 py-0.5 border text-amber-700 bg-amber-50 border-amber-200"
+                  title={`MSME supplier${data.msme_category ? ' · ' + data.msme_category : ''}`}>MSME</span>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
