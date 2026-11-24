@@ -87,14 +87,16 @@ class Command(BaseCommand):
         w(f'  products: {len(prods)}')
 
         # ---- Vendors ----
-        # (name, vendor_type, gstin, msme_category) — msme set => is_msme auto-True
+        # (name, vendor_type, gstin, msme_category) — msme set => is_msme auto-True.
+        # Purchase-focused standalone: all vendors are goods (RM / Packing)
+        # suppliers, so Payment Entries shows only purchase payments (no Expense).
         vendor_defs = [
             ('Asia Crystal Commodity LLP', 'RM', '33AABCA1234A1Z5', ''),
             ('Kumaran Refractories', 'RM', '33AAACK5678B1Z2', 'SMALL'),      # MSME
             ('Intellectual Technocrats', 'PACKING', '33AADCI9012C1Z8', 'MICRO'),  # MSME
             ('Radha Feeds', 'RM', '', ''),
             ('Green Packs India', 'PACKING', '33AABCG3456D1Z1', 'MEDIUM'),   # MSME
-            ('Star Scientific', 'EXPENSES', '', ''),
+            ('Sri Vinayaga Traders', 'RM', '33AADCS7788E1Z4', ''),
         ]
         vendors = []
         for i, (name, vtype, gstin, msme) in enumerate(vendor_defs, start=1):
