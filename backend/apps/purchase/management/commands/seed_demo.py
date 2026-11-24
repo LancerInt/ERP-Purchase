@@ -73,18 +73,22 @@ class Command(BaseCommand):
                 defaults=dict(company=company, transporter_code=f'TPT-DEMO-{i:03d}'))
         w('  transporters: 3')
 
-        # ---- Products ----
-        prods = []
-        for i, (name, ptype) in enumerate([
-            ('Maize', 'GOODS'), ('Soya DOC', 'GOODS'), ('Rice Bran', 'GOODS'),
-            ('HDPE Bags', 'GOODS'), ('Printing Ink', 'GOODS'),
-            ('Machine Spare - Bearing', 'GOODS'),
-        ], start=1):
+        # ---- Products (tagged RM vs PACKING so bill lines match the bill's
+        # category — e.g. an RM bill gets Maize/Soya, a Packing bill gets Bags). ----
+        prods_by_cat = {'RM': [], 'PACKING': []}
+        product_defs = [
+            ('Maize', 'RM'), ('Soya DOC', 'RM'), ('Rice Bran Oil', 'RM'),
+            ('Oil Cake / DOC', 'RM'), ('HDPE Bags', 'PACKING'),
+            ('Printing Ink', 'PACKING'), ('Bag / Liner', 'PACKING'),
+        ]
+        import re as _re
+        for name, pcat in product_defs:
+            slug = _re.sub(r'[^A-Z0-9]', '', name.upper())[:10]
             p, _ = Product.objects.get_or_create(
                 product_name=name,
-                defaults=dict(product_type=ptype, sku_code=f'SKU-DEMO-{i:03d}'))
-            prods.append(p)
-        w(f'  products: {len(prods)}')
+                defaults=dict(product_type='GOODS', sku_code=f'SKU-{slug}'))
+            prods_by_cat[pcat].append(p)
+        w(f'  products: {sum(len(v) for v in prods_by_cat.values())}')
 
         # ---- Vendors ----
         # (name, vendor_type, gstin, msme_category) — msme set => is_msme auto-True.
@@ -150,8 +154,11 @@ class Command(BaseCommand):
                     purchase_category=category,
                     status='APPROVED',
                 )
+                # Pick a product whose kind matches the bill's category, so an RM
+                # bill shows RM items and a Packing bill shows packing items.
+                pool = prods_by_cat.get(category) or prods_by_cat['RM']
                 VendorBillLine.objects.create(
-                    bill=bill, product=random.choice(prods),
+                    bill=bill, product=random.choice(pool),
                     quantity=Decimal(random.randint(10, 500)),
                     rate=Decimal(random.randint(50, 2000)),
                     amount=sub,
