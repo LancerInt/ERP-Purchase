@@ -55,6 +55,9 @@ class Command(BaseCommand):
             defaults=dict(name='United Agro Warehouse', company=company2))
         companies = [company, company2]
         warehouses = {company.id: warehouse, company2.id: wh2}
+        # Turn the TDS engine ON so 194Q computes on every bill (0.1% on the
+        # vendor's FY aggregate above the ₹50L threshold), not just seeded rows.
+        Company.objects.filter(id__in=[company.id, company2.id]).update(tds_engine_enabled=True)
 
         if o['wipe']:
             w('Wiping demo transactions…')

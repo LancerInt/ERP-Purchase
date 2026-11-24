@@ -5337,8 +5337,19 @@ class VendorBillViewSet(BulkImportMixin, viewsets.ModelViewSet):
         # never deletes a bill that has a copy.
         scan_att = PurchaseAttachment.objects.filter(
             module='BILL', record_id=OuterRef('pk'))
+        # Goods-line quantity sum + distinct-UOM count, as correlated subqueries
+        # so the list stays one query. Feed the Bills "Quantity"/"UOM" columns and
+        # the "Appears in → Stock" flag (a bill with goods lines reaches Stock).
+        from django.db.models import Sum, Count, Subquery
+        from .models import VendorBillLine
+        _line_qs = (VendorBillLine.objects.filter(bill_id=OuterRef('pk'), is_active=True,
+                                                  product__isnull=False)
+                    .values('bill_id'))
+        _qty_sub = _line_qs.annotate(s=Sum('quantity')).values('s')
+        _uom_sub = _line_qs.annotate(n=Count('uom', distinct=True)).values('n')
         qs = super().get_queryset().annotate(
-            _scan_confirmed=Exists(scan), _scan_attach=Exists(scan_att))
+            _scan_confirmed=Exists(scan), _scan_attach=Exists(scan_att),
+            _qty=Subquery(_qty_sub), _uom_n=Subquery(_uom_sub))
         # Branch-transfer filter for the Bills page. A "DC/" invoice no is an
         # internal branch-transfer delivery challan, not a purchase.
         #   ?transfers=only    -> just the DC branch transfers
