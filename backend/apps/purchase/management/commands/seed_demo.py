@@ -168,13 +168,16 @@ class Command(BaseCommand):
                 pay_amt = (bill.total_amount * Decimal('0.5')).quantize(Decimal('1.00'))  # partial
             else:
                 continue                               # unpaid
+            bank = random.choice(banks)
             PaymentMade.objects.create(
                 vendor=bill.vendor,
                 payment_date=bill.bill_date + datetime.timedelta(days=random.randint(5, 40)),
                 amount=pay_amt, payment_mode=random.choice(['BANK', 'NEFT', 'RTGS', 'UPI']),
-                reference_no=f'UTR{random.randint(10**9, 10**10)}',
-                bank_name=random.choice(banks).nickname,
-                bank_account=random.choice(banks),
+                # No reference_no / tally_guid: these are ERP-entered payments, so
+                # the Payment Entries page shows Source = ERP (not Tally). A
+                # reference_no is what a bank/Tally import writes.
+                bank_name=bank.nickname,
+                bank_account=bank,
                 bill=bill, status='CONFIRMED',
             )
             # Reflect the payment on the bill so the Amount-Paid tile (which sums
