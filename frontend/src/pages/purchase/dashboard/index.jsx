@@ -1819,6 +1819,8 @@ function VendorLedgerModal({ vendorId, vendorName, period0, anchor0, from0, to0,
                           <th className="text-right px-3 py-2 font-semibold whitespace-nowrap">Billed (Cr)</th>
                           <th className="text-right px-3 py-2 font-semibold whitespace-nowrap">TDS</th>
                           <th className="text-right px-3 py-2 font-semibold whitespace-nowrap">Balance</th>
+                          <th className="text-right px-3 py-2 font-semibold whitespace-nowrap">Due</th>
+                          <th className="text-right px-3 py-2 font-semibold whitespace-nowrap">Overdue (Days)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1835,19 +1837,8 @@ function VendorLedgerModal({ vendorId, vendorName, period0, anchor0, from0, to0,
                                 const link = base && r.ref_id
                                   ? <button onClick={() => navigate(`${base}/${r.ref_id}`, { state: { backTo: backHere() } })} className="text-blue-700 hover:underline font-medium">{r.doc_no || '—'}</button>
                                   : <span className="text-slate-700">{r.doc_no || '—'}</span>;
-                                // Per-bill outstanding / overdue flag (user ask).
-                                if (r.type === 'Bill' && Number(r.outstanding) > 0) {
-                                  const od = overdueDaysOf(r.due_date);
-                                  return (
-                                    <span className="inline-flex items-center gap-1.5">
-                                      {link}
-                                      <span className={`shrink-0 text-[9px] font-semibold rounded px-1 py-0.5 border ${od > 0 ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}
-                                        title={`${fmtINRfull(r.outstanding)} still due${od > 0 ? ` · ${od} day${od > 1 ? 's' : ''} overdue` : ''}`}>
-                                        {fmtINRc(r.outstanding)} due{od > 0 ? ` · ${od}d` : ''}
-                                      </span>
-                                    </span>
-                                  );
-                                }
+                                // Due amount + overdue days now have their own
+                                // columns (see end of row), so Doc No is just the link.
                                 return link;
                               })()}
                             </td>
@@ -1870,6 +1861,24 @@ function VendorLedgerModal({ vendorId, vendorName, period0, anchor0, from0, to0,
                               )}
                             </td>
                             <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap text-slate-800">{bal(r.balance)}</td>
+                            {(() => {
+                              // Per-bill due amount + overdue days, each its own
+                              // column (red when overdue, amber when just due).
+                              const isDue = r.type === 'Bill' && Number(r.outstanding) > 0;
+                              const od = isDue ? overdueDaysOf(r.due_date) : 0;
+                              const tone = od > 0 ? 'text-rose-600' : 'text-amber-600';
+                              return (
+                                <>
+                                  <td className={`px-3 py-2 text-right tabular-nums whitespace-nowrap font-medium ${isDue ? tone : 'text-slate-300'}`}
+                                      title={isDue ? `${fmtINRfull(r.outstanding)} still due` : ''}>
+                                    {isDue ? fmtINRfull(r.outstanding) : '—'}
+                                  </td>
+                                  <td className={`px-3 py-2 text-right tabular-nums whitespace-nowrap font-medium ${od > 0 ? 'text-rose-600' : 'text-slate-300'}`}>
+                                    {od > 0 ? `${od}d` : '—'}
+                                  </td>
+                                </>
+                              );
+                            })()}
                           </tr>
                         ))}
                       </tbody>
