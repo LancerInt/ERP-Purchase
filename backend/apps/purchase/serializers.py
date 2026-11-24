@@ -1541,12 +1541,14 @@ class POLineSerializer(FieldPermissionMixin, serializers.ModelSerializer):
         rl_map, pml_map = self._recv_maps(po_id)
         rl_total = rl_map.get(obj.pk) or 0
         pml_direct = pml_map.get(obj.pk) or 0
-        pml_fb_total = 0
+        # Fallback: receipt rows recorded against this PO by product but without
+        # a po_line FK (both Goods and packing) — see _fb_map.
+        fb_total = 0
         # Resolved lazily: a PO whose lines carry no product_service never pays
-        # for the fallback pair at all, matching the old per-line behaviour.
+        # for the fallback at all, matching the old per-line behaviour.
         if getattr(obj, 'product_service_id', None) and po_id:
-            pml_fb_total = self._fb_map(po_id).get(obj.product_service_id) or 0
-        return float(rl_total) + float(pml_direct) + float(pml_fb_total)
+            fb_total = self._fb_map(po_id).get(obj.product_service_id) or 0
+        return float(rl_total) + float(pml_direct) + float(fb_total)
 
     def _page_po_ids(self):
         """Every PurchaseOrder in THIS response, or None when that is unknown.
@@ -1592,7 +1594,9 @@ class POLineSerializer(FieldPermissionMixin, serializers.ModelSerializer):
         Cached on the serializer context, which DRF shares with the parent, so
         one PO's lines resolve it once however many lines it has.
         """
-        from django.db.models import Q, Sum
+        from django.db.models import Q, Sum, F
+        from django.db.models.functions import Coalesce
+        from .models import received_qty_expr
         store = self._store('_po_line_recv')
         if po_id in store:
             return store[po_id]
@@ -1601,6 +1605,7 @@ class POLineSerializer(FieldPermissionMixin, serializers.ModelSerializer):
         # GROUP BY cannot change any individual total: a ReceiptLine /
         # PackingMaterialLine reaches exactly one po_line, which reaches
         # exactly one PO, so the buckets only get labelled, never merged.
+        # PHYSICAL received — same canonical definition as PO.totals_received.
         ids = self._page_po_ids() or []
         if po_id not in ids:
             ids = list(ids) + [po_id]
@@ -1608,14 +1613,14 @@ class POLineSerializer(FieldPermissionMixin, serializers.ModelSerializer):
         for pid, lid, t in (
             ReceiptLine.objects.filter(live, po_line__po_id__in=ids)
             .values('po_line__po_id', 'po_line_id')
-            .annotate(t=Sum('quantity_received'))
+            .annotate(t=Sum(received_qty_expr()))
             .values_list('po_line__po_id', 'po_line_id', 't')
         ):
             rl_all.setdefault(pid, {})[lid] = t
         for pid, lid, t in (
             PackingMaterialLine.objects.filter(live, po_line__po_id__in=ids)
             .values('po_line__po_id', 'po_line_id')
-            .annotate(t=Sum('quantity'))
+            .annotate(t=Sum(Coalesce(F('net_quantity'), F('quantity'))))
             .values_list('po_line__po_id', 'po_line_id', 't')
         ):
             pml_all.setdefault(pid, {})[lid] = t
@@ -1624,13 +1629,18 @@ class POLineSerializer(FieldPermissionMixin, serializers.ModelSerializer):
         return store[po_id]
 
     def _fb_map(self, po_id):
-        """{packaging_sku_id: qty} for this PO's legacy no-po_line packing rows.
+        """{product/sku_id: PHYSICAL qty} for this PO's no-po_line receipt rows.
 
-        DISTINCT ids are collected before aggregating because the
-        `receipt__linked_pos` M2M join double-counts a receipt linked to more
-        than one PO — exactly the dedupe the per-line version did.
+        Covers BOTH Goods ReceiptLine and packing PackingMaterialLine that were
+        recorded against the PO (via receipt.linked_pos) but never carried a
+        po_line FK — so their received still attributes to the matching PO line
+        by product. DISTINCT row ids are collected before aggregating because
+        the `receipt__linked_pos` M2M double-counts a receipt linked to more
+        than one PO — the same dedupe the per-line version did. Physical qty
+        matches the canonical definition (net when weighed, invoice for
+        debit-note/legacy).
         """
-        from django.db.models import Q, Sum
+        from django.db.models import Q
         store = self._store('_po_line_fb')
         if po_id in store:
             return store[po_id]
@@ -1638,23 +1648,36 @@ class POLineSerializer(FieldPermissionMixin, serializers.ModelSerializer):
         ids = self._page_po_ids() or []
         if po_id not in ids:
             ids = list(ids) + [po_id]
-        # One query for the whole page. The row's own PO comes back alongside
-        # it, which is what keeps the dedupe correct: a receipt linked to two
-        # POs still yields that line once PER PO, exactly as a per-PO query
-        # did, because (po, id) is distinct even though id alone is not.
-        rows = (
-            PackingMaterialLine.objects.filter(
-                live, po_line__isnull=True, receipt__linked_pos__in=ids,
-            )
-            .values_list('receipt__linked_pos', 'id', 'packaging_sku_id', 'quantity')
-            .distinct()
-        )
+        # One query each for the whole page. The row's own PO comes back
+        # alongside it, which is what keeps the dedupe correct: a receipt linked
+        # to two POs still yields that line once PER PO, because (po, id) is
+        # distinct even though id alone is not.
         per_po = {}
-        for pid, _lid, sku, qty in rows:
+        for pid, _lid, sku, qr, nq, dn in (
+            ReceiptLine.objects.filter(
+                live, po_line__isnull=True, receipt__linked_pos__in=ids,
+            ).values_list('receipt__linked_pos', 'id', 'product_id',
+                          'quantity_received', 'net_quantity', 'is_debit_note')
+            .distinct()
+        ):
             if sku is None:
                 continue
-            bucket = per_po.setdefault(pid, {})
-            bucket[sku] = (bucket.get(sku) or 0) + (qty or 0)
+            phys = (Decimal(str(qr or 0)) if dn
+                    else Decimal(str((nq if nq is not None else qr) or 0)))
+            per_po.setdefault(pid, {}).setdefault(sku, Decimal('0'))
+            per_po[pid][sku] += phys
+        for pid, _lid, sku, q, nq in (
+            PackingMaterialLine.objects.filter(
+                live, po_line__isnull=True, receipt__linked_pos__in=ids,
+            ).values_list('receipt__linked_pos', 'id', 'packaging_sku_id',
+                          'quantity', 'net_quantity')
+            .distinct()
+        ):
+            if sku is None:
+                continue
+            phys = Decimal(str((nq if nq is not None else q) or 0))
+            per_po.setdefault(pid, {}).setdefault(sku, Decimal('0'))
+            per_po[pid][sku] += phys
         for pid in ids:
             store[pid] = per_po.get(pid, {})
         return store[po_id]
@@ -1853,12 +1876,14 @@ class PurchaseOrderSerializer(FieldPermissionMixin, serializers.ModelSerializer)
             'warehouse_address',
             'status', 'status_display', 'partial_receipt_flag', 'linked_prs',
             'linked_pr_numbers',
+            'close_reason', 'closed_at',
             'po_lines', 'eta_updates', 'total_order_value', 'total_received',
             'is_fully_received', 'fulfillment_status', 'fulfillment_status_display',
             'email_sent', 'product_names', 'created_at', 'updated_at'
         ]
         read_only_fields = [
-            'id', 'po_no', 'revision_no', 'po_date', 'created_at', 'updated_at'
+            'id', 'po_no', 'revision_no', 'po_date', 'created_at', 'updated_at',
+            'close_reason', 'closed_at',
         ]
         extra_kwargs = {
             'vendor': {'required': False},
@@ -2715,33 +2740,69 @@ class ReceiptAdviceSerializer(FieldPermissionMixin, serializers.ModelSerializer)
         if not receipt_lines_data:
             return data
 
-        # Invoice-driven aggregation — must mirror
-        # PurchaseOrder.get_total_received exactly. Counts invoice qty
-        # (quantity_received) regardless of is_debit_note; physical
-        # shortfalls are tracked separately via Debit Notes.
-        received_expr = Sum('quantity_received')
+        # Over-receipt is BLOCKED (per policy): you cannot receive more against a
+        # PO line than it still owes. Balance = ordered − already-received, where
+        # received is PHYSICAL (received_qty_expr) — the same running back-order
+        # carried across receipts and shown as pending on the next receipt. This
+        # receipt's own lines, when editing, are excluded so a re-save isn't
+        # double-counted. A line with no PO (manual/direct receipt) isn't
+        # balance-checked — there's no order to overrun.
+        from .models import ReceiptLine as _RL, POLine as _POLine, received_qty_expr
+        Z = Decimal('0')
 
+        def _incoming_phys(ld):
+            # Physical qty this line contributes: net when given, else invoice;
+            # a debit-note line settles its invoice qty.
+            qr = ld.get('quantity_received')
+            if qr is None:
+                return None
+            if ld.get('is_debit_note'):
+                return Decimal(str(qr))
+            nq = ld.get('net_quantity')
+            return Decimal(str(nq if nq is not None else qr))
+
+        # Sum this payload's per-po_line physical totals first (several receipt
+        # lines can hit the same PO line), so the check is against the whole
+        # receipt, not line-by-line.
+        this_by_poline = {}
         for line_data in receipt_lines_data:
             qty_received = line_data.get('quantity_received')
-            if qty_received is not None and qty_received <= Decimal('0'):
+            if qty_received is not None and qty_received <= Z:
                 raise serializers.ValidationError(
                     "Quantity received must be greater than 0."
                 )
-
-            # Over-delivery is allowed by policy — vendor production
-            # variance often ships a few extra units and the invoice
-            # covers it. The previous "exceeds remaining" hard-error
-            # blocked that flow; the frontend now surfaces an amber
-            # "over-delivery" hint per line instead. Nothing to check
-            # here beyond the positive-qty rule above.
             po_line = line_data.get('po_line')
-            if po_line and qty_received is not None:
-                pass  # over-delivery permitted
+            pl_id = getattr(po_line, 'id', po_line)
+            phys = _incoming_phys(line_data)
+            if pl_id and phys is not None:
+                this_by_poline[pl_id] = this_by_poline.get(pl_id, Z) + phys
 
-        # Over-delivery is permitted, so the "remaining PO qty" check
-        # that used to run here for lines without a po_line FK has
-        # been dropped. Kept the linked_pos parsing intact because the
-        # FIFO block below still needs it.
+        if this_by_poline:
+            pls = {pl.id: pl for pl in _POLine.objects.filter(
+                pk__in=this_by_poline).select_related('product_service')}
+            prior_qs = _RL.objects.filter(
+                po_line_id__in=this_by_poline, is_active=True)
+            if self.instance is not None:
+                prior_qs = prior_qs.exclude(receipt_id=self.instance.id)
+            already_map = {
+                r['po_line_id']: r['t'] for r in prior_qs
+                .values('po_line_id').annotate(t=Sum(received_qty_expr()))
+            }
+            for pl_id, incoming in this_by_poline.items():
+                pl = pls.get(pl_id)
+                if pl is None:
+                    continue
+                ordered = Decimal(str(pl.quantity_ordered or 0))
+                already = Decimal(str(already_map.get(pl_id) or 0))
+                balance = ordered - already
+                if incoming > balance + Decimal('0.0001'):
+                    prod = getattr(pl.product_service, 'product_name', None) or 'this item'
+                    raise serializers.ValidationError(
+                        f"Only {balance:g} pending on this PO for {prod} "
+                        f"(ordered {ordered:g}, already received {already:g}). "
+                        f"You entered {incoming:g} — you can't receive more than what's pending."
+                    )
+
         linked_pos = data.get('linked_pos', [])
 
         # ── FIFO across POs of the same vendor ────────────────────────

@@ -41,6 +41,47 @@ def _tds_already_in_total(*, total_is_net, tds_withheld, tds_deducted,
     return d_net < abs(total - gross) and d_net <= Decimal('2')
 
 
+# ── Canonical "physical received" definition ─────────────────────────────────
+# A PO's fulfillment closes against what PHYSICALLY arrived, not what the vendor
+# invoiced — so a short delivery (received < invoiced) keeps the PO OPEN for the
+# shortfall, which the next delivery/bill can fulfill. Exception: a line flagged
+# is_debit_note is financially settled (the short qty was debited back), so it
+# counts its invoice qty and closes that slice.
+#
+#   physical = invoice qty (quantity_received)  when is_debit_note
+#            = net_quantity                      when captured (weighed/inspected)
+#            = invoice qty                        as a fallback (legacy/simple rows)
+#
+# This is ONE definition, as an ORM expression, so every balance path (PO totals,
+# per-line received, the receipt total, the over-receipt guard) agrees exactly
+# and cannot drift. Pass the field prefix for related lookups ('' on ReceiptLine,
+# 'receipt_lines__' from a PO, etc.).
+def received_qty_expr(prefix=''):
+    """Case() giving the physical-received quantity for a ReceiptLine."""
+    from django.db.models import Case, When, F, DecimalField
+    from django.db.models.functions import Coalesce
+    qr = f'{prefix}quantity_received'
+    nq = f'{prefix}net_quantity'
+    dn = f'{prefix}is_debit_note'
+    return Case(
+        When(**{dn: True}, then=F(qr)),
+        default=Coalesce(F(nq), F(qr)),
+        output_field=DecimalField(max_digits=18, decimal_places=4),
+    )
+
+
+def received_qty_of(line):
+    """Python twin of received_qty_expr for a single in-memory ReceiptLine.
+
+    Kept beside the expression so the row-at-a-time path (e.g. a freshly built
+    line not yet re-queried) answers identically to the grouped SQL.
+    """
+    if getattr(line, 'is_debit_note', False):
+        return Decimal(str(line.quantity_received or 0))
+    nq = getattr(line, 'net_quantity', None)
+    return Decimal(str((nq if nq is not None else line.quantity_received) or 0))
+
+
 class PurchaseRequest(BaseModel):
     """Main purchase request model."""
 
@@ -1072,6 +1113,18 @@ class PurchaseOrder(BaseModel):
         default=False,
         help_text="Allow partial receipts against this PO"
     )
+    # Short-close: the balance (ordered − physically received) will never arrive
+    # (damaged / cancelled). A user closes the PO early; status→CLOSED, the
+    # reason is kept, and the admins are notified.
+    close_reason = models.TextField(
+        blank=True, default='',
+        help_text="Why the PO was closed short of full receipt"
+    )
+    closed_at = models.DateTimeField(null=True, blank=True)
+    closed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='closed_purchase_orders'
+    )
     linked_prs = models.ManyToManyField(
         PurchaseRequest,
         related_name='purchase_orders'
@@ -1173,20 +1226,25 @@ class PurchaseOrder(BaseModel):
         what the per-PO query did too, and why the row's own PO is selected
         alongside the id: (po, id) is distinct even where id alone is not.
         """
-        from django.db.models import Sum, Q
+        from django.db.models import Sum, Q, F
+        from django.db.models.functions import Coalesce
         ids = list(po_ids)
         if not ids:
             return {}
         live = Q(receipt__is_active=True)
+        # PHYSICAL received (received_qty_expr): net qty when weighed, invoice qty
+        # for debit-note or legacy rows. A short delivery leaves the PO open.
         received = {
             r['po_line__po_id']: r['total']
             for r in ReceiptLine.objects.filter(live, po_line__po_id__in=ids)
-            .values('po_line__po_id').annotate(total=Sum('quantity_received'))
+            .values('po_line__po_id')
+            .annotate(total=Sum(received_qty_expr()))
         }
         packing_direct = {
             r['po_line__po_id']: r['total']
             for r in PackingMaterialLine.objects.filter(live, po_line__po_id__in=ids)
-            .values('po_line__po_id').annotate(total=Sum('quantity'))
+            .values('po_line__po_id')
+            .annotate(total=Sum(Coalesce(F('net_quantity'), F('quantity'))))
         }
         lines_by_po = {}
         for pl in POLine.objects.filter(po_id__in=ids).only(
@@ -1195,19 +1253,37 @@ class PurchaseOrder(BaseModel):
         sku_ids = {pl.product_service_id
                    for pls in lines_by_po.values() for pl in pls
                    if pl.product_service_id}
+        # Fallback for lines NOT tied to a po_line FK (Goods receipt lines +
+        # packing lines), matched by product + the receipt's linked PO. Deduped
+        # on the row id because receipt__linked_pos is an M2M. Mirrors the
+        # grouped physical definition.
         fallback = {}
         if sku_ids:
-            for pid, _lid, sku, qty in (
+            for pid, _lid, sku, qr, nq, dn in (
+                ReceiptLine.objects.filter(
+                    live, po_line__isnull=True, product_id__in=sku_ids,
+                    receipt__linked_pos__in=ids,
+                ).values_list('receipt__linked_pos', 'id', 'product_id',
+                              'quantity_received', 'net_quantity', 'is_debit_note').distinct()
+            ):
+                if sku is None:
+                    continue
+                phys = (Decimal(str(qr or 0)) if dn
+                        else Decimal(str((nq if nq is not None else qr) or 0)))
+                bucket = fallback.setdefault(pid, {})
+                bucket[sku] = (bucket.get(sku) or Decimal('0.00')) + phys
+            for pid, _lid, sku, q, nq in (
                 PackingMaterialLine.objects.filter(
                     live, po_line__isnull=True, packaging_sku_id__in=sku_ids,
                     receipt__linked_pos__in=ids,
                 ).values_list('receipt__linked_pos', 'id',
-                              'packaging_sku_id', 'quantity').distinct()
+                              'packaging_sku_id', 'quantity', 'net_quantity').distinct()
             ):
                 if sku is None:
                     continue
+                phys = Decimal(str((nq if nq is not None else q) or 0))
                 bucket = fallback.setdefault(pid, {})
-                bucket[sku] = (bucket.get(sku) or Decimal('0.00')) + (qty or Decimal('0.00'))
+                bucket[sku] = (bucket.get(sku) or Decimal('0.00')) + phys
         out = {}
         for pid in ids:
             total = ((received.get(pid) or Decimal('0.00'))
@@ -1705,10 +1781,11 @@ class ReceiptAdvice(BaseModel):
         ids = list(receipt_ids)
         if not ids:
             return {}
+        # PHYSICAL received — same canonical definition as PO.totals_received.
         return {
             r['receipt_id']: r['total']
             for r in ReceiptLine.objects.filter(receipt_id__in=ids)
-            .values('receipt_id').annotate(total=models.Sum('quantity_received'))
+            .values('receipt_id').annotate(total=models.Sum(received_qty_expr()))
         }
 
 
@@ -3775,6 +3852,8 @@ class PurchaseAttachment(BaseModel):
         ('GENERAL', _('General')),
         ('TRANSPORT', _('Transport')),
         ('DAMAGE_PROOF', _('Damage Proof')),
+        # A recorded audio clip — e.g. the spoken "reason for change" on a PR.
+        ('VOICE_NOTE', _('Voice Note')),
     )
 
     module = models.CharField(max_length=20, choices=MODULE_CHOICES, db_index=True)

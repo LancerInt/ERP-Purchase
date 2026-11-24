@@ -315,6 +315,28 @@ export default function PurchaseOrderDetail() {
     }
   };
 
+  // Short-close a partially-received PO whose balance will never arrive.
+  const [isClosing, setIsClosing] = useState(false);
+  const handleClosePO = async () => {
+    const reason = await promptText({
+      title: 'Close PO (short of full receipt)',
+      label: 'The remaining quantity will never arrive — why are you closing this PO?',
+      placeholder: 'e.g. Vendor cancelled the balance / goods damaged, won\'t resend',
+      multiline: true, required: true, confirmLabel: 'Close PO', isDangerous: true,
+    });
+    if (reason === null) return;
+    setIsClosing(true);
+    try {
+      await apiClient.post(`/api/purchase/orders/${id}/close/`, { reason });
+      toast.success('PO closed. Admins have been notified.');
+      fetchPO();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to close PO');
+    } finally {
+      setIsClosing(false);
+    }
+  };
+
   // Format helpers
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
@@ -538,6 +560,19 @@ export default function PurchaseOrderDetail() {
               >
                 <PackageCheck size={16} />
                 Receipt
+              </button>
+            )}
+
+            {/* Close PO (short) — only for a partly-received PO whose balance
+                won't arrive. Hidden once fully received / closed / cancelled. */}
+            {canCreateReceipt && (isApproved || isIssued) && !po?.is_fully_received && !isClosed && !isCancelled && Number(po?.total_received) > 0 && !isEditing && (
+              <button
+                onClick={handleClosePO}
+                disabled={isClosing}
+                className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition text-sm font-medium disabled:opacity-50"
+              >
+                <XCircle size={16} />
+                {isClosing ? 'Closing…' : 'Close PO'}
               </button>
             )}
 

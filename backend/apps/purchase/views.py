@@ -2658,6 +2658,69 @@ class PurchaseOrderViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet):
         line.delete()
         return Response(self.get_serializer(po).data)
 
+    @action(detail=True, methods=['post'], url_path='close')
+    def close(self, request, pk=None):
+        """Short-close a PO: the remaining balance will never arrive.
+
+        Used when a vendor under-delivers and won't send the rest (damaged /
+        cancelled). The PO stays open by default so a later delivery can fulfill
+        the shortfall; this is the explicit "we're done, write off the balance"
+        action. Sets status=CLOSED, records who/why/when, and notifies admins.
+        Blocked if already fully received (nothing to close) or already closed.
+        """
+        from rest_framework import status as _status
+        from django.utils import timezone
+        po = self.get_object()
+        if not check_permission(request.user, 'Purchase Order', 'edit'):
+            return Response({'error': 'You do not have permission to close this PO.'},
+                            status=_status.HTTP_403_FORBIDDEN)
+        if (po.status or '').upper() in ('CLOSED', 'CANCELLED'):
+            return Response({'error': f'PO is already {po.status}.'},
+                            status=_status.HTTP_400_BAD_REQUEST)
+        if po.is_fully_received():
+            return Response(
+                {'error': 'PO is already fully received — nothing to close short.'},
+                status=_status.HTTP_400_BAD_REQUEST)
+        reason = (request.data.get('reason') or '').strip()
+        if not reason:
+            return Response({'error': 'A reason is required to close a PO short.'},
+                            status=_status.HTTP_400_BAD_REQUEST)
+
+        ordered = sum((l.quantity_ordered or 0) for l in po.po_lines.all())
+        received = po.get_total_received()
+        pending = ordered - received
+
+        po.status = 'CLOSED'
+        po.close_reason = reason
+        po.closed_at = timezone.now()
+        po.closed_by = request.user if request.user.is_authenticated else None
+        po.save(update_fields=['status', 'close_reason', 'closed_at', 'closed_by', 'updated_at'])
+
+        # Notify admins that a PO was short-closed, with the shortfall.
+        try:
+            from notifications.services import notify_users
+            from django.contrib.auth import get_user_model
+            from django.db.models import Q
+            User = get_user_model()
+            admins = User.objects.filter(is_active=True).filter(
+                Q(is_superuser=True) | Q(is_staff=True)
+            ).distinct()
+            notify_users(
+                list(admins),
+                title=f'PO {po.po_no} closed short',
+                message=(f'{getattr(request.user, "username", "A user")} closed PO {po.po_no} '
+                         f'({po.vendor.vendor_name if po.vendor_id else "?"}) with {pending:g} '
+                         f'of {ordered:g} still pending. Reason: {reason}'),
+                link=f'/purchase/orders/{po.id}',
+                category='purchase',
+                level='warning',
+                actor=request.user if request.user.is_authenticated else None,
+            )
+        except Exception:
+            logger.exception('PO short-close admin notification failed for po=%s', po.id)
+
+        return Response(self.get_serializer(po).data)
+
     @action(detail=False, methods=['get'])
     def open_pos_for_vendor(self, request):
         """Get open POs for a vendor."""
@@ -8208,9 +8271,15 @@ class PurchaseAttachmentViewSet(viewsets.ModelViewSet):
                                 status=status.HTTP_400_BAD_REQUEST)
         return Response({'url': url})
 
-    def _check_pr_editable(self, module, record_id):
+    def _check_pr_editable(self, module, record_id, category=None):
         """For PR module, block attachment changes when PR is not in DRAFT (non-admins)."""
         if module != 'PR' or not record_id:
+            return None
+        # A VOICE_NOTE is a reason-of-record for a change — it is recorded
+        # PRECISELY when a non-draft PR is edited, so it must be allowed through
+        # even though the PR is past DRAFT. (The edit itself is already gated by
+        # the PR edit endpoint; this is only its spoken reason.)
+        if (category or '').upper() == 'VOICE_NOTE':
             return None
         user = self.request.user
         if user.is_superuser:
@@ -8239,7 +8308,7 @@ class PurchaseAttachmentViewSet(viewsets.ModelViewSet):
             raise ValidationError({'file': 'File is required'})
         module = self.request.data.get('module')
         record_id = self.request.data.get('record_id')
-        self._check_pr_editable(module, record_id)
+        self._check_pr_editable(module, record_id, self.request.data.get('category'))
         # Skip duplicate: same module, record, file_name, file_size
         if module and record_id and PurchaseAttachment.objects.filter(
             module=module, record_id=record_id,

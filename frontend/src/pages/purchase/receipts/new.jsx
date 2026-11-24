@@ -1856,39 +1856,44 @@ export default function CreateReceiptAdvice() {
       // surface the deviation so the operator accepts it consciously.
     }
 
-    // Save-time confirmation for any flagged lines (PO over-delivery or
-    // physical-vs-invoice mismatch). Operator sees exactly which lines
-    // and by how much, then clicks Confirm to proceed with the save.
     const flagged = validLines
       .map((l, i) => ({ line: l, flag: getReceiptLineFlag(l), index: i }))
       .filter(x => x.flag);
-    if (flagged.length > 0) {
-      // Require remarks on every flagged line
-      for (const { line, index } of flagged) {
+    // HARD BLOCK: you cannot receive more than a PO line still owes. The
+    // balance (ordered - already received) is all that's pending; entering
+    // more is refused outright, not merely confirmed.
+    const overLines = flagged.filter(x => x.flag.overBy);
+    if (overLines.length > 0) {
+      const { line, flag } = overLines[0];
+      const label = line.item_name || line._itemName || 'this item';
+      const pending = (parseFloat(line.po_quantity) || 0) - (parseFloat(line.already_received) || 0);
+      toast.error(`Only ${pending} ${flag.uom} pending on this PO for ${label} — you can't receive more than that. Reduce the quantity.`);
+      return;  // hard block the save
+    }
+
+    // Physical-vs-invoice mismatch is a confirmable deviation (short/extra count
+    // vs the vendor's invoice is tracked, not blocked) — but it needs a reason
+    // and a photo on the record before it can be saved.
+    const mismatchFlagged = flagged.filter(x => x.flag.mismatchBy);
+    if (mismatchFlagged.length > 0) {
+      // Require remarks on every mismatched line.
+      for (const { line, index } of mismatchFlagged) {
         if (!(line.remarks || '').trim()) {
           toast.error(`Line ${index + 1} (${line.item_name || 'item'}): Remarks is required when quantity differs from invoice.`);
           return;
         }
       }
-      // Require at least one attachment when any line has a quantity deviation
+      // Require at least one attachment when there's a quantity deviation.
       if (pendingAttachmentsRef.current.length === 0) {
         toast.error('At least one attachment (photo) is required when there is a quantity deviation.');
         return;
       }
-      const bullets = flagged.map(({ line, flag, index }) => {
+      const bullets = mismatchFlagged.map(({ line, flag, index }) => {
         const label = line.item_name || line._itemName || `Line ${index + 1}`;
-        const parts = [];
-        if (flag.overBy) parts.push(`over PO by +${flag.overBy} ${flag.uom}`);
-        if (flag.mismatchBy)
-          parts.push(
-            flag.mismatchBy > 0
-              ? `short vs invoice by ${flag.mismatchBy} ${flag.uom}`
-              : `extra vs invoice by ${-flag.mismatchBy} ${flag.uom}`,
-          );
-        return `• ${label} — ${parts.join('; ')}`;
+        return `• ${label} — ${flag.mismatchBy > 0 ? `short vs invoice by ${flag.mismatchBy} ${flag.uom}` : `extra vs invoice by ${-flag.mismatchBy} ${flag.uom}`}`;
       }).join('\n');
       const ok = await confirm({
-        title: `Confirm ${flagged.length} line${flagged.length > 1 ? 's' : ''} with quantity deviations`,
+        title: `Confirm ${mismatchFlagged.length} line${mismatchFlagged.length > 1 ? 's' : ''} with quantity deviations`,
         message: `${bullets}\n\nSave the receipt with these deviations?`,
         confirmLabel: 'Confirm & save',
         isDangerous: false,

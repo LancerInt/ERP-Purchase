@@ -121,6 +121,30 @@ class Command(BaseCommand):
                 n_rl += 1
         w(self.style.SUCCESS(f'Backfilled godown on {n_rl} receipt line(s).'))
 
+        # ── 4b) link receipt lines to their PO line ──────────────────────────
+        # A receipt line must carry its po_line FK for its received qty to count
+        # against the PO balance directly (the serializer has a product-match
+        # fallback, but the FK is the correct, unambiguous link). Match each
+        # bill-less/seeded line to a PO line on the receipt's linked PO by
+        # product. Only fills a blank po_line; never changes an explicit one.
+        n_link = 0
+        for rl in ReceiptLine.objects.filter(
+                po_line__isnull=True, product__isnull=False
+        ).select_related('receipt', 'product').prefetch_related('receipt__linked_pos__po_lines'):
+            match = None
+            for po in rl.receipt.linked_pos.all():
+                for pl in po.po_lines.all():
+                    if pl.product_service_id == rl.product_id:
+                        match = pl
+                        break
+                if match:
+                    break
+            if match:
+                rl.po_line = match
+                rl.save(update_fields=['po_line'])
+                n_link += 1
+        w(self.style.SUCCESS(f'Linked {n_link} receipt line(s) to their PO line.'))
+
         # ── 5) link one bill-less receipt to a matching bill (reference) ──────
         # So a receipt with goods but no bill also shows the green "Bill Raised"
         # button + reach link. Idempotent: skips receipts that already have a
