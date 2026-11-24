@@ -28,6 +28,7 @@ class Command(BaseCommand):
         from purchase.models import (
             VendorBill, VendorBillLine, PaymentMade, VendorCredit,
             PurchaseRequest, PurchaseOrder,
+            ReceiptAdvice, ReceiptLine, LocalFreight,
         )
         from bank.models import BankAccount
         from hr.models import Staff
@@ -49,6 +50,9 @@ class Command(BaseCommand):
             PurchaseOrder.objects.all().delete()
             PurchaseRequest.objects.all().delete()
             PurchaseDebitNote.objects.all().delete()
+            ReceiptLine.objects.all().delete()
+            ReceiptAdvice.objects.all().delete()
+            LocalFreight.objects.all().delete()
 
         today = datetime.date.today()
 
@@ -266,5 +270,41 @@ class Command(BaseCommand):
                 w(self.style.WARNING(f'    PR skipped: {e}'))
                 break
         w(f'  purchase requests: {prn}')
+
+        # ---- Receipts (build Stock) — one receipt per RM/Packing vendor with a
+        # couple of product lines, so the Stock page shows on-hand quantities. ----
+        rc = rl_n = 0
+        for v in vendors[:5]:
+            vtype = (v.vendor_type[0] if isinstance(v.vendor_type, list) and v.vendor_type else 'RM')
+            category = cat_of.get(vtype, 'RM')
+            pool = prods_by_cat.get(category) or prods_by_cat['RM']
+            rdate = today - datetime.timedelta(days=random.randint(5, 90))
+            ra = ReceiptAdvice.objects.create(
+                warehouse=warehouse, vendor=v, receipt_date=rdate,
+                vehicle_number=f'TN-{random.randint(10,99)}-{random.randint(1000,9999)}',
+            )
+            rc += 1
+            for ln_i, prod in enumerate(random.sample(pool, min(2, len(pool))), start=1):
+                ReceiptLine.objects.create(
+                    receipt=ra, product=prod, line_no=ln_i,
+                    quantity_received=Decimal(random.randint(50, 800)),
+                    uom=random.choice(['KG', 'MT', 'BAG']),
+                )
+                rl_n += 1
+        w(f'  receipts: {rc} ({rl_n} lines)')
+
+        # ---- Local freight ----
+        lf = 0
+        for i in range(4):
+            amt = Decimal(random.randint(3000, 25000))
+            LocalFreight.objects.create(
+                company=company,
+                freight_no=f'LF-DEMO-{i+1:04d}',
+                date=today - datetime.timedelta(days=random.randint(5, 80)),
+                lorry_no=f'TN-{random.randint(10,99)}-L-{random.randint(1000,9999)}',
+                freight_amount=amt, amount_pay=amt,
+            )
+            lf += 1
+        w(f'  local freight: {lf}')
 
         w(self.style.SUCCESS('Demo data seeded.'))

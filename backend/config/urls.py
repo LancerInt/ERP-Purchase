@@ -47,6 +47,7 @@ from purchase.category_views import (
 from purchase.report_views import ConsolidatedReportView
 from purchase.tds_summary_views import TdsSummaryView
 from purchase.tds_bill_views import TdsBillsView
+from purchase.stock_views import StockView
 from ai_parser.gst2b_views import Gst2BUploadView, Gst2BListView, Gst2BReportView
 from bank.views import BankAccountViewSet, BankStatementUploadViewSet
 from finance.ledger_views import VendorLedgerEntriesView
@@ -169,6 +170,8 @@ urlpatterns = [
     path('api/purchase/consolidated-report/', ConsolidatedReportView.as_view(), name='purchase-consolidated-report'),
     path('api/purchase/tds-summary/', TdsSummaryView.as_view(), name='tds-summary'),
     path('api/purchase/tds-bills/', TdsBillsView.as_view(), name='tds-bills'),
+    # Stock on-hand (derived from purchase receipts)
+    path('api/purchase/stock/', StockView.as_view(), name='purchase-stock'),
     # GST 2B reconciliation (upload GSTR-2B, match against purchase bills)
     path('api/purchase/gst2b/upload/', Gst2BUploadView.as_view(), name='gst2b-upload'),
     path('api/purchase/gst2b/', Gst2BListView.as_view(), name='gst2b-list'),
