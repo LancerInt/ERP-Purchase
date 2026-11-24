@@ -3438,6 +3438,21 @@ class VendorBill(BaseModel):
                     except (ValueError, IndexError):
                         num = 1
                 self.bill_no = f"{prefix}{num:05d}"
+
+        # Proper linkage: a bill raised against a receipt inherits that receipt's
+        # purchase order when it doesn't already name one. So a bill reached via
+        # PR -> PO -> Receipt -> Bill carries its PO (the "O" reach chip lights,
+        # the chain is traversable) without the caller having to pass it. Only
+        # fills a blank PO; never overrides an explicit one, and takes the
+        # receipt's first linked PO (receipts here link a single PO).
+        if self.receipt_advice_id and not self.purchase_order_id:
+            try:
+                po = self.receipt_advice.linked_pos.first()
+                if po is not None:
+                    self.purchase_order = po
+            except Exception:
+                pass
+
         super().save(*args, **kwargs)
 
     @property

@@ -110,6 +110,27 @@ class SourcingChainTests(TestCase):
         self.assertEqual(self.bill.purchase_order, self.po)
         self.assertEqual(self.bill.receipt_advice, self.ra)
 
+    def test_bill_inherits_po_from_its_receipt(self):
+        # A bill raised on a receipt-of-a-PO, WITHOUT naming the PO itself,
+        # inherits the PO from the receipt on save — so the "O" reach chip
+        # lights and the chain stays traversable.
+        b = VendorBill.objects.create(
+            vendor=self.v1, warehouse=self.wh, receipt_advice=self.ra,
+            vendor_invoice_no='INV-INHERIT', bill_date=TODAY,
+            subtotal=D('1'), total_amount=D('1'), status='OPEN')
+        self.assertEqual(b.purchase_order, self.po)
+
+    def test_explicit_po_is_not_overridden_by_receipt(self):
+        # If the caller sets a PO explicitly, the receipt's PO must not replace it.
+        other = PurchaseOrder.objects.create(
+            po_no='PO-OTHER', vendor=self.v1, company=self.co, warehouse=self.wh,
+            po_date=TODAY, status='CONFIRMED')
+        b = VendorBill.objects.create(
+            vendor=self.v1, warehouse=self.wh, receipt_advice=self.ra,
+            purchase_order=other, vendor_invoice_no='INV-EXPLICIT', bill_date=TODAY,
+            subtotal=D('1'), total_amount=D('1'), status='OPEN')
+        self.assertEqual(b.purchase_order, other)
+
     def test_full_chain_is_traversable_end_to_end(self):
         # PR -> RFQ -> chosen quote's vendor == PO vendor == bill vendor; and the
         # receipt + bill both hang off the same PO.

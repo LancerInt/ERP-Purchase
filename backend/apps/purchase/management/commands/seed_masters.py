@@ -147,6 +147,8 @@ class Command(BaseCommand):
                 warehouse=ra.warehouse, receipt_advice=ra, bill_date=bd,
                 subtotal=subtotal, tax_amount=tax, total_amount=subtotal + tax,
                 status='OPEN', source='MANUAL', purchase_category='RM',
+                # PO inherited from the receipt in VendorBill.save() when the
+                # receipt has one — so a receipt off a PO lights the bill's "O".
             )
             for l in lines:
                 q = l.quantity_received or Decimal('0')

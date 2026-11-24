@@ -146,6 +146,7 @@ const APPEARS_LEGEND = (
     <span><b className="text-slate-600">P</b> Payments</span>
     <span><b className="text-slate-600">L</b> Ledger</span>
     <span><b className="text-slate-600">S</b> Stock</span>
+    <span><b className="text-slate-600">R</b> Receipt</span>
     <span><b className="text-slate-600">O</b> Purchase Order</span>
   </div>
 );
@@ -582,6 +583,7 @@ export default function VendorBillList({ expenseOnly = false } = {}) {
           ['P', 'payments', 'Payments', 'bg-emerald-50 text-emerald-700 border-emerald-200'],
           ['L', 'ledger', 'Vendor Ledger', 'bg-sky-50 text-sky-700 border-sky-200'],
           ['S', 'stock', 'Stock', 'bg-amber-50 text-amber-700 border-amber-200'],
+          ['R', 'receipt', 'Receipt (GRN)', 'bg-rose-50 text-rose-700 border-rose-200'],
           ['O', 'po', 'Purchase Order', 'bg-teal-50 text-teal-700 border-teal-200'],
         ];
         return (

@@ -4655,6 +4655,7 @@ class VendorBillListSerializer(FieldPermissionMixin, serializers.ModelSerializer
             'ledger': live,
             'stock': live and has_goods,
             'po': bool(obj.purchase_order_id),
+            'receipt': bool(obj.receipt_advice_id),
         }
 
     def get_rate(self, obj):
