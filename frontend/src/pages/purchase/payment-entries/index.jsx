@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import { ChevronDown, Layers, Check } from 'lucide-react';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
@@ -78,7 +79,9 @@ export default function PaymentEntries() {
   // Filters live in the URL so opening a payment and pressing Back restores the
   // same filtered view instead of resetting to "All".
   const [sp, setSp] = useSearchParams();
-  const [company, setCompany] = useState(sp.get('company') || '');
+  const { company: globalCompany } = useGlobalCompany();
+  const [company, setCompany] = useState(sp.get('company') || globalCompany || '');
+  useEffect(() => { setCompany(globalCompany || ''); }, [globalCompany]);
   const [q, setQ] = useState(sp.get('q') || '');
   const [kind, setKind] = useState(sp.get('kind') || '');   // '' all | 'bill' | 'onaccount' | 'transfer'
   // Category filter is MULTI-select: a set of canonical keys (RM, EXPENSE, …).
@@ -307,7 +310,8 @@ export default function PaymentEntries() {
 
   return (
     <MainLayout>
-      <PageHeader title="Payment Entries" subtitle="Every vendor payment recorded — a plain list of the entries" />
+      <PageHeader compact title="Payment Entries"
+        breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Payment Entries' }]} />
 
       {/* Metric strip — like the Bills page summary band. */}
       <div className="mb-3 flex items-stretch gap-2 rounded-lg border border-slate-200 bg-white py-2">

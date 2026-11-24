@@ -96,6 +96,22 @@ export const NAV_SECTIONS = [
       // 'Expense Reconcile' removed from the menu (route kept so old links don't 404).
       // Standalone (no Tally): Email Bill Inbox, Mappings removed.
       { name: 'Payment Entries', path: '/purchase/payment-entries', module: 'Payment Entries', icon: CreditCard },
+      { name: 'Stock', path: '/purchase/stock', module: 'Stock', icon: Box },
+      { name: 'Reports', path: '/purchase/reports', module: 'Consolidated Report', icon: BarChart3 },
+    ],
+  },
+  {
+    // Freight — inward (material coming in) + local freight, owned by the
+    // purchase/logistics side. Uses the existing freight pages.
+    id: 'freight',
+    label: 'FREIGHT',
+    tabLabel: 'Freight',
+    groupIcon: Truck,
+    items: [
+      // One tabbed Freight page (Inward / Local tabs, like Bills) + Payments + Analytics.
+      { name: 'Freight', path: '/freight/inward', module: 'Freight Advice', icon: Truck },
+      { name: 'Freight Payments', path: '/freight/payments', module: 'Freight Payment', icon: CreditCard },
+      { name: 'Analytics', path: '/freight/dashboard', module: 'Freight Analytics', icon: BarChart3 },
     ],
   },
   {
@@ -323,7 +339,7 @@ export const NAV_SECTIONS = [
 // Masters, and HR Staff. Hide every other module from the sidebar so the
 // nav matches what actually has a backend here. Mutate in place so the
 // SECTION_BY_ID map and all helpers below see the trimmed list.
-const STANDALONE_SECTION_IDS = ['sourcing', 'purchase', 'finance', 'tax', 'import_data', 'masters', 'hr', 'admin'];
+const STANDALONE_SECTION_IDS = ['sourcing', 'purchase', 'freight', 'finance', 'tax', 'import_data', 'masters', 'hr', 'admin'];
 NAV_SECTIONS.splice(
   0,
   NAV_SECTIONS.length,

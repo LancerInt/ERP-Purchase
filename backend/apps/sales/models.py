@@ -41,6 +41,7 @@ class DispatchChallan(BaseModel):
 
 class DebitNote(BaseModel):
     """Stub: purchase debit/credit notes live here in the full ERP."""
+    note_no = models.CharField(max_length=50, blank=True, default='')
     note_type = models.CharField(max_length=20, blank=True, default='')
     side = models.CharField(max_length=20, blank=True, default='')
     amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)

@@ -266,7 +266,7 @@ export default function QuoteResponseList() {
         compact
         title="Quote Responses"
         subtitle="RFQ-wise summary of vendor quote responses"
-        breadcrumbs={[{ label: 'Masters', href: '/masters' }, { label: 'Quote Responses' }]}
+        breadcrumbs={[{ label: 'Sourcing' }, { label: 'Quotes' }]}
         actions={{
           onFilter: () => setShowFilters(!showFilters),
           ...(canCreate('Quote')

@@ -14,6 +14,7 @@ import { CTRL_H, CTRL_FIELD } from '@/components/common/controls';
  * vendors by PO amount, and a per-company rollup.
  */
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   TrendingUp, TrendingDown, Minus, Calendar,
@@ -1688,8 +1689,19 @@ function VendorLedgerModal({ vendorId, vendorName, period0, anchor0, from0, to0,
         <div className="flex items-start justify-between gap-3 px-4 sm:px-5 py-3 border-b border-slate-100 flex-wrap">
           <div className="flex items-center gap-2 min-w-0 shrink-0">
             <Wallet size={18} className="text-indigo-600 shrink-0" />
-            <div className="min-w-0">
+            <div className="min-w-0 flex items-center gap-1.5">
               <h2 className="text-base sm:text-lg font-semibold text-slate-800 truncate">{data?.vendor_name || vendorName || 'Vendor'}</h2>
+              {/* Company (SS / UAI) + MSME badges, like the Vendor Details table. */}
+              {data?.company_name && (() => {
+                const short = /biochem/i.test(data.company_name) ? 'SS' : /united\s*agro/i.test(data.company_name) ? 'UAI' : '';
+                if (!short) return null;
+                const cls = short === 'SS' ? 'text-sky-700 bg-sky-50 border-sky-200' : 'text-violet-700 bg-violet-50 border-violet-200';
+                return <span className={`shrink-0 text-[9px] font-bold uppercase tracking-wide rounded px-1 py-0.5 border ${cls}`}>{short}</span>;
+              })()}
+              {data?.is_msme && (
+                <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide rounded px-1 py-0.5 border text-amber-700 bg-amber-50 border-amber-200"
+                  title={`MSME supplier${data.msme_category ? ' · ' + data.msme_category : ''}`}>MSME</span>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -1819,6 +1831,8 @@ function VendorLedgerModal({ vendorId, vendorName, period0, anchor0, from0, to0,
                           <th className="text-right px-3 py-2 font-semibold whitespace-nowrap">Billed (Cr)</th>
                           <th className="text-right px-3 py-2 font-semibold whitespace-nowrap">TDS</th>
                           <th className="text-right px-3 py-2 font-semibold whitespace-nowrap">Balance</th>
+                          <th className="text-right px-3 py-2 font-semibold whitespace-nowrap">Due</th>
+                          <th className="text-right px-3 py-2 font-semibold whitespace-nowrap">Overdue (Days)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1835,19 +1849,8 @@ function VendorLedgerModal({ vendorId, vendorName, period0, anchor0, from0, to0,
                                 const link = base && r.ref_id
                                   ? <button onClick={() => navigate(`${base}/${r.ref_id}`, { state: { backTo: backHere() } })} className="text-blue-700 hover:underline font-medium">{r.doc_no || '—'}</button>
                                   : <span className="text-slate-700">{r.doc_no || '—'}</span>;
-                                // Per-bill outstanding / overdue flag (user ask).
-                                if (r.type === 'Bill' && Number(r.outstanding) > 0) {
-                                  const od = overdueDaysOf(r.due_date);
-                                  return (
-                                    <span className="inline-flex items-center gap-1.5">
-                                      {link}
-                                      <span className={`shrink-0 text-[9px] font-semibold rounded px-1 py-0.5 border ${od > 0 ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}
-                                        title={`${fmtINRfull(r.outstanding)} still due${od > 0 ? ` · ${od} day${od > 1 ? 's' : ''} overdue` : ''}`}>
-                                        {fmtINRc(r.outstanding)} due{od > 0 ? ` · ${od}d` : ''}
-                                      </span>
-                                    </span>
-                                  );
-                                }
+                                // Due amount + overdue days now have their own
+                                // columns (see end of row), so Doc No is just the link.
                                 return link;
                               })()}
                             </td>
@@ -1870,6 +1873,24 @@ function VendorLedgerModal({ vendorId, vendorName, period0, anchor0, from0, to0,
                               )}
                             </td>
                             <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap text-slate-800">{bal(r.balance)}</td>
+                            {(() => {
+                              // Per-bill due amount + overdue days, each its own
+                              // column (red when overdue, amber when just due).
+                              const isDue = r.type === 'Bill' && Number(r.outstanding) > 0;
+                              const od = isDue ? overdueDaysOf(r.due_date) : 0;
+                              const tone = od > 0 ? 'text-rose-600' : 'text-amber-600';
+                              return (
+                                <>
+                                  <td className={`px-3 py-2 text-right tabular-nums whitespace-nowrap font-medium ${isDue ? tone : 'text-slate-300'}`}
+                                      title={isDue ? `${fmtINRfull(r.outstanding)} still due` : ''}>
+                                    {isDue ? fmtINRfull(r.outstanding) : '—'}
+                                  </td>
+                                  <td className={`px-3 py-2 text-right tabular-nums whitespace-nowrap font-medium ${od > 0 ? 'text-rose-600' : 'text-slate-300'}`}>
+                                    {od > 0 ? `${od}d` : '—'}
+                                  </td>
+                                </>
+                              );
+                            })()}
                           </tr>
                         ))}
                       </tbody>
@@ -3105,7 +3126,12 @@ export default function PurchaseDashboard() {
   const period = searchParams.get('period') || 'month';
   const customFrom = searchParams.get('from') || todayISO();
   const customTo = searchParams.get('to') || todayISO();
-  const companyId = searchParams.get('company') || '';
+  // Company is driven ONLY by the GLOBAL sticky filter (header chips). Empty =
+  // All companies. We ignore any stale ?company= URL param for scoping so that
+  // toggling a chip OFF ("All") actually shows all, instead of falling back to
+  // the old URL value.
+  const { company: globalCompany } = useGlobalCompany();
+  const companyId = globalCompany || '';
   const warehouseId = searchParams.get('warehouse') || '';
   const vendorId = searchParams.get('vendor') || '';
   const productId = searchParams.get('product') || '';
@@ -3650,13 +3676,10 @@ export default function PurchaseDashboard() {
         <PageHeader
           compact
           title="Purchase Analytics"
-          breadcrumbs={[{ label: 'Purchase', href: '/purchase/requests' }, { label: 'Analytics' }]}
+          breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Analytics' }]}
           actions={{
-            right: (
-              <div className="flex items-center gap-2">
-                {companyButtons}
-              </div>
-            ),
+            // Company chips now come from the global header filter (CompanyFilter
+            // in PageHeader) — no per-page duplicate here.
             onPrint: () => window.print(),
           }}
         />
@@ -4014,13 +4037,18 @@ export default function PurchaseDashboard() {
                               <span className="truncate">{v.vendor_name}</span>
                               {/* Company as a coloured pill (SS / UAI) next to the
                                   name, matching Sales — not a line underneath.
-                                  Shown only when both companies are in view. */}
-                              {!companyId && v.company_name && (() => {
+                                  Always shown (SS / UAI). */}
+                              {v.company_name && (() => {
                                 const short = /biochem/i.test(v.company_name) ? 'SS' : /united\s*agro/i.test(v.company_name) ? 'UAI' : '';
                                 if (!short) return null;
                                 const cls = short === 'SS' ? 'text-sky-700 bg-sky-50 border-sky-200' : 'text-violet-700 bg-violet-50 border-violet-200';
                                 return <span className={`shrink-0 text-[9px] font-bold uppercase tracking-wide rounded px-1 py-0.5 border ${cls}`}>{short}</span>;
                               })()}
+                              {/* MSME supplier flag — §43B(h) 15/45-day payment rule. */}
+                              {v.is_msme && (
+                                <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide rounded px-1 py-0.5 border text-amber-700 bg-amber-50 border-amber-200"
+                                  title={`MSME supplier${v.msme_category ? ' · ' + v.msme_category : ''} (§43B(h) 15/45-day payment rule)`}>MSME</span>
+                              )}
                             </span>
                           </td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-slate-800 whitespace-nowrap">{fmtINRfull(v.billed)}</td>

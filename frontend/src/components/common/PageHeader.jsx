@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Download, Filter, Settings2, Upload, Printer, ChevronLeft } from 'lucide-react';
 import BackToModule from './BackToModule';
 import { Button } from '../ui';
+import CompanyFilter from './CompanyFilter';
 
 export default function PageHeader({
   title,
@@ -24,6 +25,9 @@ export default function PageHeader({
 
   const actionsEl = (
     <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-3 shrink-0 max-w-full">
+      {/* Global company filter — sticks across every page/tab (only shows
+          when there is more than one company). */}
+      <CompanyFilter />
       {/* Page-supplied control rendered inline with the title (e.g. a
           status pill or an Approve button) — keeps it at the top
           instead of eating its own row below the header. */}

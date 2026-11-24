@@ -129,7 +129,7 @@ export default function Gst2B() {
         compact
         title="GST 2B Reconciliation"
         subtitle="Upload the government's GSTR-2A / 2B and check it against our purchase bills. Read-only — nothing is created or filed."
-        breadcrumbs={[{ label: 'Purchase' }, { label: 'GST 2A/2B' }]}
+        breadcrumbs={[{ label: 'Tax / Compliance' }, { label: 'GST 2B Match' }]}
       />
 
       {/* Top tabs: 2B / 2A */}

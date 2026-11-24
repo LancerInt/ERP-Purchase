@@ -64,9 +64,10 @@ export default function QuoteEvaluationPage() {
   return (
     <MainLayout>
       <PageHeader
+        compact
         title="Quote Evaluations"
         subtitle={activeTab === 'list' ? 'View and manage all evaluations' : 'Compare vendor quotes and select the best offer'}
-        breadcrumbs={[{ label: 'Evaluations' }]}
+        breadcrumbs={[{ label: 'Sourcing' }, { label: 'Evaluations' }]}
         actions={{
           ...(canCreate('Quote Evaluation')
             ? { createLink: '/purchase/evaluations/new', createLabel: 'New Evaluation' }

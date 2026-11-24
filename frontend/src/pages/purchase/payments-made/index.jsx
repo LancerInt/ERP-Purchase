@@ -237,7 +237,7 @@ export default function PaymentsMadeList() {
         compact
         title="Payments Made"
         subtitle="Track payments made to vendors"
-        breadcrumbs={[{ label: 'Payments Made' }]}
+        breadcrumbs={[{ label: 'Finance' }, { label: 'Payments Made' }]}
         actions={{
           // Standalone (no Tally): Overview, Reconcile from Tally, Upload Bank
           // Statement, the Tally revert, and the Filter toggle removed.

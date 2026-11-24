@@ -382,7 +382,7 @@ export default function ReceiptAdviceList() {
         compact
         title="Receipt Advice"
         subtitle="Manage goods receipt against purchase orders"
-        breadcrumbs={[{ label: 'Masters', href: '/masters' }, { label: 'Receipt Advice' }]}
+        breadcrumbs={[{ label: 'Sourcing' }, { label: 'Receipts' }]}
         actions={{
           onFilter: () => setShowFilters(!showFilters),
           ...(canCreateReceipt ? { createLink: '/purchase/receipts/new', createLabel: 'New Receipt' } : {}),

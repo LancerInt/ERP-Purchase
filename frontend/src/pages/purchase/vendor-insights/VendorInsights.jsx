@@ -36,6 +36,7 @@ import {
 import { PeriodNavigator, usePeriodFilter, fyTokenFor, todayISO } from '@/components/common/PeriodNavigator';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
+import { useGlobalCompany } from '../../../hooks/useGlobalCompany.js';
 import apiClient from '../../../utils/api.js';
 import useLookup from '../../../hooks/useLookup.js';
 import { usePurchaseFilter } from '../components/purchaseFilter.js';
@@ -854,7 +855,9 @@ export default function VendorInsights() {
   // is still applied here, and Back returns you there still filtered. The param
   // names are shared by all three pages -- see components/purchaseFilter.js.
   const f = usePurchaseFilter({ period: 'fy' });
-  const company = f.get('company');
+  // Company comes from the GLOBAL sticky filter (header chips). No per-page chips.
+  const { company: globalCompany } = useGlobalCompany();
+  const company = globalCompany || '';
   const setCompany = (v) => f.setFilter({ company: v, vendor: '' });
   // The vendor being examined IS the shared `vendor` filter, so picking one on
   // Analytics opens this page already on that vendor.
@@ -930,11 +933,12 @@ export default function VendorInsights() {
   return (
     <MainLayout>
       <PageHeader
+        compact
         title="Vendor Insights"
         subtitle="360° view of a vendor — purchases, payables & payment history"
         icon={Sparkles}
         breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Vendor Insights' }]}
-        actions={{ right: companyChips }}
+        /* company chips now come from the global header filter */
         onBack={id ? () => setIdKeepingScroll('') : undefined}
       />
 
