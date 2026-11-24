@@ -94,6 +94,7 @@ class Command(BaseCommand):
         # (name, vendor_type, gstin, msme_category) — msme set => is_msme auto-True.
         # Purchase-focused standalone: all vendors are goods (RM / Packing)
         # suppliers, so Payment Entries shows only purchase payments (no Expense).
+        # pan (4th item) given to the TDS vendor so the 194Q engine can act.
         vendor_defs = [
             ('Asia Crystal Commodity LLP', 'RM', '33AABCA1234A1Z5', ''),
             ('Kumaran Refractories', 'RM', '33AAACK5678B1Z2', 'SMALL'),      # MSME
@@ -136,21 +137,40 @@ class Command(BaseCommand):
         # / Expenses) instead of everything landing in "Unclassified".
         cat_of = {'RM': 'RM', 'PACKING': 'PACKING', 'EXPENSES': 'EXPENSES',
                   'FREIGHT': 'FREIGHT', 'MACHINERY': 'MACHINERY'}
+        # One vendor has TDS deducted (194Q — 0.1% on goods purchases) so the
+        # TDS column / TDS Summary page show real data. 194Q needs a PAN and
+        # FY billing above ₹50L, so give this vendor both.
+        tds_vendor = vendors[0]  # Asia Crystal Commodity LLP
+        if not (tds_vendor.pan or '').strip():
+            tds_vendor.pan = 'AABCA1234A'
+            tds_vendor.save(update_fields=['pan'])
         bills = []
         n = 0
         for v in vendors:
             vtype = (v.vendor_type[0] if isinstance(v.vendor_type, list) and v.vendor_type else 'RM')
             category = cat_of.get(vtype, 'RM')
-            for k in range(random.randint(2, 4)):
+            # The TDS vendor gets more + bigger bills so FY billing crosses the
+            # ₹50L 194Q threshold and the TDS Summary page shows a real figure.
+            bill_count = 6 if v == tds_vendor else random.randint(2, 4)
+            for k in range(bill_count):
                 bdate = today - datetime.timedelta(days=random.randint(5, 120))
-                sub = Decimal(random.randint(20000, 500000))
+                if v == tds_vendor:
+                    sub = Decimal(random.randint(900000, 1500000))   # ₹9–15L each
+                else:
+                    sub = Decimal(random.randint(20000, 500000))
                 tax = (sub * Decimal('0.18')).quantize(Decimal('1.00'))
                 total = sub + tax
+                # 194Q TDS @ 0.1% of taxable, deducted for the TDS vendor only.
+                tds_amt = (sub * Decimal('0.001')).quantize(Decimal('1.00')) if v == tds_vendor else Decimal('0')
                 bill = VendorBill.objects.create(
                     vendor=v, warehouse=warehouse,
                     vendor_invoice_no=f'INV-{random.randint(1000,9999)}',
                     bill_date=bdate, due_date=bdate + datetime.timedelta(days=30),
                     subtotal=sub, tax_amount=tax, total_amount=total,
+                    tds_amount=tds_amt,
+                    computed_tds_amount=tds_amt if tds_amt else None,
+                    computed_tds_section='194Q' if tds_amt else '',
+                    tds_status='OK' if tds_amt else '',
                     purchase_category=category,
                     status='APPROVED',
                 )
