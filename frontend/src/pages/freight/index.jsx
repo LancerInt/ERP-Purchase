@@ -631,6 +631,7 @@ export default function UnifiedFreightList() {
       )}
 
       <PageHeader
+        compact
         title={lockedDirection === 'Sales' ? 'Outward Freight' : 'Inward Freight'}
         subtitle={lockedDirection === 'Sales'
           ? 'Outbound freight from warehouse to customer'
@@ -715,109 +716,13 @@ export default function UnifiedFreightList() {
           <CustomDatePicker value={dateFrom} onChange={e => { setDateFrom(e.target.value); setDatePreset('custom'); }} className={`${CTRL_FIELD} max-w-[150px] shrink-0`} placeholder="From" />
           <span className="text-slate-400 text-xs shrink-0">→</span>
           <CustomDatePicker value={dateTo} onChange={e => { setDateTo(e.target.value); setDatePreset('custom'); }} className={`${CTRL_FIELD} max-w-[150px] shrink-0`} placeholder="To" />
-          {/* Freight source split — In-invoice vs Separate slip. Inward page only. */}
-          {lockedDirection === 'Purchase' && (
-            <div className={`${CTRL_SEG} shrink-0`}>
-              {[
-                { k: 'all', label: 'All', dot: '', n: summary.invCount + summary.sepCount },
-                { k: 'INVOICE_INCLUDED', label: 'In-invoice', dot: 'bg-indigo-500', n: summary.invCount },
-                { k: 'SEPARATE_SLIP', label: 'Separate slip', dot: 'bg-teal-500', n: summary.sepCount },
-              ].map((o, i) => (
-                <button key={o.k} type="button" onClick={() => setSourceFilter(o.k)}
-                  className={`${CTRL_SEG_ITEM(sourceFilter === o.k, i === 0)} inline-flex items-center gap-1.5`}>
-                  {o.dot && <span className={`w-2 h-2 rounded-sm ${o.dot}`} />}{o.label}
-                  <span className={`text-[11px] ${sourceFilter === o.k ? 'text-white/80' : 'text-slate-400'}`}>{o.n}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          {/* In-invoice / Separate-slip chips removed to match the Bills page. */}
           {/* Search — fills the rest of the row */}
           <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search freight no, vendor, customer, vehicle…"
             className={`${CTRL_FIELD} flex-1 min-w-[160px]`} />
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-3 sm:mb-6">
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-500 uppercase font-medium">Total Records</p>
-              <p className="text-xl font-bold text-slate-900 mt-1">{summary.total}</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
-              <Truck size={20} className="text-slate-600" />
-            </div>
-          </div>
-          {/* Hide the Purchase | Sales split on the dedicated pages — the
-              entire list is already scoped to one direction, so showing
-              the breakdown is noisy. The unified /freight view keeps it. */}
-          {!lockedDirection && (
-            <p className="text-xs text-slate-400 mt-2">
-              <span className="text-blue-600">{summary.purchaseCount} Purchase</span> | <span className="text-emerald-600">{summary.salesCount} Sales</span>
-            </p>
-          )}
-        </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-500 uppercase font-medium">Total Freight Value</p>
-              <p className="text-xl font-bold text-slate-900 mt-1">{fmt(summary.totalAmount)}</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-              <IndianRupee size={20} className="text-blue-600" />
-            </div>
-          </div>
-          {lockedDirection === 'Purchase' && (
-            <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-indigo-500" /><span className="text-slate-500">In-invoice <span className="text-slate-400">({summary.invCount})</span></span></span>
-                <span className="font-semibold tabular-nums text-slate-700">{fmt(summary.invValue)}</span>
-              </div>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-teal-500" /><span className="text-slate-500">Separate slip <span className="text-slate-400">({summary.sepCount})</span></span></span>
-                <span className="font-semibold tabular-nums text-slate-700">{fmt(summary.sepValue)}</span>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-500 uppercase font-medium">
-                Total Paid ({summary.paidDirection === 'Purchase' ? 'Purchase' : 'Sales'})
-              </p>
-              <p className="text-xl font-bold text-emerald-700 mt-1">{fmt(summary.totalPaid)}</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-              <CheckCircle size={20} className="text-emerald-600" />
-            </div>
-          </div>
-          {lockedDirection === 'Purchase' && (
-            <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-indigo-500" /><span className="text-slate-500">In-invoice</span></span>
-                <span className="font-semibold tabular-nums text-slate-700">{fmt(summary.invPaid)}</span>
-              </div>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-teal-500" /><span className="text-slate-500">Separate slip</span></span>
-                <span className="font-semibold tabular-nums text-slate-700">{fmt(summary.sepPaid)}</span>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-500 uppercase font-medium">Pending / Active</p>
-              <p className="text-xl font-bold text-amber-700 mt-1">{summary.pendingCount}</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
-              <Clock size={20} className="text-amber-600" />
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Filters — only render when the user opens them via the
           header Filters button. Stacks 2-per-row on phones, tight
