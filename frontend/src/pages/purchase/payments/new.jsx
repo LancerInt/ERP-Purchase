@@ -107,9 +107,9 @@ export default function CreateVendorPaymentAdvice() {
     }
   };
 
-  const inputClass = "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
+  const inputClass = "w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
   const readonlyClass = `${inputClass} bg-slate-50 cursor-not-allowed`;
-  const labelClass = "block text-sm font-medium text-slate-700 mb-1";
+  const labelClass = "block text-xs font-semibold text-slate-700 mb-0.5";
 
   return (
     <MainLayout>
@@ -121,12 +121,12 @@ export default function CreateVendorPaymentAdvice() {
           { label: 'Create Vendor Payment Advice' },
         ]}
       />
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
-        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           {/* Section 1: Bill Details */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Bill Details</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Bill Details</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
               <div>
                 <label className={labelClass}>Receipt Advice <span className="text-red-500">*</span></label>
                 <CustomSelect name="receipt_advice" value={formData.receipt_advice} onChange={handleReceiptChange} required className={inputClass}>
@@ -180,9 +180,9 @@ export default function CreateVendorPaymentAdvice() {
           {/* Section 2: Linked References (auto-filled) */}
           {receiptData && (
             <div>
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Linked References</h3>
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Linked References</h3>
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-3 gap-y-2 text-sm">
                   <div>
                     <span className="text-blue-600 font-medium">PO Numbers:</span>
                     <span className="ml-1">{(receiptData.linked_po_numbers || []).join(', ') || '-'}</span>
@@ -207,7 +207,7 @@ export default function CreateVendorPaymentAdvice() {
           {/* Section 3: Product Line Items from Receipt */}
           {receiptData && (receiptData.receipt_lines || []).length > 0 && (
             <div>
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Product Line Items (from Receipt)</h3>
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Product Line Items (from Receipt)</h3>
               <div className="overflow-x-auto ios-scroll">
                 <table className="w-full text-sm">
                   <thead>
@@ -242,8 +242,8 @@ export default function CreateVendorPaymentAdvice() {
 
           {/* Section 4: Amount Details */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Amount Details</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Amount Details</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
               <div>
                 <label className={labelClass}>Total Invoice Amount <span className="text-red-500">*</span></label>
                 <input type="number" step="0.01" name="amount" value={formData.amount} onChange={handleChange} required className={inputClass} placeholder="0.00" />
@@ -282,8 +282,8 @@ export default function CreateVendorPaymentAdvice() {
 
           {/* Section 5: Payment Information */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Payment Information</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Payment Information</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
               <div>
                 <label className={labelClass}>Payment Reference No</label>
                 <input type="text" name="payment_reference" value={formData.payment_reference} onChange={handleChange} className={inputClass} placeholder="UTR / Reference number" />
@@ -301,9 +301,9 @@ export default function CreateVendorPaymentAdvice() {
                 <input type="text" name="transaction_id" value={formData.transaction_id} onChange={handleChange} className={inputClass} placeholder="Transaction ID" />
               </div>
             </div>
-            <div className="mt-4">
+            <div className="mt-3">
               <label className={labelClass}>Remarks</label>
-              <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} className={inputClass} placeholder="Additional notes..." />
+              <textarea name="notes" value={formData.notes} onChange={handleChange} rows={2} className={inputClass} placeholder="Additional notes..." />
             </div>
           </div>
 

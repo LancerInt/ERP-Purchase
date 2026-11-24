@@ -256,7 +256,7 @@ export default function CompanyDetail() {
     }).finally(() => setLoading(false));
   }, [id, dateFrom, dateTo]);
 
-  const goBack = useCallback(() => navigate('/sales/company-360'), [navigate]);
+  const goBack = useCallback(() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/sales/company-360'), [navigate]);
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') goBack(); };
     window.addEventListener('keydown', onKey);

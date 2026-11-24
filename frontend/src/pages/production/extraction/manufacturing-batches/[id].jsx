@@ -180,7 +180,7 @@ export default function ManufacturingBatchDetail() {
                 overlap the Back button. Ordinary padding on sm+. */}
             <div className="mt-4 mb-4 pb-24 sm:pb-0 flex gap-3">
               <button
-                onClick={() => navigate('/production/extraction/manufacturing-batches')}
+                onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/production/extraction/manufacturing-batches')}
                 className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
               >
                 Back to list

@@ -329,7 +329,7 @@ export default function CreateQuoteResponse() {
   const { isHidden: isLineHidden, isReadOnly: isLineRO } = useFieldPermissions('Quote Line');
   // Base input styling shared by the gated header fields; the locked
   // variant is applied when a field is READ_ONLY for the role.
-  const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500';
+  const inputClass = 'w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500';
   const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
   const { options: rfqOptions, raw: rfqRaw } = useLookup('/api/purchase/rfq/');
   const { raw: evalRaw } = useLookup('/api/purchase/evaluations/');
@@ -2063,8 +2063,8 @@ export default function CreateQuoteResponse() {
 
       {/* ====== FILL MODE SELECTOR ====== */}
       {!isEditMode && (
-        <div className="bg-white rounded-lg border border-slate-200 p-4 mb-4 sm:mb-6">
-          <div className="flex items-center gap-4 sm:gap-6">
+        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3">
+          <div className="flex items-center gap-3">
             <span className="text-sm font-semibold text-slate-700">Fill Mode:</span>
             <label className={`flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition border-2 ${fillMode === 'manual' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
               <input type="radio" name="fillMode" value="manual" checked={fillMode === 'manual'} onChange={() => setFillMode('manual')} className="text-primary-600 focus:ring-primary-500" />
@@ -2085,8 +2085,8 @@ export default function CreateQuoteResponse() {
       )}
 
       {/* ====== FILE UPLOAD SECTION (only in autofill mode) ====== */}
-      {fillMode === 'autofill' && <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6 mb-4 sm:mb-6">
-        <h3 className="text-lg font-semibold text-slate-800 mb-4">Extract Quote Data</h3>
+      {fillMode === 'autofill' && <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3">
+        <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Extract Quote Data</h3>
 
         {/* Drop zone */}
         {!uploadedFile && (
@@ -2104,7 +2104,7 @@ export default function CreateQuoteResponse() {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <p className="text-sm font-medium text-slate-700 mb-1">
+            <p className="text-xs font-semibold text-slate-700 mb-0.5">
               Drag &amp; drop or click to upload
             </p>
             <p className="text-xs text-slate-500">
@@ -2140,7 +2140,7 @@ export default function CreateQuoteResponse() {
 
         {/* Uploaded file info */}
         {uploadedFile && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* File chip */}
             <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
               <span className="inline-flex items-center justify-center rounded bg-primary-100 text-primary-700 px-2 py-1 text-xs font-bold tracking-wide">
@@ -2389,28 +2389,28 @@ export default function CreateQuoteResponse() {
       </div>}
 
       {/* ====== EXISTING FORM ====== */}
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
         <form onSubmit={handleSubmit}>
-          <EditGate canEdit={editable} className="space-y-3 sm:space-y-6">
+          <EditGate canEdit={editable} className="space-y-3">
           <div>
-            <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4 pb-2 border-b">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800">Quote Details</h3>
+            <div className="flex items-center justify-between gap-3 mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Quote Details</h3>
               {formData.rfq && invitedVendorIds && invitedVendorIds.size > 0 && (
                 <span className={`shrink-0 inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full ${respondedVendorIds.size >= invitedVendorIds.size ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                   {respondedVendorIds.size} of {invitedVendorIds.size} vendor responses recorded
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
               {!isHidden('rfq') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center">
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
                   RFQ <span className="text-red-500 ml-0.5">*</span>
                   <AutoFillDot confidence={autoFilledFields.rfq} />
                   {fieldSources.rfq && <SourceTooltip text={fieldSources.rfq} />}
                 </label>
                 {rfqFromUrl && formData.rfq ? (
-                  <input type="text" readOnly value={prefillRfqNo || rfqRaw.find(r => r.id === formData.rfq)?.rfq_no || 'Loading...'} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 cursor-not-allowed" />
+                  <input type="text" readOnly value={prefillRfqNo || rfqRaw.find(r => r.id === formData.rfq)?.rfq_no || 'Loading...'} className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-slate-50 cursor-not-allowed" />
                 ) : (
                   <CustomSelect name="rfq" value={formData.rfq} onChange={handleRfqChange} required disabled={isReadOnly('rfq')} className={isReadOnly('rfq') ? lockedInputClass : inputClass}>
                     <option value="">Select RFQ</option>
@@ -2427,7 +2427,7 @@ export default function CreateQuoteResponse() {
               )}
               {!isHidden('vendor') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center">
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
                   Vendor <span className="text-red-500 ml-0.5">*</span>
                   <AutoFillDot confidence={autoFilledFields.vendor} />
                   {fieldSources.vendor && <SourceTooltip text={fieldSources.vendor} />}
@@ -2438,7 +2438,7 @@ export default function CreateQuoteResponse() {
                   onChange={handleChange}
                   required
                   disabled={isReadOnly('vendor') || !formData.rfq || vendorDropdownLoading}
-                  className={isReadOnly('vendor') ? lockedInputClass : "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-slate-100 disabled:cursor-not-allowed"}
+                  className={isReadOnly('vendor') ? lockedInputClass : "w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-slate-100 disabled:cursor-not-allowed"}
                 >
                   <option value="">
                     {!formData.rfq
@@ -2457,7 +2457,7 @@ export default function CreateQuoteResponse() {
               )}
               {!isHidden('quote_date') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center">
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
                   Quote Date <span className="text-red-500 ml-0.5">*</span>
                   <AutoFillDot confidence={autoFilledFields.quote_date} />
                   {fieldSources.quote_date && <SourceTooltip text={fieldSources.quote_date} />}
@@ -2467,7 +2467,7 @@ export default function CreateQuoteResponse() {
               )}
               {!isHidden('price_valid_till') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center">
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
                   Price Valid Till
                   <AutoFillDot confidence={autoFilledFields.price_valid_till} />
                   {fieldSources.price_valid_till && <SourceTooltip text={fieldSources.price_valid_till} />}
@@ -2477,7 +2477,7 @@ export default function CreateQuoteResponse() {
               )}
               {!isHidden('currency') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center">
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
                   Currency <span className="text-red-500 ml-0.5">*</span>
                   <AutoFillDot confidence={autoFilledFields.currency} />
                   {fieldSources.currency && <SourceTooltip text={fieldSources.currency} />}
@@ -2492,7 +2492,7 @@ export default function CreateQuoteResponse() {
               )}
               {!isHidden('payment_terms') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center">
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
                   Payment Terms <span className="text-red-500 ml-0.5">*</span>
                   <AutoFillDot confidence={autoFilledFields.payment_terms} />
                   {fieldSources.payment_terms && <SourceTooltip text={fieldSources.payment_terms} />}
@@ -2512,7 +2512,7 @@ export default function CreateQuoteResponse() {
                     required
                     disabled={isReadOnly('payment_terms')}
                     placeholder="Enter custom payment terms (e.g. 50% advance, 50% on delivery)"
-                    className={isReadOnly('payment_terms') ? `mt-2 ${lockedInputClass}` : "mt-2 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"}
+                    className={isReadOnly('payment_terms') ? `mt-2 ${lockedInputClass}` : "mt-2 w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"}
                   />
                 )}
               </div>
@@ -2520,34 +2520,34 @@ export default function CreateQuoteResponse() {
             </div>
           </div>
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Additional Information</h3>
-            <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Additional Information</h3>
+            <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
               {!isHidden('delivery_terms') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center">
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
                   Delivery Terms
                   <AutoFillDot confidence={autoFilledFields.delivery_terms} />
                   {fieldSources.delivery_terms && <SourceTooltip text={fieldSources.delivery_terms} />}
                 </label>
-                <textarea name="delivery_terms" value={formData.delivery_terms} onChange={handleChange} rows={3} disabled={isReadOnly('delivery_terms')} className={isReadOnly('delivery_terms') ? lockedInputClass : inputClass} />
+                <textarea name="delivery_terms" value={formData.delivery_terms} onChange={handleChange} rows={2} disabled={isReadOnly('delivery_terms')} className={isReadOnly('delivery_terms') ? lockedInputClass : inputClass} />
               </div>
               )}
               {!isHidden('remarks') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center">
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
                   Remarks
                   <AutoFillDot confidence={autoFilledFields.remarks} />
                   {fieldSources.remarks && <SourceTooltip text={fieldSources.remarks} />}
                 </label>
-                <textarea name="remarks" value={formData.remarks} onChange={handleChange} rows={3} disabled={isReadOnly('remarks')} className={isReadOnly('remarks') ? lockedInputClass : inputClass} />
+                <textarea name="remarks" value={formData.remarks} onChange={handleChange} rows={2} disabled={isReadOnly('remarks')} className={isReadOnly('remarks') ? lockedInputClass : inputClass} />
               </div>
               )}
             </div>
           </div>
           {/* Line Items */}
           <div>
-            <div className="flex items-center justify-between mb-4 pb-2 border-b">
-              <h3 className="text-lg font-semibold text-slate-800">Line Items</h3>
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Line Items</h3>
               <div className="flex items-center gap-2">
                 {lineItems.some(l => l._unresolved) && (
                   <button

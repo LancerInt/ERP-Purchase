@@ -199,7 +199,7 @@ export default function TallyImportButton({
   };
 
   const run = async (dry) => {
-    console.log('[TallyImport] run called', { mode, what, action, company, dry });
+    if (import.meta.env.DEV) console.log('[TallyImport] run called', { mode, what, action, company, dry });
     if (!company) { toast.error('Pick a company first'); return; }
     setBusy(true);
     // A fresh job id + AbortController per run — Cancel (see requestCancel)

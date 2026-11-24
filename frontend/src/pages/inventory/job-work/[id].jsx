@@ -277,7 +277,7 @@ export default function JobWorkOrderDetail() {
       <MainLayout>
         <div className="text-center py-20">
           <p className="text-red-500 mb-3">Job Work Order not found.</p>
-          <button onClick={() => navigate('/inventory/job-work')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
+          <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/inventory/job-work')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
             <ArrowLeft size={15} /> Back to Job Work Orders
           </button>
         </div>
@@ -582,7 +582,7 @@ export default function JobWorkOrderDetail() {
             Created {fmtDate(order.created_at)} · Last updated {fmtDate(order.updated_at)}
           </div>
           <div className="flex gap-3">
-            <button type="button" onClick={() => navigate('/inventory/job-work')} className="px-4 sm:px-5 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Back</button>
+            <button type="button" onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/inventory/job-work')} className="px-4 sm:px-5 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Back</button>
             {isEditable && (
               <button type="submit" disabled={isSaving} className="flex items-center gap-2 px-4 sm:px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
                 <Save size={16} /> {isSaving ? 'Saving...' : 'Save Changes'}

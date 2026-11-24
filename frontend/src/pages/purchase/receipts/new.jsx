@@ -1,10 +1,10 @@
 import CustomDatePicker from "@/components/ui/CustomDatePicker";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { confirm } from '@/components/common/confirm';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, ScanLine, Loader2 } from 'lucide-react';
+import { Plus, Trash2, ScanLine, Loader2, Camera, Upload, Paperclip, Mic, MicOff } from 'lucide-react';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import apiClient from '../../../utils/api.js';
@@ -18,8 +18,75 @@ import FileAttachments, { uploadPendingFiles } from '../components/FileAttachmen
 import ReceiptMismatchModal from './ReceiptMismatchModal';
 import { UOM_OPTIONS, UOM_VALUES } from '../../../constants/uom.js';
 
-const inputClass = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500';
+const inputClass = 'w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500';
 const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
+
+/* ── Combined Attachment List (bottom section) ─────────────────────────── */
+const CATEGORY_LABELS = { GENERAL: 'Receipt Bill', TRANSPORT: 'Freight Bill', DAMAGE_PROOF: 'Damage Proof' };
+const CATEGORY_COLORS = { GENERAL: 'bg-blue-100 text-blue-700', TRANSPORT: 'bg-emerald-100 text-emerald-700', DAMAGE_PROOF: 'bg-red-100 text-red-700' };
+const PREVIEWABLE_IMAGE = new Set(['jpg', 'jpeg', 'png', 'webp']);
+
+const AttachmentRow = memo(function AttachmentRow({ file }) {
+  const [open, setOpen] = useState(false);
+  const [objectUrl, setObjectUrl] = useState(null);
+  const ext = (file.file_name || '').split('.').pop().toLowerCase();
+  const isImage = PREVIEWABLE_IMAGE.has(ext);
+  const isPdf = ext === 'pdf';
+  const canPreview = isImage || isPdf;
+
+  useEffect(() => {
+    if (!open || !file.rawFile || objectUrl) return;
+    const url = URL.createObjectURL(file.rawFile);
+    setObjectUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [open, file.rawFile, objectUrl]);
+
+  return (
+    <div className="rounded-lg border border-slate-200 overflow-hidden">
+      <div className="flex items-center gap-3 px-3 py-2 bg-slate-50">
+        <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full whitespace-nowrap ${CATEGORY_COLORS[file.category]}`}>
+          {CATEGORY_LABELS[file.category]}
+        </span>
+        <p className="flex-1 min-w-0 text-sm font-medium text-slate-700 truncate">{file.file_name}</p>
+        {canPreview && (
+          <button type="button" onClick={() => setOpen(v => !v)} className="text-xs text-primary-600 hover:underline flex-shrink-0">
+            {open ? 'Hide' : 'View'}
+          </button>
+        )}
+      </div>
+      {open && objectUrl && (
+        <div className="border-t border-slate-200">
+          {isImage && (
+            <div className="max-h-[50vh] overflow-auto bg-slate-100 flex justify-center p-2">
+              <img src={objectUrl} alt={file.file_name} className="max-w-full h-auto rounded" />
+            </div>
+          )}
+          {isPdf && (
+            <iframe title={file.file_name} src={`${objectUrl}#toolbar=0&navpanes=0`} className="w-full h-[50vh] bg-slate-100" />
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+const CombinedAttachmentList = memo(function CombinedAttachmentList({ generalFiles, transportFiles, damageFiles = [] }) {
+  const allFiles = useMemo(() => [
+    ...generalFiles.map((f, i) => ({ id: `gen-${i}`, file_name: f.name, category: 'GENERAL', rawFile: f })),
+    ...transportFiles.map((f, i) => ({ id: `trn-${i}`, file_name: f.name, category: 'TRANSPORT', rawFile: f })),
+    ...damageFiles.map((f, i) => ({ id: `dmg-${i}`, file_name: f.name, category: 'DAMAGE_PROOF', rawFile: f })),
+  ], [generalFiles, transportFiles, damageFiles]);
+
+  if (allFiles.length === 0) {
+    return <p className="text-xs text-slate-400 text-center py-4">No attachments yet</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {allFiles.map(file => <AttachmentRow key={file.id} file={file} />)}
+    </div>
+  );
+});
 
 /* ── Fuzzy match — Dice coefficient on character bigrams ─────────────── */
 function _bigrams(s) {
@@ -221,6 +288,7 @@ const emptyPackingLine = {
   godown_location: '',
   remarks: '',
   condition: 'NEW',
+  _damageFiles: [],
 };
 
 // Translate a PO's freight_terms value into the value the Receipt
@@ -519,6 +587,50 @@ export default function CreateReceiptAdvice() {
   const [isLoading, setIsLoading] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState([]);
   const pendingAttachmentsRef = useRef([]);
+  const [pendingTransportAttachments, setPendingTransportAttachments] = useState([]);
+  const pendingTransportAttachmentsRef = useRef([]);
+  const transportCameraRef = useRef(null);
+  const transportFileRef = useRef(null);
+  const generalCameraRef = useRef(null);
+  const [freightExtracting, setFreightExtracting] = useState(false);
+
+  const handleTransportFile = async (file) => {
+    if (!file) return;
+    const updated = [...pendingTransportAttachmentsRef.current, file];
+    pendingTransportAttachmentsRef.current = updated;
+    setPendingTransportAttachments(updated);
+
+    setFreightExtracting(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await apiClient.post('/api/purchase/receipts/extract-freight-bill/', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 150_000,
+      });
+      const d = res.data || {};
+      if (d.extraction_status === 'failed') {
+        toast.error('Could not extract freight bill details. Fill manually.');
+        return;
+      }
+      setFormData(prev => ({
+        ...prev,
+        transporter_name: d.transporter_name || prev.transporter_name,
+        freight_bill_no: d.freight_bill_no || prev.freight_bill_no,
+        freight_bill_date: d.freight_bill_date || prev.freight_bill_date,
+        vehicle_number: d.vehicle_no || prev.vehicle_number,
+        driver_name: d.driver_name || prev.driver_name,
+        freight_value: d.freight_value || prev.freight_value,
+        freight_terms: d.freight_terms || prev.freight_terms,
+        advance_amount: d.advance_amount || prev.advance_amount,
+      }));
+      toast.success('Freight bill details extracted');
+    } catch {
+      toast.error('Freight bill extraction failed. Fill manually.');
+    } finally {
+      setFreightExtracting(false);
+    }
+  };
   const [prefillPoNo, setPrefillPoNo] = useState('');
 
   // ── Auto Fill (AI) — Gemini document extraction ────────────────────────
@@ -546,6 +658,9 @@ export default function CreateReceiptAdvice() {
     qc_routing: '',
     qc_status: '',
     transporter: '',
+    transporter_name: '',
+    freight_bill_no: '',
+    freight_bill_date: '',
     lr_no: '',
     partial_receipt_flag: false,
     remarks: '',
@@ -568,6 +683,8 @@ export default function CreateReceiptAdvice() {
 
   const [receiptLines, setReceiptLines] = useState([{ ...emptyReceiptLine }]);
   const [packingLines, setPackingLines] = useState([]);
+  const [listeningPackIdx, setListeningPackIdx] = useState(null);
+  const packMicRef = useRef(null);
   const [weighmentDetails, setWeighmentDetails] = useState([]);
   const [freightDetails, setFreightDetails] = useState([]);
   const [wageLines, setWageLines] = useState([]);
@@ -800,6 +917,12 @@ export default function CreateReceiptAdvice() {
             const pending = Math.max(0, ordered - rcvd);
             return pending > 0 ? String(pending) : '';
           })(),
+          _prefillQty: (() => {
+            const ordered = parseFloat(pl.quantity_ordered) || 0;
+            const rcvd = parseFloat(pl.received_quantity) || 0;
+            const pending = Math.max(0, ordered - rcvd);
+            return pending > 0 ? String(pending) : '';
+          })(),
           po_quantity: pl.quantity_ordered || 0,
           already_received: pl.received_quantity || 0,
           uom: pl.uom || 'KG',
@@ -953,6 +1076,12 @@ export default function CreateReceiptAdvice() {
             // can just confirm on the common case; edit if the invoice
             // is short.
             quantity_received: (() => {
+              const ordered = parseFloat(pl.quantity_ordered) || 0;
+              const rcvd = parseFloat(pl.received_quantity) || 0;
+              const pending = Math.max(0, ordered - rcvd);
+              return pending > 0 ? String(pending) : '';
+            })(),
+            _prefillQty: (() => {
               const ordered = parseFloat(pl.quantity_ordered) || 0;
               const rcvd = parseFloat(pl.received_quantity) || 0;
               const pending = Math.max(0, ordered - rcvd);
@@ -1488,6 +1617,33 @@ export default function CreateReceiptAdvice() {
   const addPackingLine = () => setPackingLines(prev => [...prev, { ...emptyPackingLine }]);
   const removePackingLine = (index) => setPackingLines(prev => prev.filter((_, i) => i !== index));
 
+  const togglePackMic = useCallback((index) => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) { toast.error('Speech recognition not supported in this browser.'); return; }
+    if (listeningPackIdx === index && packMicRef.current) {
+      packMicRef.current.stop();
+      packMicRef.current = null;
+      setListeningPackIdx(null);
+      return;
+    }
+    if (packMicRef.current) { packMicRef.current.stop(); packMicRef.current = null; }
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-IN';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript || '';
+      if (transcript) {
+        setPackingLines(prev => prev.map((p, i) => i === index ? { ...p, remarks: ((p.remarks || '') + (p.remarks ? ' ' : '') + transcript).trim() } : p));
+      }
+    };
+    recognition.onend = () => { packMicRef.current = null; setListeningPackIdx(null); };
+    recognition.onerror = (e) => { if (e.error !== 'aborted') toast.error(`Mic error: ${e.error}`); packMicRef.current = null; setListeningPackIdx(null); };
+    packMicRef.current = recognition;
+    setListeningPackIdx(index);
+    recognition.start();
+  }, [listeningPackIdx]);
+
   // Weighment Details handlers.
   // Convention: First Weight = gross (loaded truck), Second Weight =
   // tare (empty truck). The third column is the cargo's NET weight =
@@ -1743,6 +1899,30 @@ export default function CreateReceiptAdvice() {
       return;
     }
 
+    // Freight attachment is compulsory when any freight detail is entered
+    const hasFreightDetails = [
+      formData.transporter_name, formData.freight_bill_no, formData.freight_bill_date,
+    ].some(v => (v || '').toString().trim()) ||
+      [formData.freight_value, formData.advance_amount].some(v => parseFloat(v) > 0);
+    if (hasFreightDetails && pendingTransportAttachmentsRef.current.length === 0) {
+      toast.error('Freight bill attachment is required when freight details are entered.');
+      return;
+    }
+
+    // Damaged packing materials require attachment + remarks
+    for (let i = 0; i < packingLines.length; i++) {
+      const pk = packingLines[i];
+      if (pk.condition !== 'DAMAGED') continue;
+      if (!(pk.remarks || '').trim()) {
+        toast.error(`Packing Material #${i + 1}: Remarks is required for damaged items.`);
+        return;
+      }
+      if (!pk._damageFiles || pk._damageFiles.length === 0) {
+        toast.error(`Packing Material #${i + 1}: Attachment (damage proof) is required for damaged items.`);
+        return;
+      }
+    }
+
     setIsLoading(true);
     try {
       const cleaned = cleanFormData(formData);
@@ -1840,8 +2020,17 @@ export default function CreateReceiptAdvice() {
       const res = await apiClient.post('/api/purchase/receipts/', payload);
       const newId = res.data?.id;
 
+      if (pendingTransportAttachments.length > 0 && newId) {
+        await uploadPendingFiles('RECEIPT', newId, pendingTransportAttachmentsRef.current, 'TRANSPORT');
+      }
       if (pendingAttachments.length > 0 && newId) {
-        await uploadPendingFiles('RECEIPT', newId, pendingAttachmentsRef.current);
+        await uploadPendingFiles('RECEIPT', newId, pendingAttachmentsRef.current, 'GENERAL');
+      }
+      // Upload damage proof attachments for damaged packing lines
+      for (const pk of packingLines) {
+        if (pk.condition === 'DAMAGED' && pk._damageFiles?.length > 0 && newId) {
+          await uploadPendingFiles('RECEIPT', newId, pk._damageFiles, 'DAMAGE_PROOF');
+        }
       }
 
       toast.success('Receipt Advice created successfully!');
@@ -2137,6 +2326,7 @@ export default function CreateReceiptAdvice() {
           item_name: match?.name || pName || '',
           po_line: match ? (match.po_line_id || '') : '',
           quantity_received: it.quantity != null ? String(it.quantity) : '',
+          _extractedQty: it.quantity != null ? String(it.quantity) : '',
           net_quantity: '',
           batch_no: it.batch_no || '',
           uom: it.uom || match?.uom || 'KG',
@@ -2283,9 +2473,9 @@ export default function CreateReceiptAdvice() {
           { label: 'Create Receipt Advice' },
         ]}
       />
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
         <form onSubmit={handleSubmit}>
-          <EditGate canEdit={editable} className="space-y-3 sm:space-y-6">
+          <EditGate canEdit={editable} className="space-y-3">
           {/* ── Receipt Source + Fill Mode — one combined panel.
               Source pills are coloured (primary / amber) so the active mode
               is visible at a glance; Fill Mode pills sit beside them
@@ -2354,7 +2544,7 @@ export default function CreateReceiptAdvice() {
           {/* ── AI Document Upload (Auto Fill mode only) ─────────────── */}
           {fillMode === 'autofill' && (
             <div className="rounded-lg border border-slate-200 p-4">
-              <h3 className="text-lg font-semibold text-slate-800 mb-3">Extract Receipt Data</h3>
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Extract Receipt Data</h3>
               {!uploadedFile && (
                 <div
                   onClick={() => aiFileInputRef.current?.click()}
@@ -2449,11 +2639,11 @@ export default function CreateReceiptAdvice() {
 
           {/* Receipt Details */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Receipt Details</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Receipt Details</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
               {!isDirectReceipt && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">PO No <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">PO No <span className="text-red-500">*</span></label>
                 {searchParams.get('po_id') && formData.po_no ? (
                   <input type="text" readOnly value={prefillPoNo || 'Loading...'} className={`${inputClass} bg-slate-50 cursor-not-allowed`} />
                 ) : (
@@ -2513,7 +2703,7 @@ export default function CreateReceiptAdvice() {
                   field is hidden to keep the form uncluttered. */}
               {isDirectReceipt && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Job Work No</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Job Work No</label>
                 <CustomSelect
                   name="job_work_no"
                   value={formData.job_work_no}
@@ -2528,7 +2718,7 @@ export default function CreateReceiptAdvice() {
               )}
               {!isHidden('vendor') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Vendor <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Vendor <span className="text-red-500">*</span></label>
                 <CustomSelect name="vendor" value={formData.vendor} onChange={handleChange} required disabled={isReadOnly('vendor')} className={isReadOnly('vendor') ? lockedInputClass : inputClass}>
                   <option value="">Select Vendor</option>
                   {vendorOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -2536,7 +2726,7 @@ export default function CreateReceiptAdvice() {
               </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Company <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Company <span className="text-red-500">*</span></label>
                 {formData.po_no ? (
                   <input type="text" readOnly value={companyOptions.find(c => c.value === selectedCompany)?.label || 'Loading...'} className={`${inputClass} bg-slate-50 cursor-not-allowed`} />
                 ) : (
@@ -2548,7 +2738,7 @@ export default function CreateReceiptAdvice() {
               </div>
               {!isHidden('warehouse') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Warehouse <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Warehouse <span className="text-red-500">*</span></label>
                 {formData.po_no ? (
                   <input type="text" readOnly value={warehouseOptions.find(w => w.value === formData.warehouse)?.label || 'Loading...'} className={`${inputClass} bg-slate-50 cursor-not-allowed`} />
                 ) : (
@@ -2561,7 +2751,7 @@ export default function CreateReceiptAdvice() {
               )}
               {!isHidden('receipt_date') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Receipt Date <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Receipt Date <span className="text-red-500">*</span></label>
                 <CustomDatePicker name="receipt_date" value={formData.receipt_date} onChange={handleChange} required disabled={isReadOnly('receipt_date')} className={isReadOnly('receipt_date') ? lockedInputClass : inputClass} />
               </div>
               )}
@@ -2570,7 +2760,7 @@ export default function CreateReceiptAdvice() {
                   useful evidence on a PO receipt too. */}
               {!isHidden('invoice_no') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Invoice No</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Invoice No</label>
                 <input
                   type="text"
                   name="invoice_no"
@@ -2590,13 +2780,13 @@ export default function CreateReceiptAdvice() {
               GRN can be reconciled / billed later without a PO. */}
           {isDirectReceipt && (
             <div>
-              <h3 className="text-lg font-semibold text-amber-700 mb-4 pb-2 border-b border-amber-200">
+              <h3 className="text-sm sm:text-base font-semibold text-amber-700 mb-2 pb-1.5 border-b border-amber-200">
                 Direct Receipt Info
                 <span className="ml-2 text-xs font-normal text-amber-600">Required when no PO is selected</span>
               </h3>
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5">
                     Reason <span className="text-red-500">*</span>
                   </label>
                   <CustomSelect
@@ -2616,7 +2806,7 @@ export default function CreateReceiptAdvice() {
                     so it's always visible (both PO and Direct modes). */}
                 {!isHidden('invoice_date') && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Invoice Date</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5">Invoice Date</label>
                   <CustomDatePicker
                     name="invoice_date"
                     value={formData.invoice_date}
@@ -2628,7 +2818,7 @@ export default function CreateReceiptAdvice() {
                 )}
                 {!isHidden('invoice_amount') && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Invoice Amount</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5">Invoice Amount</label>
                   <input
                     type="number"
                     step="0.01"
@@ -2659,8 +2849,8 @@ export default function CreateReceiptAdvice() {
               className="hidden"
               onChange={handleWeighmentFileChange}
             />
-            <div className="flex items-center justify-between mb-4 pb-2 border-b">
-              <h3 className="text-lg font-semibold text-slate-800">Weighment Details</h3>
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Weighment Details</h3>
               <button type="button" onClick={addWeighment} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
                 <Plus size={16} /> Add Weighment
               </button>
@@ -2759,17 +2949,17 @@ export default function CreateReceiptAdvice() {
               line-item Net Quantity), then fills in the truck / driver /
               freight metadata before reviewing line items. */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Transport Details</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Transport Details</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
               {!isHidden('driver_name') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Driver Name <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Driver Name <span className="text-red-500">*</span></label>
                 <input type="text" name="driver_name" value={formData.driver_name} onChange={handleChange} disabled={isReadOnly('driver_name')} className={isReadOnly('driver_name') ? lockedInputClass : inputClass} />
               </div>
               )}
               {!isHidden('driver_phone') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Driver Phone</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Driver Phone</label>
                 <input
                   type="tel"
                   name="driver_phone"
@@ -2785,25 +2975,37 @@ export default function CreateReceiptAdvice() {
               )}
               {!isHidden('vehicle_number') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Lorry No <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Lorry No <span className="text-red-500">*</span></label>
                 <input type="text" name="vehicle_number" value={formData.vehicle_number} onChange={handleChange} disabled={isReadOnly('vehicle_number')} className={isReadOnly('vehicle_number') ? lockedInputClass : inputClass} placeholder="e.g. TN-01-AB-1234" />
               </div>
               )}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Transporter Name</label>
+                <input type="text" name="transporter_name" value={formData.transporter_name} onChange={handleChange} className={inputClass} placeholder="e.g. Sri Logistics" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Freight Bill No</label>
+                <input type="text" name="freight_bill_no" value={formData.freight_bill_no} onChange={handleChange} className={inputClass} placeholder="e.g. FB-2024-001" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Freight Bill Date</label>
+                <input type="date" name="freight_bill_date" value={formData.freight_bill_date} onChange={handleChange} className={inputClass} />
+              </div>
               {!isHidden('advance_amount') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Advance Amount</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Advance Amount</label>
                 <input type="number" step="0.01" min="0" name="advance_amount" value={formData.advance_amount} onChange={handleChange} disabled={isReadOnly('advance_amount')} className={isReadOnly('advance_amount') ? lockedInputClass : inputClass} placeholder="0.00" />
               </div>
               )}
               {!isHidden('freight_value') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Freight Value</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Freight Value</label>
                 <input type="number" step="0.01" min="0" name="freight_value" value={formData.freight_value} onChange={handleChange} disabled={isReadOnly('freight_value')} className={isReadOnly('freight_value') ? lockedInputClass : inputClass} placeholder="0.00" />
               </div>
               )}
               {!isHidden('freight_terms') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Freight Terms <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Freight Terms <span className="text-red-500">*</span></label>
                 <CustomSelect name="freight_terms" value={formData.freight_terms} onChange={handleChange} disabled={isReadOnly('freight_terms')} className={isReadOnly('freight_terms') ? lockedInputClass : inputClass}>
                   <option value="">Select Freight Terms</option>
                   <option value="PAID">Paid</option>
@@ -2811,29 +3013,62 @@ export default function CreateReceiptAdvice() {
                 </CustomSelect>
               </div>
               )}
-              {!isHidden('qc_routing') && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">QC Routing</label>
-                <CustomSelect name="qc_routing" value={formData.qc_routing} onChange={handleChange} disabled={isReadOnly('qc_routing')} className={isReadOnly('qc_routing') ? lockedInputClass : inputClass}>
-                  <option value="">Select QC Routing</option>
-                  <option value="WAREHOUSE">Warehouse</option>
-                  <option value="QC_COORDINATOR">QC Coordinator</option>
-                  <option value="QC_MANAGER">QC Manager</option>
-                </CustomSelect>
+            </div>
+
+            {/* Transport attachments — inline, no separate heading */}
+            <div className="mt-4 pt-3 border-t border-slate-200">
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  ref={transportCameraRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    handleTransportFile(file);
+                    if (transportCameraRef.current) transportCameraRef.current.value = '';
+                  }}
+                />
+                <input
+                  ref={transportFileRef}
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    handleTransportFile(file);
+                    if (transportFileRef.current) transportFileRef.current.value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => transportCameraRef.current?.click()}
+                  disabled={freightExtracting}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition disabled:opacity-50"
+                >
+                  <Camera size={14} />
+                  Take Photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => transportFileRef.current?.click()}
+                  disabled={freightExtracting}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition disabled:opacity-50"
+                >
+                  {freightExtracting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                  {freightExtracting ? 'Extracting...' : 'Upload Freight Bill'}
+                </button>
               </div>
-              )}
-              {!isHidden('qc_status') && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">QC Status</label>
-                <CustomSelect name="qc_status" value={formData.qc_status} onChange={handleChange} disabled={isReadOnly('qc_status')} className={isReadOnly('qc_status') ? lockedInputClass : inputClass}>
-                  <option value="">Select QC Status</option>
-                  <option value="PENDING">Pending</option>
-                  <option value="PASS">Passed</option>
-                  <option value="FAIL">Failed</option>
-                  <option value="HOLD">On Hold</option>
-                </CustomSelect>
-              </div>
-              )}
+              <FileAttachments
+                module="RECEIPT"
+                recordId={null}
+                category="TRANSPORT"
+                compact
+                hideUpload
+                presetPendingFiles={pendingTransportAttachments}
+                onPendingChange={(files) => { pendingTransportAttachmentsRef.current = files; setPendingTransportAttachments(files); }}
+              />
             </div>
           </div>
 
@@ -2869,8 +3104,8 @@ export default function CreateReceiptAdvice() {
                 </div>
               );
             })()}
-            <div className="flex items-center justify-between mb-4 pb-2 border-b">
-              <h3 className="text-lg font-semibold text-slate-800">Receipt Line Items</h3>
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Receipt Line Items</h3>
               <div className="flex items-center gap-2">
                 {receiptLines.some(l => l._unresolved) && (
                   <button
@@ -3070,6 +3305,20 @@ export default function CreateReceiptAdvice() {
                                   Over-delivery: +{over} {line.po_uom || ''}
                                 </span>
                               )}
+                              {(() => {
+                                const sourceQty = line._extractedQty || line._prefillQty;
+                                if (!sourceQty) return null;
+                                const entered = parseFloat(line.quantity_received) || 0;
+                                const original = parseFloat(sourceQty) || 0;
+                                if (!original || Math.abs(entered - original) < 0.01) return null;
+                                const label = line._extractedQty ? 'Invoice extracted' : 'PO balance';
+                                const diff = Math.round((entered - original) * 100) / 100;
+                                return (
+                                  <span className="text-[10px] text-blue-700 font-medium leading-tight">
+                                    {label}: {original} — you entered {entered} ({diff > 0 ? '+' : ''}{diff})
+                                  </span>
+                                );
+                              })()}
                             </div>
                           );
                         })()}
@@ -3232,8 +3481,8 @@ export default function CreateReceiptAdvice() {
 
           {/* Packing Material Lines */}
           <div>
-            <div className="flex items-center justify-between mb-4 pb-2 border-b">
-              <h3 className="text-lg font-semibold text-slate-800">Packing Materials</h3>
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Packing Materials</h3>
               <button type="button" onClick={addPackingLine} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
                 <Plus size={16} /> Add Packing Material
               </button>
@@ -3241,192 +3490,218 @@ export default function CreateReceiptAdvice() {
             {packingLines.length === 0 ? (
               <p className="text-sm text-slate-400 italic">No packing materials added. Click "Add Packing Material" to add.</p>
             ) : (
-              <div className="overflow-x-auto ios-scroll">
-                <table className="w-full text-sm">
-                  {/* Column set mirrors Receipt Line Items so operators
-                      see the same context (dimensions, PO Qty / Rcvd /
-                      Balance, Invoice / Received quantity, Difference,
-                      Batch / Godown / Remarks) for packing materials.
-                      PO-only columns hide in Direct Receipt mode, same
-                      as the goods table above. */}
-                  <thead>
-                    <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b">
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">#</th>
-                      {!isPackHidden('packaging_sku') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Packaging SKU</th>
-                      )}
-                      {!isPackHidden('length') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Length</th>
-                      )}
-                      {!isPackHidden('breadth') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Breadth</th>
-                      )}
-                      {!isPackHidden('width') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Width</th>
-                      )}
-                      {!isPackHidden('weight') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Weight</th>
-                      )}
-                      {!isDirectReceipt && (
-                        <>
-                          <th className="text-right px-3 py-2 font-medium text-slate-600">PO Qty</th>
-                          <th className="text-right px-3 py-2 font-medium text-slate-600">Rcvd</th>
-                          <th className="text-right px-3 py-2 font-medium text-slate-600">Balance</th>
-                        </>
-                      )}
-                      {!isPackHidden('quantity') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Invoice Quantity</th>
-                      )}
-                      {!isPackHidden('net_quantity') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Received Quantity</th>
-                      )}
-                      <th className="text-right px-3 py-2 font-medium text-slate-600">Difference in Qty</th>
-                      {!isPackHidden('uom') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">UOM</th>
-                      )}
-                      {!isPackHidden('batch_no') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Batch No</th>
-                      )}
-                      {!isPackHidden('godown_location') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Godown</th>
-                      )}
-                      {!isPackHidden('remarks') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Remarks</th>
-                      )}
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">Condition</th>
-                      <th className="px-3 py-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {packingLines.map((line, index) => (
-                      <tr key={index} className="border-b">
-                        <td className="px-3 py-2 text-slate-500">{index + 1}</td>
+              <div className="space-y-3">
+                {packingLines.map((line, index) => (
+                  <div key={index} className={`border rounded-lg bg-white ${line.condition === 'DAMAGED' ? 'border-red-200' : 'border-slate-200'}`}>
+                    {/* Card header */}
+                    <div className={`flex items-center justify-between px-4 py-2 rounded-t-lg border-b ${line.condition === 'DAMAGED' ? 'bg-gradient-to-r from-red-50 to-red-50/40 border-red-100' : 'bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-slate-100'}`}>
+                      <span className={`text-sm font-semibold ${line.condition === 'DAMAGED' ? 'text-red-700' : 'text-slate-700'}`}>#{index + 1}{line.condition === 'DAMAGED' && ' — Damaged'}</span>
+                      <button type="button" onClick={() => removePackingLine(index)} className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition">
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+
+                    <div className="px-4 py-3 space-y-3">
+                      {/* Row 1: SKU, Dimensions, Weight, UOM, Condition */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
                         {!isPackHidden('packaging_sku') && (
-                        <td className="px-3 py-2">
-                          <CustomSelect value={line.packaging_sku} onChange={(e) => handlePackingLineChange(index, 'packaging_sku', e.target.value)} disabled={isPackRO('packaging_sku')} className={isPackRO('packaging_sku') ? lockedInputClass : inputClass} style={{ minWidth: '180px' }}>
-                            <option value="">Select Product</option>
-                            {productOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                          </CustomSelect>
-                        </td>
+                          <div className="col-span-2 sm:col-span-3 md:col-span-2 lg:col-span-2">
+                            <label className="block text-[11px] font-medium text-slate-500 mb-1">Packaging SKU</label>
+                            <CustomSelect value={line.packaging_sku} onChange={(e) => handlePackingLineChange(index, 'packaging_sku', e.target.value)} disabled={isPackRO('packaging_sku')} className={`w-full ${isPackRO('packaging_sku') ? lockedInputClass : inputClass}`}>
+                              <option value="">Select Product</option>
+                              {productOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </CustomSelect>
+                          </div>
                         )}
                         {!isPackHidden('length') && (
-                        <td className="px-3 py-2">
-                          <input type="number" min="0" step="any" value={line.length || ''} onChange={(e) => handlePackingLineChange(index, 'length', e.target.value)} disabled={isPackRO('length')} placeholder="Length" className={isPackRO('length') ? lockedInputClass : inputClass} style={{ minWidth: '90px' }} />
-                        </td>
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-500 mb-1">Length</label>
+                            <input type="number" min="0" step="any" value={line.length || ''} onChange={(e) => handlePackingLineChange(index, 'length', e.target.value)} disabled={isPackRO('length')} placeholder="0" className={`w-full ${isPackRO('length') ? lockedInputClass : inputClass}`} />
+                          </div>
                         )}
                         {!isPackHidden('breadth') && (
-                        <td className="px-3 py-2">
-                          <input type="number" min="0" step="any" value={line.breadth || ''} onChange={(e) => handlePackingLineChange(index, 'breadth', e.target.value)} disabled={isPackRO('breadth')} placeholder="Breadth" className={isPackRO('breadth') ? lockedInputClass : inputClass} style={{ minWidth: '90px' }} />
-                        </td>
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-500 mb-1">Breadth</label>
+                            <input type="number" min="0" step="any" value={line.breadth || ''} onChange={(e) => handlePackingLineChange(index, 'breadth', e.target.value)} disabled={isPackRO('breadth')} placeholder="0" className={`w-full ${isPackRO('breadth') ? lockedInputClass : inputClass}`} />
+                          </div>
                         )}
                         {!isPackHidden('width') && (
-                        <td className="px-3 py-2">
-                          <input type="number" min="0" step="any" value={line.width || ''} onChange={(e) => handlePackingLineChange(index, 'width', e.target.value)} disabled={isPackRO('width')} placeholder="Width" className={isPackRO('width') ? lockedInputClass : inputClass} style={{ minWidth: '90px' }} />
-                        </td>
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-500 mb-1">Width</label>
+                            <input type="number" min="0" step="any" value={line.width || ''} onChange={(e) => handlePackingLineChange(index, 'width', e.target.value)} disabled={isPackRO('width')} placeholder="0" className={`w-full ${isPackRO('width') ? lockedInputClass : inputClass}`} />
+                          </div>
                         )}
                         {!isPackHidden('weight') && (
-                        <td className="px-3 py-2">
-                          <input type="number" min="0" step="any" value={line.weight || ''} onChange={(e) => handlePackingLineChange(index, 'weight', e.target.value)} disabled={isPackRO('weight')} placeholder="Weight" className={isPackRO('weight') ? lockedInputClass : inputClass} style={{ minWidth: '90px' }} />
-                        </td>
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-500 mb-1">Weight</label>
+                            <input type="number" min="0" step="any" value={line.weight || ''} onChange={(e) => handlePackingLineChange(index, 'weight', e.target.value)} disabled={isPackRO('weight')} placeholder="0" className={`w-full ${isPackRO('weight') ? lockedInputClass : inputClass}`} />
+                          </div>
                         )}
-                        {!isDirectReceipt && (
-                          <>
-                            <td className="px-3 py-2 text-right text-slate-600">
-                              {line._poQuantity || line.po_quantity || '-'}
-                            </td>
-                            <td className="px-3 py-2 text-right text-slate-600">
-                              {line._alreadyReceived || line.already_received || 0}
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              {(() => {
-                                const poQty = parseFloat(line._poQuantity || line.po_quantity) || 0;
-                                const alreadyRcvd = parseFloat(line._alreadyReceived || line.already_received) || 0;
-                                const currentQty = parseFloat(line.quantity) || 0;
-                                const balance = Math.round((poQty - alreadyRcvd - currentQty) * 100) / 100;
-                                if (!poQty) return '-';
-                                return (
-                                  <span className={`font-medium ${balance > 0 ? 'text-emerald-600' : balance === 0 ? 'text-slate-500' : 'text-red-600'}`}>
-                                    {balance.toFixed(2)}
-                                  </span>
-                                );
-                              })()}
-                            </td>
-                          </>
-                        )}
-                        {!isPackHidden('quantity') && (
-                        <td className="px-3 py-2">
-                          <input type="number" step="0.01" min="0" value={line.quantity || ''} onChange={(e) => handlePackingLineChange(index, 'quantity', e.target.value)} disabled={isPackRO('quantity')} placeholder="0.00" className={isPackRO('quantity') ? lockedInputClass : inputClass} style={{ minWidth: '100px' }} />
-                        </td>
-                        )}
-                        {!isPackHidden('net_quantity') && (
-                        <td className="px-3 py-2">
-                          <input type="number" step="0.01" min="0" value={line.net_quantity || ''} onChange={(e) => handlePackingLineChange(index, 'net_quantity', e.target.value)} disabled={isPackRO('net_quantity')} placeholder="0.00" className={isPackRO('net_quantity') ? lockedInputClass : inputClass} style={{ minWidth: '100px' }} />
-                        </td>
-                        )}
-                        <td className="px-3 py-2 text-right">
-                          {(() => {
-                            const inv = parseFloat(line.quantity) || 0;
-                            const rcv = parseFloat(line.net_quantity) || 0;
-                            if (!inv && !rcv) return <span className="text-slate-400">-</span>;
-                            const diff = Math.round((inv - rcv) * 100) / 100;
-                            const cls = diff > 0 ? 'text-red-600' : diff < 0 ? 'text-amber-600' : 'text-emerald-600';
-                            return <span className={`font-medium ${cls}`}>{diff.toFixed(2)}</span>;
-                          })()}
-                        </td>
                         {!isPackHidden('uom') && (
-                        <td className="px-3 py-2">
-                          {/* Same canonical UOM set as Receipt Line Items.
-                              Legacy values not in the list fall through
-                              as `(legacy)` so saved data isn't lost. */}
-                          <CustomSelect
-                            value={line.uom || 'PCS'}
-                            onChange={(e) => handlePackingLineChange(index, 'uom', e.target.value)}
-                            disabled={isPackRO('uom')}
-                            className={isPackRO('uom') ? lockedInputClass : inputClass}
-                            style={{ minWidth: '90px' }}
-                          >
-                            {['PCS', 'KG', 'LTR', 'MTR', 'SQM', 'CUM', 'BOX', 'PACK', 'MTS', 'NOS', 'BAGS', 'TONS'].map(u => (
-                              <option key={u} value={u}>{u}</option>
-                            ))}
-                            {line.uom
-                              && !['PCS', 'KG', 'LTR', 'MTR', 'SQM', 'CUM', 'BOX', 'PACK', 'MTS', 'NOS', 'BAGS', 'TONS'].includes(line.uom)
-                              && <option value={line.uom}>{line.uom} (legacy)</option>}
-                          </CustomSelect>
-                        </td>
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-500 mb-1">UOM</label>
+                            <CustomSelect value={line.uom || 'PCS'} onChange={(e) => handlePackingLineChange(index, 'uom', e.target.value)} disabled={isPackRO('uom')} className={`w-full ${isPackRO('uom') ? lockedInputClass : inputClass}`}>
+                              {['PCS', 'KG', 'LTR', 'MTR', 'SQM', 'CUM', 'BOX', 'PACK', 'MTS', 'NOS', 'BAGS', 'TONS'].map(u => (
+                                <option key={u} value={u}>{u}</option>
+                              ))}
+                              {line.uom && !['PCS', 'KG', 'LTR', 'MTR', 'SQM', 'CUM', 'BOX', 'PACK', 'MTS', 'NOS', 'BAGS', 'TONS'].includes(line.uom) && <option value={line.uom}>{line.uom} (legacy)</option>}
+                            </CustomSelect>
+                          </div>
                         )}
-                        {!isPackHidden('batch_no') && (
-                        <td className="px-3 py-2">
-                          <input type="text" value={line.batch_no || ''} onChange={(e) => handlePackingLineChange(index, 'batch_no', e.target.value)} disabled={isPackRO('batch_no')} placeholder="Batch" className={isPackRO('batch_no') ? lockedInputClass : inputClass} style={{ minWidth: '100px' }} />
-                        </td>
-                        )}
-                        {!isPackHidden('godown_location') && (
-                        <td className="px-3 py-2">
-                          <CustomSelect value={line.godown_location || ''} onChange={(e) => handlePackingLineChange(index, 'godown_location', e.target.value)} disabled={isPackRO('godown_location')} className={isPackRO('godown_location') ? lockedInputClass : inputClass} style={{ minWidth: '130px' }}>
-                            <option value="">Select Godown</option>
-                            {godownOptions.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
-                          </CustomSelect>
-                        </td>
-                        )}
-                        {!isPackHidden('remarks') && (
-                        <td className="px-3 py-2">
-                          <input type="text" value={line.remarks || ''} onChange={(e) => handlePackingLineChange(index, 'remarks', e.target.value)} disabled={isPackRO('remarks')} placeholder="Remarks" className={isPackRO('remarks') ? lockedInputClass : inputClass} style={{ minWidth: '120px' }} />
-                        </td>
-                        )}
-                        <td className="px-3 py-2">
-                          <CustomSelect value={line.condition} onChange={(e) => handlePackingLineChange(index, 'condition', e.target.value)} className={inputClass} style={{ minWidth: '110px' }}>
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-500 mb-1">Condition</label>
+                          <CustomSelect value={line.condition} onChange={(e) => handlePackingLineChange(index, 'condition', e.target.value)} className={`w-full ${inputClass}`}>
                             <option value="NEW">New</option>
                             <option value="DAMAGED">Damaged</option>
                           </CustomSelect>
-                        </td>
-                        <td className="px-3 py-2">
-                          <button type="button" onClick={() => removePackingLine(index)} className="text-red-500 hover:text-red-700">
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+
+                      {/* Row 2: Quantities, Batch, Godown, Remarks */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 pt-2 border-t border-slate-100">
+                        {!isDirectReceipt && (
+                          <>
+                            <div>
+                              <label className="block text-[11px] font-medium text-slate-500 mb-1">PO Qty</label>
+                              <div className="px-3 py-2 bg-slate-50 rounded-lg text-sm text-slate-600 border border-slate-200">{line._poQuantity || line.po_quantity || '-'}</div>
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-medium text-slate-500 mb-1">Rcvd</label>
+                              <div className="px-3 py-2 bg-slate-50 rounded-lg text-sm text-slate-600 border border-slate-200">{line._alreadyReceived || line.already_received || 0}</div>
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-medium text-slate-500 mb-1">Balance</label>
+                              <div className="px-3 py-2 bg-slate-50 rounded-lg text-sm border border-slate-200">
+                                {(() => {
+                                  const poQty = parseFloat(line._poQuantity || line.po_quantity) || 0;
+                                  const alreadyRcvd = parseFloat(line._alreadyReceived || line.already_received) || 0;
+                                  const currentQty = parseFloat(line.quantity) || 0;
+                                  const balance = Math.round((poQty - alreadyRcvd - currentQty) * 100) / 100;
+                                  if (!poQty) return <span className="text-slate-400">-</span>;
+                                  return <span className={`font-medium ${balance > 0 ? 'text-emerald-600' : balance === 0 ? 'text-slate-500' : 'text-red-600'}`}>{balance.toFixed(2)}</span>;
+                                })()}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                        {!isPackHidden('quantity') && (
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-500 mb-1">Invoice Qty</label>
+                            <input type="number" step="0.01" min="0" value={line.quantity || ''} onChange={(e) => handlePackingLineChange(index, 'quantity', e.target.value)} disabled={isPackRO('quantity')} placeholder="0.00" className={`w-full ${isPackRO('quantity') ? lockedInputClass : inputClass}`} />
+                          </div>
+                        )}
+                        {!isPackHidden('net_quantity') && (
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-500 mb-1">Received Qty</label>
+                            <input type="number" step="0.01" min="0" value={line.net_quantity || ''} onChange={(e) => handlePackingLineChange(index, 'net_quantity', e.target.value)} disabled={isPackRO('net_quantity')} placeholder="0.00" className={`w-full ${isPackRO('net_quantity') ? lockedInputClass : inputClass}`} />
+                          </div>
+                        )}
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-500 mb-1">Diff in Qty</label>
+                          <div className="px-3 py-2 bg-slate-50 rounded-lg text-sm border border-slate-200">
+                            {(() => {
+                              const inv = parseFloat(line.quantity) || 0;
+                              const rcv = parseFloat(line.net_quantity) || 0;
+                              if (!inv && !rcv) return <span className="text-slate-400">-</span>;
+                              const diff = Math.round((inv - rcv) * 100) / 100;
+                              const cls = diff > 0 ? 'text-red-600' : diff < 0 ? 'text-amber-600' : 'text-emerald-600';
+                              return <span className={`font-medium ${cls}`}>{diff.toFixed(2)}</span>;
+                            })()}
+                          </div>
+                        </div>
+                        {!isPackHidden('batch_no') && (
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-500 mb-1">Batch No</label>
+                            <input type="text" value={line.batch_no || ''} onChange={(e) => handlePackingLineChange(index, 'batch_no', e.target.value)} disabled={isPackRO('batch_no')} placeholder="Batch" className={`w-full ${isPackRO('batch_no') ? lockedInputClass : inputClass}`} />
+                          </div>
+                        )}
+                        {!isPackHidden('godown_location') && (
+                          <div>
+                            <label className="block text-[11px] font-medium text-slate-500 mb-1">Godown</label>
+                            <CustomSelect value={line.godown_location || ''} onChange={(e) => handlePackingLineChange(index, 'godown_location', e.target.value)} disabled={isPackRO('godown_location')} className={`w-full ${isPackRO('godown_location') ? lockedInputClass : inputClass}`}>
+                              <option value="">Select Godown</option>
+                              {godownOptions.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
+                            </CustomSelect>
+                          </div>
+                        )}
+                        {!isPackHidden('remarks') && (
+                          <div className="col-span-2 sm:col-span-1">
+                            <label className={`block text-[11px] font-medium mb-1 ${line.condition === 'DAMAGED' ? 'text-red-600' : 'text-slate-500'}`}>
+                              Remarks{line.condition === 'DAMAGED' && ' *'}
+                            </label>
+                            <div className="flex gap-1.5">
+                              <input type="text" value={line.remarks || ''} onChange={(e) => handlePackingLineChange(index, 'remarks', e.target.value)} disabled={isPackRO('remarks')} placeholder={line.condition === 'DAMAGED' ? 'Reason for damage (required)' : 'Remarks'} className={`w-full ${isPackRO('remarks') ? lockedInputClass : inputClass} ${line.condition === 'DAMAGED' && !(line.remarks || '').trim() ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : ''}`} />
+                              <button type="button" onClick={() => togglePackMic(index)} className={`flex-shrink-0 p-2 rounded-lg border transition ${listeningPackIdx === index ? 'bg-red-50 border-red-300 text-red-600 animate-pulse' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`} title={listeningPackIdx === index ? 'Stop recording' : 'Speak remarks'}>
+                                {listeningPackIdx === index ? <MicOff size={14} /> : <Mic size={14} />}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Damage proof — visible only when DAMAGED */}
+                      {line.condition === 'DAMAGED' && (
+                        <div className="pt-3 border-t border-red-100">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="text-[11px] font-semibold text-red-600">Damage Proof *</span>
+                            {(line._damageFiles || []).length > 0 && (
+                              <span className="text-[11px] text-slate-400">{line._damageFiles.length} file(s)</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              className="hidden"
+                              id={`damage-camera-${index}`}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setPackingLines(prev => prev.map((p, i) => i === index ? { ...p, _damageFiles: [...(p._damageFiles || []), file] } : p));
+                                }
+                                e.target.value = '';
+                              }}
+                            />
+                            <button type="button" onClick={() => document.getElementById(`damage-camera-${index}`)?.click()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition">
+                              <Camera size={14} /> Take Photo
+                            </button>
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png,.webp"
+                              multiple
+                              className="hidden"
+                              id={`damage-file-${index}`}
+                              onChange={(e) => {
+                                const files = Array.from(e.target.files || []);
+                                if (files.length > 0) {
+                                  setPackingLines(prev => prev.map((p, i) => i === index ? { ...p, _damageFiles: [...(p._damageFiles || []), ...files] } : p));
+                                }
+                                e.target.value = '';
+                              }}
+                            />
+                            <button type="button" onClick={() => document.getElementById(`damage-file-${index}`)?.click()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition">
+                              <Upload size={14} /> Upload Proof
+                            </button>
+                          </div>
+                          {(line._damageFiles || []).length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {line._damageFiles.map((f, fi) => (
+                                <div key={fi} className="flex items-center gap-2 px-2.5 py-1.5 bg-red-50/50 border border-red-100 rounded-lg text-xs">
+                                  <Paperclip size={12} className="text-red-400 flex-shrink-0" />
+                                  <span className="flex-1 truncate text-slate-700">{f.name}</span>
+                                  <button type="button" onClick={() => setPackingLines(prev => prev.map((p, i) => i === index ? { ...p, _damageFiles: (p._damageFiles || []).filter((_, j) => j !== fi) } : p))} className="p-0.5 text-red-400 hover:text-red-600">
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -3434,18 +3709,52 @@ export default function CreateReceiptAdvice() {
 
           {/* Additional Information */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Additional Information</h3>
-            <div className="grid grid-cols-1 gap-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Additional Information</h3>
+            <div className="grid grid-cols-1 gap-3">
               {!isHidden('remarks') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                <textarea name="remarks" value={formData.remarks} onChange={handleChange} rows={3} disabled={isReadOnly('remarks')} className={isReadOnly('remarks') ? lockedInputClass : inputClass} />
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Remarks</label>
+                <textarea name="remarks" value={formData.remarks} onChange={handleChange} rows={2} disabled={isReadOnly('remarks')} className={isReadOnly('remarks') ? lockedInputClass : inputClass} />
               </div>
               )}
             </div>
           </div>
 
-          <FileAttachments module="RECEIPT" recordId={null} onPendingChange={(files) => { pendingAttachmentsRef.current = files; setPendingAttachments(files); }} />
+          {/* Attachments — combined view with category labels + inline preview */}
+          <div>
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Attachments</h3>
+            <div className="flex items-center gap-2 mb-3">
+              <input
+                ref={generalCameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const updated = [...pendingAttachmentsRef.current, file];
+                    pendingAttachmentsRef.current = updated;
+                    setPendingAttachments(updated);
+                  }
+                  if (generalCameraRef.current) generalCameraRef.current.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => generalCameraRef.current?.click()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition"
+              >
+                <Camera size={14} />
+                Take Photo
+              </button>
+            </div>
+            <CombinedAttachmentList
+              generalFiles={pendingAttachments}
+              transportFiles={pendingTransportAttachments}
+              damageFiles={packingLines.flatMap(l => l._damageFiles || [])}
+            />
+          </div>
 
           {/* Form Actions */}
           {(() => {
@@ -3473,27 +3782,6 @@ export default function CreateReceiptAdvice() {
             };
             return (
               <div className="flex justify-end items-center gap-3 pt-4 border-t">
-                {canUseDebitNote && (
-                  <button
-                    type="button"
-                    onClick={toggleAll}
-                    aria-pressed={state === 'on'}
-                    title={state === 'on'
-                      ? 'Clear Debit Note on every line'
-                      : state === 'mixed'
-                        ? `${debitCount}/${allLines.length} lines flagged — click to mark all`
-                        : 'Mark every line as a Debit Note'}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition ${
-                      state === 'on'
-                        ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
-                        : state === 'mixed'
-                          ? 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
-                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    {state === 'on' ? 'Debit Note: All ON' : state === 'mixed' ? `Debit Note: ${debitCount}/${allLines.length}` : 'Debit Note'}
-                  </button>
-                )}
                 <button type="button" onClick={() => navigate(-1)} className="px-4 sm:px-6 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
                 <button type="submit" disabled={isLoading} className="px-4 sm:px-6 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">{isLoading ? 'Saving...' : 'Save'}</button>
               </div>

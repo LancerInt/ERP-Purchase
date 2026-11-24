@@ -33,7 +33,7 @@ function formatBytes(bytes) {
  *   deferUntilSave  - if true, files are queued in pending state even when recordId exists
  *                     (parent must call uploadPendingFiles after saving)
  */
-export default function FileAttachments({ module, recordId, readOnly = false, onPendingChange, deferUntilSave = false, presetPendingFiles, className = '', compact = false, showPreview = false }) {
+export default function FileAttachments({ module, recordId, category = 'GENERAL', readOnly = false, hideUpload = false, onPendingChange, deferUntilSave = false, presetPendingFiles, className = '', compact = false, showPreview = false }) {
   const [files, setFiles] = useState([]);
   // Opt-in inline preview of the first image/PDF attachment — e.g. the scanned
   // bill on the Vendor Bill page, so a reviewer can compare it with the booked
@@ -73,11 +73,11 @@ export default function FileAttachments({ module, recordId, readOnly = false, on
   useEffect(() => {
     if (!recordId) return;
     setIsLoading(true);
-    apiClient.get('/api/purchase/attachments/', { params: { module, record_id: recordId } })
+    apiClient.get('/api/purchase/attachments/', { params: { module, record_id: recordId, category } })
       .then(res => setFiles(res.data?.results || res.data || []))
       .catch(() => {})
       .finally(() => setIsLoading(false));
-  }, [module, recordId]);
+  }, [module, recordId, category]);
 
   // Mint a signed URL for the first previewable attachment (image / PDF) so it
   // can render inline. Runs only when the caller opts in (showPreview).
@@ -119,6 +119,7 @@ export default function FileAttachments({ module, recordId, readOnly = false, on
         fd.append('file', file);
         fd.append('module', module);
         fd.append('record_id', recordId);
+        fd.append('category', category);
         const res = await apiClient.post('/api/purchase/attachments/', fd, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
@@ -189,7 +190,7 @@ export default function FileAttachments({ module, recordId, readOnly = false, on
             </h3>
           </div>
         )}
-        {!readOnly && (
+        {!readOnly && !hideUpload && (
           <>
             <input
               ref={inputRef}
@@ -291,7 +292,7 @@ export default function FileAttachments({ module, recordId, readOnly = false, on
  * Upload pending files for a newly created record.
  * Call this after saving the record and getting the ID.
  */
-export async function uploadPendingFiles(module, recordId, pendingFiles) {
+export async function uploadPendingFiles(module, recordId, pendingFiles, category = 'GENERAL') {
   if (!pendingFiles || pendingFiles.length === 0) return 0;
   let uploaded = 0;
   const failed = [];
@@ -301,6 +302,7 @@ export async function uploadPendingFiles(module, recordId, pendingFiles) {
       fd.append('file', file);
       fd.append('module', module);
       fd.append('record_id', recordId);
+      fd.append('category', category);
       await apiClient.post('/api/purchase/attachments/', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });

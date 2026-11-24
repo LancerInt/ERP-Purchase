@@ -38,13 +38,13 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:8200',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
       // Uploaded media (e.g. staff photos) is served by Django in dev —
       // proxy it so file_url (/media/...) resolves through Vite.
       '/media': {
-        target: 'http://localhost:8200',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
     },

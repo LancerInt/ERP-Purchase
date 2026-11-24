@@ -228,8 +228,8 @@ export default function CreatePaymentMade() {
     }
   };
 
-  const inputClass = "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
-  const labelClass = "block text-sm font-medium text-slate-700 mb-1";
+  const inputClass = "w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
+  const labelClass = "block text-xs font-semibold text-slate-700 mb-0.5";
   const cellInput = "w-full border border-slate-300 rounded px-2 py-1 text-sm text-right focus:ring-1 focus:ring-primary-500";
   const hasAdvances = totalAdvanceAvailable > 0;
 
@@ -243,10 +243,10 @@ export default function CreatePaymentMade() {
           { label: 'New Payment' },
         ]}
       />
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
-        <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           {/* Header */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
             <div>
               <label className={labelClass}>Vendor <span className="text-red-500">*</span></label>
               <CustomSelect name="vendor" value={header.vendor} onChange={(e) => setHeader(p => ({ ...p, vendor: e.target.value }))} required className={inputClass}>
@@ -286,7 +286,7 @@ export default function CreatePaymentMade() {
           {/* Bills grid */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-base font-semibold text-slate-800">Outstanding Bills</h3>
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Outstanding Bills</h3>
               {(totalApplied > 0) && (
                 <button type="button" onClick={clearApplied} className="text-xs font-medium text-primary-600 hover:underline">Clear Applied Amount</button>
               )}

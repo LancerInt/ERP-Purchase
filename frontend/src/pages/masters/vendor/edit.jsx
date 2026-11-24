@@ -509,7 +509,7 @@ export default function EditVendor() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Vendor Name <span className="text-red-500">*</span></label>
-                <input type="text" name="vendor_name" value={formData.vendor_name} onChange={handleChange} required className={`${dupMatches.length ? 'w-full px-3 py-2 border border-amber-400 bg-amber-50 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500' : inputClass}`} placeholder="Enter vendor name" />
+                <input type="text" name="vendor_name" value={formData.vendor_name} onChange={handleChange} required maxLength={255} className={`${dupMatches.length ? 'w-full px-3 py-2 border border-amber-400 bg-amber-50 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500' : inputClass}`} placeholder="Enter vendor name" />
                 {dupMatches.length > 0 && (
                   <div className="mt-1 text-xs text-amber-700">
                     <span className="font-medium">Possible duplicate — matches another vendor:</span>
@@ -747,8 +747,8 @@ export default function EditVendor() {
                 <input type="text" name="contact_person" value={formData.contact_person} onChange={handleChange} className={inputClass} placeholder="Enter contact person" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Contact Email</label>
-                <input type="email" name="contact_email" value={formData.contact_email} onChange={handleChange} className={inputClass} placeholder="Enter contact email" />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Contact Email <span className="text-red-500">*</span></label>
+                <input type="email" name="contact_email" value={formData.contact_email} onChange={handleChange} required className={inputClass} placeholder="Enter contact email" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Contact Phone</label>

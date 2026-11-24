@@ -472,9 +472,9 @@ export default function CreateVendorBill() {
     }
   };
 
-  const inputClass = "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
+  const inputClass = "w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
   const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
-  const labelClass = "block text-sm font-medium text-slate-700 mb-1";
+  const labelClass = "block text-xs font-semibold text-slate-700 mb-0.5";
 
   return (
     <MainLayout>
@@ -491,13 +491,13 @@ export default function CreateVendorBill() {
           { label: 'New Bill' },
         ]}
       />
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
         <form onSubmit={handleSubmit}>
-          <EditGate canEdit={editable} className="space-y-3 sm:space-y-6">
+          <EditGate canEdit={editable} className="space-y-3">
           {/* Bill Details */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Bill Details</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Bill Details</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
               {!isHidden('receipt_advice') && (
               <div>
                 <label className={labelClass}>Receipt Advice <span className="text-red-500">*</span></label>
@@ -580,7 +580,7 @@ export default function CreateVendorBill() {
 
           {/* Line Items */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Line Items</h3>
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Line Items</h3>
             <div className="overflow-x-auto ios-scroll">
               <table className="w-full text-sm">
                 <thead>
@@ -700,7 +700,7 @@ export default function CreateVendorBill() {
 
           {/* Summary */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Summary</h3>
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Summary</h3>
             <div className="max-w-md ml-auto space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-slate-600">Subtotal:</span>
@@ -729,18 +729,18 @@ export default function CreateVendorBill() {
 
           {/* Notes */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Notes</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Notes</h3>
+            <div className="grid grid-cols-2 gap-3">
               {!isHidden('terms_and_conditions') && (
               <div>
                 <label className={labelClass}>Terms & Conditions</label>
-                <textarea name="terms_and_conditions" value={formData.terms_and_conditions} onChange={handleChange} rows={3} disabled={isReadOnly('terms_and_conditions')} className={isReadOnly('terms_and_conditions') ? lockedInputClass : inputClass} />
+                <textarea name="terms_and_conditions" value={formData.terms_and_conditions} onChange={handleChange} rows={2} disabled={isReadOnly('terms_and_conditions')} className={isReadOnly('terms_and_conditions') ? lockedInputClass : inputClass} />
               </div>
               )}
               {!isHidden('notes') && (
               <div>
                 <label className={labelClass}>Notes</label>
-                <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} disabled={isReadOnly('notes')} className={isReadOnly('notes') ? lockedInputClass : inputClass} />
+                <textarea name="notes" value={formData.notes} onChange={handleChange} rows={2} disabled={isReadOnly('notes')} className={isReadOnly('notes') ? lockedInputClass : inputClass} />
               </div>
               )}
             </div>
@@ -748,7 +748,7 @@ export default function CreateVendorBill() {
 
           {/* Receipt Attachments — inherited from selected Receipt Advice (read-only) */}
           {receiptAttachments.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Paperclip size={16} className="text-blue-700" />
                 <h3 className="text-sm font-semibold text-blue-900">

@@ -165,6 +165,8 @@ export default function CreateVendor() {
     if (name === 'gstin' || name === 'pan') {
       setFieldErr(prev => (prev[name] ? { ...prev, [name]: '' } : prev));
     }
+    // Clear the server/client error for this field as the user edits it
+    if (serverErrors[name]) setServerErrors(prev => { const n = { ...prev }; delete n[name]; return n; });
     setFormData(prev => {
       const next = { ...prev, [name]: fieldVal };
       // Turning MSME off clears its dependent fields so no stale category /
@@ -334,11 +336,31 @@ export default function CreateVendor() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.is_msme, formData.msme_category, msmeHasAgreementDoc]);
 
+  const [serverErrors, setServerErrors] = useState({});
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Stop early on a same-company clash (GSTIN or name) — the server rejects
-    // both anyway (serializer guard + DB constraint), but failing fast keeps
-    // the inline alert and the save behaviour in step.
+    setServerErrors({});
+    // Client-side checks before hitting the API
+    const clientErrs = {};
+    if (!formData.company) clientErrs.company = 'Company is required.';
+    if (!formData.vendor_name?.trim()) clientErrs.vendor_name = 'Vendor name is required.';
+    if (!formData.vendor_type) clientErrs.vendor_type = 'Vendor type is required.';
+    if (!formData.gst_treatment) clientErrs.gst_treatment = 'GST Treatment is required. Select "Unregistered Business" if vendor has no GSTIN.';
+    if (isRegisteredTreatment(formData.gst_treatment) && !formData.gstin?.trim()) {
+      clientErrs.gstin = 'GSTIN is required for a registered vendor. Select "Unregistered Business" under GST Treatment if the vendor has no GSTIN.';
+    }
+    if (formData.gstin?.trim() && !isValidGstin(formData.gstin.trim())) {
+      clientErrs.gstin = clientErrs.gstin || 'Invalid GSTIN format (e.g. 22AAAAA0000A1Z5).';
+    }
+    if (!formData.pan?.trim()) clientErrs.pan = 'PAN is required.';
+    if (!formData.contact_email?.trim()) clientErrs.contact_email = 'Contact email is required.';
+    if (Object.keys(clientErrs).length > 0) {
+      setServerErrors(clientErrs);
+      toast.error('Please fill all required fields.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     if (gstinClash.length > 0) {
       toast.error(`This GSTIN already belongs to vendor ${gstinClash[0].vendor_name} (${gstinClash[0].vendor_code}) in this company.`);
       return;
@@ -350,9 +372,6 @@ export default function CreateVendor() {
     setIsLoading(true);
     try {
       const payload = cleanFormData(formData);
-      // DRF rejects '' for numeric fields with "A valid number is
-      // required". The Vendor model defaults all of these to 0, so
-      // we strip them when empty so the server-side default kicks in.
       const NUMERIC_OPTIONAL = [
         'gst', 'sgst_rate', 'cgst_rate', 'igst_rate',
         'tds_rate', 'tcs_rate',
@@ -364,11 +383,7 @@ export default function CreateVendor() {
           delete payload[key];
         }
       }
-      // vendor_type is stored as a JSON list of choice keys.
       payload.vendor_type = formData.vendor_type ? [formData.vendor_type] : [];
-      // Address must be a structured dict on save — mirrors the import
-      // pipeline so the edit page (which expects the dict shape) reads
-      // back consistently.
       if (formData.address || formData.city || formData.state || formData.pincode) {
         payload.address = {
           line1:   formData.address || '',
@@ -378,9 +393,6 @@ export default function CreateVendor() {
           country: formData.country || 'IN',
         };
       }
-      // Multipart: the compliance uploads (MSME cert, written agreement, GSTIN
-      // certificate) ride alongside the record. vendor_type / address go as
-      // JSON strings — the serializer's to_internal_value parses them back.
       const fd = new FormData();
       Object.entries(payload).forEach(([k, v]) => {
         if (v === undefined || v === null) return;
@@ -393,20 +405,27 @@ export default function CreateVendor() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       toast.success('Vendor created successfully!');
-      // Every vendor dropdown across the app (including one already open in
-      // another tab, e.g. the bank-statement import modal's quick-create
-      // shortcut) caches this list — without clearing it, a freshly created
-      // vendor stays invisible until something else happens to bust it.
       clearLookupCache('/api/vendors/');
       navigate(-1);
     } catch (error) {
       if (import.meta.env.DEV) console.error('[CreateVendor] error:', error.response?.data);
-      // Surface field-level server validation (e.g. duplicate GSTIN, bad PAN)
-      // inline on the field, not just as a toast.
       const d = error.response?.data || {};
-      const pick = (x) => (Array.isArray(x) ? x[0] : (typeof x === 'string' ? x : ''));
+      const pick = (x) => {
+        if (Array.isArray(x)) return x[0]?.toString?.() || '';
+        if (typeof x === 'string') return x;
+        if (typeof x === 'object' && x !== null) return Object.values(x).map(v => pick(v)).filter(Boolean).join('; ');
+        return '';
+      };
+      const errs = {};
+      for (const [key, val] of Object.entries(d)) {
+        const msg = pick(val);
+        if (msg) errs[key] = msg;
+      }
+      setServerErrors(errs);
       if (d.gstin || d.pan) setFieldErr(prev => ({ ...prev, gstin: pick(d.gstin) || prev.gstin, pan: pick(d.pan) || prev.pan }));
       toast.error(getApiErrorMessage(error));
+      // Scroll to the top so the error banner is visible
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsLoading(false);
     }
@@ -425,6 +444,18 @@ export default function CreateVendor() {
       />
       <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
         <form onSubmit={handleSubmit}>
+          {Object.keys(serverErrors).length > 0 && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-300 rounded-lg">
+              <p className="text-sm font-semibold text-red-800 mb-2">Please fix the following errors:</p>
+              <ul className="list-disc list-inside space-y-1">
+                {Object.entries(serverErrors).map(([field, msg]) => (
+                  <li key={field} className="text-sm text-red-700">
+                    <span className="font-medium">{field.replace(/_/g, ' ')}:</span> {msg}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <EditGate canEdit={editable} className="space-y-4 sm:space-y-6">
           {/* Section: Basic Information */}
           <div>
@@ -438,7 +469,7 @@ export default function CreateVendor() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Vendor Name <span className="text-red-500">*</span></label>
-                <input type="text" name="vendor_name" value={formData.vendor_name} onChange={handleChange} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${dupMatches.length ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Enter vendor name" />
+                <input type="text" name="vendor_name" value={formData.vendor_name} onChange={handleChange} required maxLength={255} className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.vendor_name ? 'border-red-400 bg-red-50' : dupMatches.length ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Enter vendor name" />
                 {dupMatches.length > 0 && (
                   <div className="mt-1 text-xs text-amber-700">
                     <span className="font-medium">Possible duplicate — this name matches an existing vendor:</span>
@@ -453,17 +484,14 @@ export default function CreateVendor() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Vendor Type <span className="text-red-500">*</span></label>
-                <CustomSelect name="vendor_type" value={formData.vendor_type} onChange={handleChange} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <CustomSelect name="vendor_type" value={formData.vendor_type} onChange={handleChange} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.vendor_type ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
                   <option value="">Select...</option>
-                  {/* Values are the model's choice keys so saved vendors
-                      round-trip into the Edit form with the dropdown
-                      pre-filled instead of showing "Select...". */}
                   {VENDOR_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </CustomSelect>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Company <span className="text-red-500">*</span></label>
-                <CustomSelect name="company" value={formData.company} onChange={handleChange} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <CustomSelect name="company" value={formData.company} onChange={handleChange} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.company ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
                   <option value="">Select...</option>
                   {companies.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </CustomSelect>
@@ -485,8 +513,8 @@ export default function CreateVendor() {
                     </button>
                   )}
                 </div>
-                {fieldErr.gstin && (
-                  <p role="alert" className="mt-1 text-xs text-red-600">{fieldErr.gstin}</p>
+                {(fieldErr.gstin || serverErrors.gstin) && (
+                  <p role="alert" className="mt-1 text-xs text-red-600">{fieldErr.gstin || serverErrors.gstin}</p>
                 )}
                 {/* Inline GSTIN clash — same-company is a hard block, another
                     company is informational (the same GSTIN may be reused). */}
@@ -513,11 +541,13 @@ export default function CreateVendor() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">GST Treatment</label>
-                <CustomSelect name="gst_treatment" value={formData.gst_treatment} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <label className="block text-sm font-medium text-slate-700 mb-1">GST Treatment <span className="text-red-500">*</span></label>
+                <CustomSelect name="gst_treatment" value={formData.gst_treatment} onChange={handleChange} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.gst_treatment ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
                   <option value="">Select GST treatment</option>
                   {VENDOR_GST_TREATMENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </CustomSelect>
+                {serverErrors.gst_treatment && <p className="mt-1 text-xs text-red-600">{serverErrors.gst_treatment}</p>}
+                {!formData.gst_treatment && <p className="mt-1 text-xs text-slate-500">Select &quot;Unregistered Business&quot; if vendor has no GSTIN</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">PAN <span className="text-red-500">*</span></label>
@@ -669,8 +699,9 @@ export default function CreateVendor() {
                 <input type="text" name="contact_person" value={formData.contact_person} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter contact person" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Contact Email</label>
-                <input type="email" name="contact_email" value={formData.contact_email} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter contact email" />
+                <label className="block text-sm font-medium text-slate-700 mb-1">Contact Email <span className="text-red-500">*</span></label>
+                <input type="email" name="contact_email" value={formData.contact_email} onChange={handleChange} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.contact_email ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} placeholder="Enter contact email" />
+                {serverErrors.contact_email && <p className="mt-1 text-xs text-red-600">{serverErrors.contact_email}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Contact Phone</label>

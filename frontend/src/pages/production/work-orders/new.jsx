@@ -1319,7 +1319,7 @@ export default function CreateWorkOrder() {
 
         {/* ── Footer actions ─────────────────────────────────────────── */}
         <div className="flex justify-end gap-3">
-          <button type="button" onClick={() => navigate('/production/work-orders')}
+          <button type="button" onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/production/work-orders')}
             className="px-4 sm:px-5 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">
             Cancel
           </button>

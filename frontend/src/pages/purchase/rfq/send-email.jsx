@@ -1,5 +1,5 @@
 import CustomSelect from "@/components/ui/CustomSelect";
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
@@ -8,9 +8,177 @@ import StatusBadge from '../../../components/common/StatusBadge';
 import EmailAutocomplete from '../../../components/common/EmailAutocomplete.jsx';
 import { DEFAULT_PURCHASE_CC } from '../../../constants/emailDefaults.js';
 import apiClient from '../../../utils/api.js';
-import { getApiErrorMessage } from '../../../utils/formHelpers.js';
+import { cleanFormData, getApiErrorMessage } from '../../../utils/formHelpers.js';
 import usePermissions from '../../../hooks/usePermissions.js';
+import useLookup, { clearLookupCache } from '../../../hooks/useLookup.js';
 import { formatDate, formatDateTime } from '@/utils/formatters';
+import { VENDOR_TYPE_OPTIONS } from '../../../constants/vendorTypes.js';
+import { VENDOR_GST_TREATMENT_OPTIONS, isRegisteredTreatment } from '../../../constants/gstTreatment.js';
+import { panFromGstin, isValidGstin } from '../../../utils/gst.js';
+
+function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
+  const { options: companies } = useLookup('/api/companies/');
+  const [form, setForm] = useState({
+    vendor_name: '', vendor_type: '', company: companyId || '',
+    gst_treatment: '', gstin: '', pan: '', contact_email: '', contact_phone: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    if (companyId && !form.company) setForm(p => ({ ...p, company: companyId }));
+  }, [companyId]);
+
+  // Reset form when modal opens (F1-016)
+  useEffect(() => {
+    if (open) {
+      setForm({ vendor_name: '', vendor_type: '', company: companyId || '', gst_treatment: '', gstin: '', pan: '', contact_email: '', contact_phone: '' });
+      setErrors({});
+    }
+  }, [open]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    const v = (name === 'gstin' || name === 'pan') ? value.toUpperCase() : value;
+    setErrors(p => { const n = { ...p }; delete n[name]; return n; });
+    setForm(p => {
+      const next = { ...p, [name]: v };
+      if (name === 'gstin' && !p.pan?.trim()) {
+        const derived = panFromGstin(value);
+        if (derived) next.pan = derived;
+      }
+      return next;
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const errs = {};
+    if (!form.vendor_name.trim()) errs.vendor_name = 'Required';
+    if (!form.vendor_type) errs.vendor_type = 'Required';
+    if (!form.company) errs.company = 'Required';
+    if (!form.gst_treatment) errs.gst_treatment = 'Required';
+    if (isRegisteredTreatment(form.gst_treatment) && !form.gstin.trim()) errs.gstin = 'GSTIN required for registered vendor';
+    if (form.gstin.trim() && !isValidGstin(form.gstin.trim())) errs.gstin = errs.gstin || 'Invalid GSTIN format (e.g. 22AAAAA0000A1Z5)';
+    if (!form.pan.trim()) errs.pan = 'Required';
+    if (!form.contact_email.trim()) errs.contact_email = 'Required';
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+
+    setSaving(true);
+    try {
+      const payload = cleanFormData({ ...form });
+      payload.vendor_type = form.vendor_type ? [form.vendor_type] : [];
+      const NUMERIC = ['gst', 'sgst_rate', 'cgst_rate', 'igst_rate', 'tds_rate', 'tcs_rate', 'credit_limit', 'credit_days'];
+      NUMERIC.forEach(k => { if (payload[k] === '' || payload[k] == null) delete payload[k]; });
+
+      const fd = new FormData();
+      Object.entries(payload).forEach(([k, v]) => {
+        if (v === undefined || v === null) return;
+        if (typeof v === 'object') fd.append(k, JSON.stringify(v));
+        else if (typeof v === 'boolean') fd.append(k, v ? 'true' : 'false');
+        else fd.append(k, v);
+      });
+
+      const res = await apiClient.post('/api/vendors/', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success(`Vendor "${res.data.vendor_name}" created!`);
+      clearLookupCache('/api/vendors/');
+      onCreated(res.data);
+      onClose();
+      setForm({ vendor_name: '', vendor_type: '', company: companyId || '', gst_treatment: '', gstin: '', pan: '', contact_email: '', contact_phone: '' });
+      setErrors({});
+    } catch (err) {
+      const d = err.response?.data || {};
+      const pick = (x) => Array.isArray(x) ? x[0] : typeof x === 'string' ? x : '';
+      const srvErrs = {};
+      for (const [k, v] of Object.entries(d)) { const m = pick(v); if (m) srvErrs[k] = m; }
+      setErrors(srvErrs);
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!open) return null;
+
+  const fieldClass = (name) => `w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${errors[name] ? 'border-red-400 bg-red-50' : 'border-slate-300'}`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b">
+          <h2 className="text-lg font-semibold text-slate-800">Quick Create Vendor</h2>
+          <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700">×</button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {Object.keys(errors).length > 0 && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-xs font-medium text-red-700">Please fix the highlighted fields.</p>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Vendor Name <span className="text-red-500">*</span></label>
+              <input type="text" name="vendor_name" value={form.vendor_name} onChange={handleChange} maxLength={255} className={fieldClass('vendor_name')} placeholder="Enter vendor name" autoFocus />
+              {errors.vendor_name && <p className="mt-1 text-xs text-red-600">{errors.vendor_name}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Vendor Type <span className="text-red-500">*</span></label>
+              <CustomSelect name="vendor_type" value={form.vendor_type} onChange={handleChange} className={fieldClass('vendor_type')}>
+                <option value="">Select...</option>
+                {VENDOR_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </CustomSelect>
+              {errors.vendor_type && <p className="mt-1 text-xs text-red-600">{errors.vendor_type}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Company <span className="text-red-500">*</span></label>
+              <CustomSelect name="company" value={form.company} onChange={handleChange} className={fieldClass('company')}>
+                <option value="">Select...</option>
+                {companies.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </CustomSelect>
+              {errors.company && <p className="mt-1 text-xs text-red-600">{errors.company}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">GST Treatment <span className="text-red-500">*</span></label>
+              <CustomSelect name="gst_treatment" value={form.gst_treatment} onChange={handleChange} className={fieldClass('gst_treatment')}>
+                <option value="">Select...</option>
+                {VENDOR_GST_TREATMENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </CustomSelect>
+              {errors.gst_treatment && <p className="mt-1 text-xs text-red-600">{errors.gst_treatment}</p>}
+              {!form.gst_treatment && <p className="mt-1 text-xs text-slate-500">Select &quot;Unregistered Business&quot; if no GSTIN</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">GSTIN {isRegisteredTreatment(form.gst_treatment) && <span className="text-red-500">*</span>}</label>
+              <input type="text" name="gstin" value={form.gstin} onChange={handleChange} maxLength={15} className={fieldClass('gstin')} placeholder="Enter GSTIN" />
+              {errors.gstin && <p className="mt-1 text-xs text-red-600">{errors.gstin}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">PAN <span className="text-red-500">*</span></label>
+              <input type="text" name="pan" value={form.pan} onChange={handleChange} maxLength={10} className={fieldClass('pan')} placeholder="Enter PAN" />
+              {errors.pan && <p className="mt-1 text-xs text-red-600">{errors.pan}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Contact Email <span className="text-red-500">*</span></label>
+              <input type="email" name="contact_email" value={form.contact_email} onChange={handleChange} className={fieldClass('contact_email')} placeholder="Enter email" />
+              {errors.contact_email && <p className="mt-1 text-xs text-red-600">{errors.contact_email}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Contact Phone</label>
+              <input type="text" name="contact_phone" value={form.contact_phone} onChange={handleChange} className={fieldClass('contact_phone')} placeholder="Enter phone" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
+            <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
+              {saving ? 'Creating...' : 'Create Vendor'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 export default function SendRFQEmail() {
   const { id } = useParams();
@@ -44,6 +212,8 @@ export default function SendRFQEmail() {
   const [lineVendors, setLineVendors] = useState({});
   const [lineVendorsInit, setLineVendorsInit] = useState(false);
   const [activeAddLine, setActiveAddLine] = useState(null); // productKey whose add-vendor box is open
+  const savedRoutingRef = useRef(null);
+  const saveTimerRef = useRef(null);
   const [addQuery, setAddQuery] = useState('');
 
   // UI states
@@ -56,6 +226,8 @@ export default function SendRFQEmail() {
   const [isSending, setIsSending] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [sendResults, setSendResults] = useState(null);
+  const [showCreateVendor, setShowCreateVendor] = useState(false);
+  const [createVendorForLine, setCreateVendorForLine] = useState(null);
 
   // Keep backward-compatible alias for existing code (confirmation dialog, send handler, etc.)
   const selectedVendors = selectedVendorIds;
@@ -76,13 +248,14 @@ export default function SendRFQEmail() {
     const fetchAll = async () => {
       setIsLoadingData(true);
       try {
-        const [rfqRes, vendorsRes, templatesRes, logsRes, autoVendorsRes, productsRes] = await Promise.allSettled([
+        const [rfqRes, vendorsRes, templatesRes, logsRes, autoVendorsRes, productsRes, routingRes] = await Promise.allSettled([
           apiClient.get(`/api/purchase/rfq/${id}/`),
           apiClient.get('/api/vendors/', { params: { page_size: 500 } }),
           apiClient.get('/api/communications/templates/'),
           apiClient.get(`/api/communications/email-logs/?rfq=${id}`),
           apiClient.get(`/api/purchase/rfq/${id}/vendors/`),
           apiClient.get(`/api/purchase/rfq/${id}/products/`),
+          apiClient.get(`/api/purchase/rfq/${id}/vendor-routing/`),
         ]);
 
         if (productsRes.status === 'fulfilled') {
@@ -146,6 +319,13 @@ export default function SendRFQEmail() {
           // coerces incoming ids to string for lookup.
           if (payload.vendor_products && typeof payload.vendor_products === 'object') {
             setVendorProductsMap(payload.vendor_products);
+          }
+        }
+
+        if (routingRes.status === 'fulfilled') {
+          const saved = routingRes.value.data?.vendor_routing;
+          if (saved && typeof saved === 'object' && Object.keys(saved).length > 0) {
+            savedRoutingRef.current = saved;
           }
         }
       } catch (err) {
@@ -295,17 +475,26 @@ export default function SendRFQEmail() {
     return names.some(n => String(n).trim().toLowerCase() === String(productName || '').trim().toLowerCase());
   }, [vendorProductsMap]);
 
-  // Seed each line with its preferred-supplier vendors (pre-ticked), once both
-  // the line items and the product→vendor mapping have loaded.
+  // Seed each line with saved routing (if any) or preferred-supplier vendors.
   useEffect(() => {
     if (lineVendorsInit || rfqProducts.length === 0) return;
-    const init = {};
-    rfqProducts.forEach(p => {
-      init[p.product] = allVendorsDedup
-        .filter(v => isPreferredFor(v.id, p.product_name))
-        .map(v => v.id);
-    });
-    setLineVendors(init);
+    const saved = savedRoutingRef.current;
+    if (saved) {
+      const init = {};
+      rfqProducts.forEach(p => {
+        const key = String(p.product);
+        init[key] = Array.isArray(saved[key]) ? saved[key].map(Number) : [];
+      });
+      setLineVendors(init);
+    } else {
+      const init = {};
+      rfqProducts.forEach(p => {
+        init[p.product] = allVendorsDedup
+          .filter(v => isPreferredFor(v.id, p.product_name))
+          .map(v => v.id);
+      });
+      setLineVendors(init);
+    }
     setLineVendorsInit(true);
   }, [rfqProducts, allVendorsDedup, isPreferredFor, lineVendorsInit]);
 
@@ -319,12 +508,35 @@ export default function SendRFQEmail() {
     });
   }, [lineVendors]);
 
+  // Persist line-vendor routing to backend (debounced) so it survives refresh.
+  useEffect(() => {
+    if (!lineVendorsInit) return;
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      apiClient.put(`/api/purchase/rfq/${id}/vendor-routing/`, { vendor_routing: lineVendors })
+        .catch(() => {});
+    }, 800);
+    return () => clearTimeout(saveTimerRef.current);
+  }, [lineVendors, lineVendorsInit, id]);
+
   const toggleLineVendor = (productKey, vendorId) => {
     setLineVendors(prev => {
       const cur = prev[productKey] || [];
       const next = cur.includes(vendorId) ? cur.filter(x => x !== vendorId) : [...cur, vendorId];
       return { ...prev, [productKey]: next };
     });
+  };
+
+  const handleVendorCreated = (newVendor) => {
+    setVendors(prev => [newVendor, ...prev]);
+    if (createVendorForLine) {
+      setLineVendors(prev => {
+        const cur = prev[createVendorForLine] || [];
+        return { ...prev, [createVendorForLine]: [...cur, newVendor.id] };
+      });
+      setActiveAddLine(null);
+    }
+    setCreateVendorForLine(null);
   };
 
   // {vendor_id: [line_key, ...]} — the explicit routing sent to the backend so
@@ -579,9 +791,9 @@ export default function SendRFQEmail() {
       />
 
       {/* Top Section: Vendor Selection & Template */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
         {/* Per-line-item vendor routing */}
-        <div className="bg-white rounded-lg border border-slate-200 p-5">
+        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
           <div className="flex items-center justify-between gap-2 mb-1">
             <h3 className="text-sm font-semibold text-slate-800">Route Line Items to Vendors</h3>
             <span className="text-xs font-medium text-slate-500 shrink-0">
@@ -685,6 +897,16 @@ export default function SendRFQEmail() {
                             );
                           })}
                         </div>
+                        <div className="mt-1.5 pt-1.5 border-t border-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => { setCreateVendorForLine(p.product); setShowCreateVendor(true); setActiveAddLine(null); setAddQuery(''); }}
+                            className="w-full text-left px-2 py-2 rounded-lg hover:bg-primary-50 text-sm font-medium text-primary-700 flex items-center gap-1.5"
+                          >
+                            <span className="w-5 h-5 flex items-center justify-center rounded-full bg-primary-100 text-primary-700 text-xs font-bold">+</span>
+                            Create New Vendor
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -716,8 +938,8 @@ export default function SendRFQEmail() {
         </div>
 
         {/* Template Selection & Actions */}
-        <div className="bg-white rounded-lg border border-slate-200 p-5">
-          <h3 className="text-sm font-semibold text-slate-800 mb-4">Select Template</h3>
+        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+          <h3 className="text-sm font-semibold text-slate-800 mb-3">Select Template</h3>
           <div className="space-y-4">
             <div>
               <CustomSelect
@@ -794,9 +1016,9 @@ export default function SendRFQEmail() {
 
           {/* RFQ Summary */}
           {rfq && (
-            <div className="mt-4 sm:mt-6 pt-4 border-t">
-              <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">RFQ Details</h4>
-              <div className="space-y-1 text-sm">
+            <div className="mt-3 pt-3 border-t">
+              <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">RFQ Details</h4>
+              <div className="space-y-0.5 text-sm">
                 <p><span className="text-slate-500">Number:</span> <span className="font-medium">{rfq.rfq_no}</span></p>
                 <p><span className="text-slate-500">Status:</span> <StatusBadge status={rfq.rfq_status || rfq.status} /></p>
                 <p><span className="text-slate-500">Mode:</span> <span className="font-medium">{rfq.rfq_mode || '-'}</span></p>
@@ -807,10 +1029,10 @@ export default function SendRFQEmail() {
 
           {/* Linked Purchase Requests & Line Items */}
           {linkedPRs.length > 0 && (
-            <div className="mt-4 sm:mt-6 pt-4 border-t">
-              <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">Linked Purchase Requests</h4>
+            <div className="mt-3 pt-3 border-t">
+              <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Linked Purchase Requests</h4>
               {linkedPRs.map(pr => (
-                <div key={pr.id} className="mb-4 bg-slate-50 rounded-lg p-3">
+                <div key={pr.id} className="mb-3 bg-slate-50 rounded-lg p-2.5">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold text-primary-700">{pr.pr_no}</span>
                     <StatusBadge status={pr.approval_status} />
@@ -900,8 +1122,8 @@ export default function SendRFQEmail() {
 
       {/* Send Results */}
       {sendResults?.results && (
-        <div className="bg-white rounded-lg border border-slate-200 p-5 mb-4 sm:mb-6">
-          <h3 className="text-sm font-semibold text-slate-800 mb-3">Send Results</h3>
+        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3">
+          <h3 className="text-sm font-semibold text-slate-800 mb-2">Send Results</h3>
           <div className="space-y-2">
             {sendResults.results.map((result, idx) => {
               // Look up in both vendor pools — auto-vendors carry the
@@ -1146,8 +1368,8 @@ export default function SendRFQEmail() {
       )}
 
       {/* Email History */}
-      <div className="bg-white rounded-lg border border-slate-200 p-5">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+        <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-slate-800">Email History</h3>
           <button
             type="button"
@@ -1203,6 +1425,13 @@ export default function SendRFQEmail() {
           </div>
         )}
       </div>
+
+      <QuickCreateVendorModal
+        open={showCreateVendor}
+        onClose={() => { setShowCreateVendor(false); setCreateVendorForLine(null); }}
+        onCreated={handleVendorCreated}
+        companyId={rfq?.company}
+      />
     </MainLayout>
   );
 }

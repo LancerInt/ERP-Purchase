@@ -61,7 +61,7 @@ export default function PayrollExportDetail() {
       <MainLayout>
         <div className="text-center py-20">
           <p className="text-red-500 mb-3">Payroll export not found.</p>
-          <button onClick={() => navigate('/hr/payroll')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
+          <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/hr/payroll')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
             <ArrowLeft size={15} /> Back to Payroll
           </button>
         </div>
@@ -92,7 +92,7 @@ export default function PayrollExportDetail() {
       />
       <div className="flex items-center justify-between mb-4">
         <button
-          onClick={() => navigate('/hr/payroll')}
+          onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/hr/payroll')}
           className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-800"
         >
           <ArrowLeft size={16} /> Back to list

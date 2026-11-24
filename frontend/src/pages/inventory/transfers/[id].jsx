@@ -65,7 +65,7 @@ export default function StockTransferDCDetail() {
       <MainLayout>
         <div className="text-center py-20">
           <p className="text-red-500 mb-3">Transfer not found.</p>
-          <button onClick={() => navigate('/inventory/transfers')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
+          <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/inventory/transfers')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
             <ArrowLeft size={15} /> Back to Transfers
           </button>
         </div>

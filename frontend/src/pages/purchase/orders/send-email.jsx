@@ -11,7 +11,7 @@ import usePermissions from '../../../hooks/usePermissions.js';
 import PermissionDenied from '../../../components/common/PermissionDenied.jsx';
 import EmailAutocomplete from '../../../components/common/EmailAutocomplete.jsx';
 import { DEFAULT_PURCHASE_CC } from '../../../constants/emailDefaults.js';
-import { Eye, Send, X, Mail, Paperclip, FileText, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
+import { Eye, Send, X, Mail, Paperclip, FileText, Loader2 } from 'lucide-react';
 import { formatDate, formatDateTime, formatCurrency } from '@/utils/formatters';
 
 export default function SendPOEmail() {
@@ -155,6 +155,7 @@ export default function SendPOEmail() {
 
   const vendorEmail = previewData?.context_data?.vendor_email || '';
   const canSend = selectedTemplate && po?.vendor;
+  const alreadySent = emailLogs.some(l => l.email_sent || (l.status || '').toLowerCase().includes('sent'));
 
   if (isLoadingData) {
     return (
@@ -186,13 +187,13 @@ export default function SendPOEmail() {
         ]}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
         {/* Vendor & PO Info */}
-        <div className="bg-white rounded-lg border border-slate-200 p-5">
-          <h3 className="text-sm font-semibold text-slate-800 mb-4">Vendor & PO Details</h3>
+        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+          <h3 className="text-sm font-semibold text-slate-800 mb-2">Vendor & PO Details</h3>
           {po && (
             <>
-              <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-primary-50 border border-primary-200 mb-4">
+              <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-primary-50 border border-primary-200 mb-3">
                 <Mail size={18} className="text-primary-600 flex-shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-slate-800">{po.vendor_name || 'Unknown Vendor'}</p>
@@ -211,7 +212,7 @@ export default function SendPOEmail() {
           )}
 
           {po?.po_lines?.length > 0 && (
-            <div className="mt-4 pt-3 border-t">
+            <div className="mt-3 pt-3 border-t">
               <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Line Items ({po.po_lines.length})</h4>
               <table className="w-full text-xs border border-slate-200 rounded">
                 <thead>
@@ -260,13 +261,13 @@ export default function SendPOEmail() {
         </div>
 
         {/* Template Selection & Send */}
-        <div className="bg-white rounded-lg border border-slate-200 p-5">
-          <h3 className="text-sm font-semibold text-slate-800 mb-4">Select Template & Send</h3>
-          <div className="space-y-4">
+        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+          <h3 className="text-sm font-semibold text-slate-800 mb-2">Select Template & Send</h3>
+          <div className="space-y-3">
             <CustomSelect
               value={selectedTemplate}
               onChange={(e) => setSelectedTemplate(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="">Select a template...</option>
               {templates.map(tpl => (
@@ -277,23 +278,28 @@ export default function SendPOEmail() {
               <p className="text-xs text-amber-600">No templates found. <button onClick={() => navigate('/admin/email-templates/new')} className="underline">Create one</button></p>
             )}
 
-            {/* Single "Send Mail" button — opens preview first */}
+            {/* Send / Resend button — opens preview first */}
             <button
               type="button"
-              onClick={handleSendMailClick}
-              disabled={!canSend || previewLoading || sendResult?.success}
+              onClick={() => { setSendResult(null); handleSendMailClick(); }}
+              disabled={!canSend || previewLoading}
               className={`w-full px-4 py-3 text-white rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 ${
-                sendResult?.success ? 'bg-green-600' : 'bg-primary-600 hover:bg-primary-700'
+                alreadySent ? 'bg-amber-600 hover:bg-amber-700' : 'bg-primary-600 hover:bg-primary-700'
               }`}
             >
               {previewLoading ? (
                 <><Loader2 size={16} className="animate-spin" /> Preparing Preview...</>
-              ) : sendResult?.success ? (
-                <><CheckCircle size={16} /> Email Sent</>
+              ) : alreadySent ? (
+                <><Send size={16} /> Resend Mail</>
               ) : (
                 <><Send size={16} /> Send Mail</>
               )}
             </button>
+            {alreadySent && (
+              <p className="text-xs text-amber-600 text-center">
+                Email was already sent for this PO. Click above to resend.
+              </p>
+            )}
 
             {!canSend && (
               <p className="text-xs text-slate-500">
@@ -306,7 +312,7 @@ export default function SendPOEmail() {
 
       {/* Send Result */}
       {sendResult && (
-        <div className={`rounded-lg border p-5 mb-4 sm:mb-6 ${sendResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+        <div className={`rounded-lg border p-3 sm:p-4 mb-3 ${sendResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
           <h3 className={`text-sm font-semibold mb-1 ${sendResult.success ? 'text-green-800' : 'text-red-800'}`}>
             {sendResult.success ? 'Email Sent Successfully' : 'Email Failed'}
           </h3>
@@ -361,7 +367,7 @@ export default function SendPOEmail() {
                   <p className="text-slate-500 text-sm">Generating email preview...</p>
                 </div>
               ) : previewData ? (
-                <div className="p-4 sm:p-6 space-y-4">
+                <div className="p-3 sm:p-4 space-y-3">
                   {/* Editable Email Metadata */}
                   <div className="bg-slate-50 rounded-xl border border-slate-200 p-5 space-y-3">
                     <div className="flex items-center gap-3">
@@ -427,7 +433,7 @@ export default function SendPOEmail() {
                         {editingBody ? 'Preview' : 'Edit HTML'}
                       </button>
                     </div>
-                    <div className="p-4 sm:p-6">
+                    <div className="p-3 sm:p-4">
                       {editingBody ? (
                         <textarea
                           value={editBody}
@@ -486,8 +492,8 @@ export default function SendPOEmail() {
       )}
 
       {/* Email History */}
-      <div className="bg-white rounded-lg border border-slate-200 p-5">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+        <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-slate-800">Email History</h3>
           <button type="button" onClick={refreshLogs} className="text-xs text-primary-600 hover:text-primary-700 font-medium">Refresh</button>
         </div>

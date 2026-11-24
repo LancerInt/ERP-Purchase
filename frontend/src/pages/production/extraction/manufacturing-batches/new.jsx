@@ -274,7 +274,7 @@ export default function ManufacturingBatchNew() {
         <div className="flex justify-end gap-3 pt-2">
           <button
             type="button"
-            onClick={() => navigate('/production/extraction/manufacturing-batches')}
+            onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/production/extraction/manufacturing-batches')}
             className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
           >
             Cancel

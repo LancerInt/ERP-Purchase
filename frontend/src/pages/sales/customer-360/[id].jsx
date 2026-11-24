@@ -715,7 +715,7 @@ export default function CustomerDetail() {
     }).finally(() => setLoading(false));
   }, [id, dateFrom, dateTo]);
 
-  const goBack = useCallback(() => navigate('/sales/customer-360'), [navigate]);
+  const goBack = useCallback(() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/sales/customer-360'), [navigate]);
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {

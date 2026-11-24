@@ -380,9 +380,9 @@ export default function VendorBillDetail() {
   const fmt = (v) => `\u20B9${(Number(v) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
   const fmtDate = (v) => v ? formatDate(v) : '-';
 
-  const inputClass = "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
+  const inputClass = "w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
   const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
-  const labelClass = "block text-sm font-medium text-slate-700 mb-1";
+  const labelClass = "block text-xs font-semibold text-slate-700 mb-0.5";
 
   if (isLoading) return <MainLayout><div className="text-center py-12 text-slate-500">Loading...</div></MainLayout>;
   if (!bill) return (
@@ -442,7 +442,7 @@ export default function VendorBillDetail() {
       <div className="space-y-2 sm:space-y-3">
         {/* Header info */}
         <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
               {!isHidden('status') && <StatusBadge status={bill.status_display || bill.status} />}
               {bill.company_name && (
@@ -578,8 +578,8 @@ export default function VendorBillDetail() {
 
         {/* Line Items */}
         <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-slate-800">Line Items <span className="text-slate-400 font-normal">({(isEditing ? editLines : (bill.bill_lines || [])).length})</span></h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800">Line Items <span className="text-slate-400 font-normal">({(isEditing ? editLines : (bill.bill_lines || [])).length})</span></h3>
             {isEditing && (
               <button onClick={handleAddLine} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
                 <Plus size={16} /> Add Line
@@ -759,12 +759,12 @@ export default function VendorBillDetail() {
             <div className="p-3 sm:p-4">
               {infoTab === 'attachments' && <FileAttachments module="BILL" recordId={id} showPreview />}
               {infoTab === 'info' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {!isHidden('terms_and_conditions') && (
                   <div>
                     <h4 className="text-sm font-semibold text-slate-700 mb-1">Terms &amp; Conditions</h4>
                     {isEditing ? (
-                      <textarea name="terms_and_conditions" value={editData.terms_and_conditions || ''} onChange={handleEditChange} rows={3} disabled={isReadOnly('terms_and_conditions')} className={isReadOnly('terms_and_conditions') ? lockedInputClass : inputClass} />
+                      <textarea name="terms_and_conditions" value={editData.terms_and_conditions || ''} onChange={handleEditChange} rows={2} disabled={isReadOnly('terms_and_conditions')} className={isReadOnly('terms_and_conditions') ? lockedInputClass : inputClass} />
                     ) : (
                       <p className="text-sm text-slate-600 whitespace-pre-wrap">{bill.terms_and_conditions || '-'}</p>
                     )}
@@ -774,7 +774,7 @@ export default function VendorBillDetail() {
                   <div>
                     <h4 className="text-sm font-semibold text-slate-700 mb-1">Notes</h4>
                     {isEditing ? (
-                      <textarea name="notes" value={editData.notes || ''} onChange={handleEditChange} rows={3} disabled={isReadOnly('notes')} className={isReadOnly('notes') ? lockedInputClass : inputClass} />
+                      <textarea name="notes" value={editData.notes || ''} onChange={handleEditChange} rows={2} disabled={isReadOnly('notes')} className={isReadOnly('notes') ? lockedInputClass : inputClass} />
                     ) : (
                       <p className="text-sm text-slate-600 whitespace-pre-wrap">{bill.notes || '-'}</p>
                     )}
@@ -789,8 +789,8 @@ export default function VendorBillDetail() {
           <div className="lg:col-span-1 h-full">
         {/* Amount Summary */}
         <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 h-full">
-          <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3">Amount Summary</h3>
-          <div className="flex flex-col gap-4">
+          <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Amount Summary</h3>
+          <div className="flex flex-col gap-3">
           <div className="w-full space-y-2 text-sm">
             {isEditing ? (() => {
               // Live totals while editing. Tax is AUTO from each line's Tax% (the
@@ -1018,8 +1018,8 @@ export default function VendorBillDetail() {
 
         {/* Payment History */}
         {(bill.payment_history || []).length > 0 && (
-          <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3">Payment History</h3>
+          <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Payment History</h3>
 
             {/* Mobile: one compact card per payment (the 6-col table
                 overflowed/overlapped on phones). */}
@@ -1082,8 +1082,8 @@ export default function VendorBillDetail() {
 
         {/* Advance Payment History */}
         {vendorAdvances.length > 0 && (
-          <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Advance Payment History</h3>
+          <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Advance Payment History</h3>
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b">
@@ -1126,7 +1126,7 @@ export default function VendorBillDetail() {
         const closeModal = () => { setCreditModalType(null); setSelectedCredit(''); setCreditAmount(''); };
         return (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={closeModal}>
-            <div className="bg-white rounded-xl shadow-xl p-4 sm:p-6 w-full max-w-lg" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Apply credit to bill">
+            <div className="bg-white rounded-xl shadow-xl p-3 sm:p-4 w-full max-w-lg" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Apply credit to bill">
               <h3 className="text-lg font-bold text-slate-800 mb-1">Apply {typeLabel} to Bill</h3>
               <p className="text-xs text-slate-500 mb-3">Vendor: <strong>{bill.vendor_name}</strong> — showing approved {typeLabel.toLowerCase()}s only</p>
               <p className="text-sm text-slate-600 mb-4">Balance Due: <strong className="text-red-600">₹{balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></p>
@@ -1138,14 +1138,14 @@ export default function VendorBillDetail() {
                   <button onClick={closeModal} className="mt-3 text-sm text-primary-600 hover:underline">Close</button>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Select {typeLabel}</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-0.5">Select {typeLabel}</label>
                     <CustomSelect value={selectedCredit} onChange={e => {
                       setSelectedCredit(e.target.value);
                       const cr = availableCredits.find(c => c.id === e.target.value);
                       if (cr) setCreditAmount(Math.min(cr.balance, balanceDue).toFixed(2));
-                    }} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    }} className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm">
                       <option value="">Select...</option>
                       {availableCredits.map(c => (
                         <option key={c.id} value={c.id}>
@@ -1155,8 +1155,8 @@ export default function VendorBillDetail() {
                     </CustomSelect>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Amount to Apply</label>
-                    <input type="number" step="0.01" min="0" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+                    <label className="block text-xs font-semibold text-slate-700 mb-0.5">Amount to Apply</label>
+                    <input type="number" step="0.01" min="0" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm" />
                   </div>
                   <div className="flex justify-end gap-3">
                     <button onClick={closeModal} className="px-4 py-2 border border-slate-300 rounded-lg text-sm">Cancel</button>
@@ -1195,28 +1195,28 @@ export default function VendorBillDetail() {
           <button onClick={handleSaveExpenseBill} disabled={expBillSaving} className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium disabled:opacity-50">{expBillSaving ? 'Saving…' : 'Book to Credit'}</button>
         </>
       }>
-        <div className="space-y-4">
+        <div className="space-y-3">
           <p className="text-xs text-slate-500">Books a credit expense to <span className="font-medium text-slate-700">{bill.vendor_name}</span> in Expenses → Expense Register.</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Date</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Date</label>
               <CustomDatePicker value={expBill.date} onChange={(d) => setExpBill((p) => ({ ...p, date: d }))} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Amount <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Amount <span className="text-red-500">*</span></label>
               <input type="number" step="0.01" value={expBill.amount} onChange={(e) => setExpBill((p) => ({ ...p, amount: e.target.value }))} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="0.00" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Expense <span className="text-red-500">*</span></label>
+            <label className="block text-xs font-semibold text-slate-700 mb-0.5">Expense <span className="text-red-500">*</span></label>
             <input value={expBill.title} onChange={(e) => setExpBill((p) => ({ ...p, title: e.target.value }))} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="What was bought" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Description</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-0.5">Description</label>
             <textarea value={expBill.description} onChange={(e) => setExpBill((p) => ({ ...p, description: e.target.value }))} rows={2} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm resize-none" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Attachment</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-0.5">Attachment</label>
             <input type="file" onChange={(e) => setExpBillFile(e.target.files?.[0] || null)} className="w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700" />
           </div>
         </div>

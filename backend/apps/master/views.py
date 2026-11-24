@@ -474,6 +474,19 @@ class VendorViewSet(SoftDeleteMixin, BulkImportMixin, viewsets.ModelViewSet):
                 is_active=True).values('vendor_id'))
         return qs
 
+    def perform_create(self, serializer):
+        vendor = serializer.save()
+        from notifications.services import notify_approvers
+        notify_approvers(
+            'Vendor',
+            title=f'New vendor created: {vendor.vendor_name}',
+            message=f'{vendor.vendor_name} ({vendor.vendor_code}) was created by {self.request.user.get_full_name() or self.request.user.username}.',
+            link=f'/masters/vendor/{vendor.id}',
+            category='vendor',
+            level='info',
+            actor=self.request.user,
+        )
+
     def get_serializer_class(self):
         # ?slim=1 on a LIST returns only the dropdown fields. Opt-in and
         # list-only: without the flag every caller gets today's payload.

@@ -437,8 +437,8 @@ export default function CreatePurchaseRequest() {
     }
   };
 
-  const inputClass = "w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
-  const readonlyClass = "w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-500";
+  const inputClass = "w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
+  const readonlyClass = "w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-500";
   const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
 
   return (
@@ -454,26 +454,26 @@ export default function CreatePurchaseRequest() {
       />
 
       <form onSubmit={handleSubmit}>
-        <EditGate canEdit={editable} className="space-y-3 sm:space-y-6">
+        <EditGate canEdit={editable} className="space-y-3">
         {/* Request Details */}
-        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Request Details</h3>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+          <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Request Details</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
             {!isHidden('pr_no') && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">PR Number</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">PR Number</label>
               <input type="text" value={nextPrNo || 'Auto-generated'} disabled className={readonlyClass} />
             </div>
             )}
             {!isHidden('requestor_role') && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Requestor Role</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Requestor Role</label>
               <input type="text" value={formData.requestor_role} disabled className={readonlyClass} />
             </div>
             )}
             {!isHidden('company') && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Company <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Company <span className="text-red-500">*</span></label>
               <CustomSelect value={selectedCompany} onChange={(e) => { setSelectedCompany(e.target.value); setFormData(prev => ({ ...prev, warehouse: '', godown: '', godowns: [] })); }} required disabled={isReadOnly('company')} className={isReadOnly('company') ? lockedInputClass : inputClass}>
                 <option value="">Select Company...</option>
                 {companyOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -482,7 +482,7 @@ export default function CreatePurchaseRequest() {
             )}
             {!isHidden('warehouse') && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Warehouse/Location <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Warehouse/Location <span className="text-red-500">*</span></label>
               <CustomSelect name="warehouse" value={formData.warehouse} onChange={(e) => { setFormData(prev => ({ ...prev, warehouse: e.target.value, godown: '', godowns: [] })); }} required disabled={isReadOnly('warehouse') || !selectedCompany} className={isReadOnly('warehouse') ? lockedInputClass : `${inputClass} disabled:bg-slate-100 disabled:cursor-not-allowed`}>
                 <option value="">{selectedCompany ? 'Select Warehouse...' : 'Select company first...'}</option>
                 {warehouseOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -491,7 +491,7 @@ export default function CreatePurchaseRequest() {
             )}
             {!isHidden('godown') && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Godown(s)</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Godown(s)</label>
               {!formData.warehouse ? (
                 <div className={`${inputClass} bg-slate-100 text-slate-400`}>Select warehouse first...</div>
               ) : godownOptions.length === 0 ? (
@@ -525,7 +525,7 @@ export default function CreatePurchaseRequest() {
             )}
             {!isHidden('requirement_type') && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Requirement Type <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Requirement Type <span className="text-red-500">*</span></label>
               <CustomSelect name="requirement_type" value={formData.requirement_type} onChange={handleChange} required disabled={isReadOnly('requirement_type')} className={isReadOnly('requirement_type') ? lockedInputClass : inputClass}>
                 <option value="GOODS">Goods</option>
                 <option value="SERVICES">Services</option>
@@ -535,7 +535,7 @@ export default function CreatePurchaseRequest() {
             )}
             {!isHidden('priority') && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Priority</label>
               <CustomSelect name="priority" value={formData.priority} onChange={handleChange} disabled={isReadOnly('priority')} className={isReadOnly('priority') ? lockedInputClass : inputClass}>
                 <option value="LOW">Low</option>
                 <option value="MEDIUM">Medium</option>
@@ -545,7 +545,7 @@ export default function CreatePurchaseRequest() {
             )}
             {!isHidden('required_by_date') && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Required By Date</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Required By Date</label>
               <CustomDatePicker name="required_by_date" value={formData.required_by_date} onChange={handleChange} disabled={isReadOnly('required_by_date')} className={isReadOnly('required_by_date') ? lockedInputClass : inputClass} />
             </div>
             )}
@@ -553,41 +553,41 @@ export default function CreatePurchaseRequest() {
                 Requisitions raised to fulfil a specific SO record it here
                 so approvers can trace WHY the purchase is needed. */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Sales Order Ref <span className="text-slate-400 font-normal">(optional)</span></label>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Sales Order Ref <span className="text-slate-400 font-normal">(optional)</span></label>
               <CustomSelect name="sales_order" value={formData.sales_order} onChange={handleChange} className={inputClass}>
                 <option value="">None</option>
                 {soOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </CustomSelect>
             </div>
             {!isHidden('justification') && (
-            <div className="col-span-2 md:col-span-2 lg:col-span-3">
+            <div className="col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5">
               <div className="flex items-center justify-between gap-2 mb-1">
-                <label className="block text-sm font-medium text-slate-700">Justification</label>
+                <label className="block text-sm font-bold text-slate-700">Justification</label>
                 {!isReadOnly('justification') && (
                   <VoiceDictation onText={(t) => appendDictation('justification', t)} onAudio={addVoiceAudio} />
                 )}
               </div>
-              <textarea name="justification" value={formData.justification} onChange={handleChange} rows={2} disabled={isReadOnly('justification')} className={isReadOnly('justification') ? lockedInputClass : inputClass} placeholder="Reason for this purchase request... (or dictate in any language)" />
+              <textarea name="justification" value={formData.justification} onChange={handleChange} rows={1} disabled={isReadOnly('justification')} className={isReadOnly('justification') ? lockedInputClass : inputClass} placeholder="Reason for this purchase request... (or dictate in any language)" />
             </div>
             )}
             {!isHidden('notes') && (
-            <div className="col-span-2 md:col-span-2 lg:col-span-3">
+            <div className="col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5">
               <div className="flex items-center justify-between gap-2 mb-1">
-                <label className="block text-sm font-medium text-slate-700">Notes</label>
+                <label className="block text-sm font-bold text-slate-700">Notes</label>
                 {!isReadOnly('notes') && (
                   <VoiceDictation onText={(t) => appendDictation('notes', t)} onAudio={addVoiceAudio} />
                 )}
               </div>
-              <textarea name="notes" value={formData.notes} onChange={handleChange} rows={2} disabled={isReadOnly('notes')} className={isReadOnly('notes') ? lockedInputClass : inputClass} placeholder="Additional notes... (or dictate in any language)" />
+              <textarea name="notes" value={formData.notes} onChange={handleChange} rows={1} disabled={isReadOnly('notes')} className={isReadOnly('notes') ? lockedInputClass : inputClass} placeholder="Additional notes... (or dictate in any language)" />
             </div>
             )}
           </div>
         </div>
 
         {/* Line Items */}
-        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b">
-            <h3 className="text-lg font-semibold text-slate-800">Line Items</h3>
+        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+          <div className="flex items-center justify-between mb-3 pb-1.5 border-b">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800">Line Items</h3>
             <button
               type="button"
               onClick={addLine}

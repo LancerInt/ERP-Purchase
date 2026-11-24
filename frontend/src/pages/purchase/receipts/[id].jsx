@@ -381,7 +381,7 @@ export default function ReceiptAdviceDetail() {
     }
   };
 
-  const inputClass = "w-full px-2 py-1 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
+  const inputClass = "w-full px-2.5 py-1.5 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
   const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
 
   if (isLoading) return <MainLayout><div className="flex justify-center py-20"><div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" /></div></MainLayout>;
@@ -432,13 +432,13 @@ export default function ReceiptAdviceDetail() {
         actions={{ right: approveControl }}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Main Content */}
-        <div className="lg:col-span-3 space-y-3 sm:space-y-5">
+        <div className="lg:col-span-3 space-y-3">
           {/* Receipt Details */}
-          <div className="bg-white rounded-lg border p-3.5 sm:p-5">
-            <div className="flex items-center justify-between mb-3 pb-2.5 border-b">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800">Receipt Details</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Receipt Details</h3>
               {!isEditing ? (
                 canEditReceipt && (
                   <button onClick={handleEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition">
@@ -456,7 +456,7 @@ export default function ReceiptAdviceDetail() {
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
               {!isHidden('receipt_advice_no') && (
               <div>
                 <p className="text-xs text-slate-500 uppercase">Receipt No</p>
@@ -579,7 +579,7 @@ export default function ReceiptAdviceDetail() {
             </div>
 
             {/* Freight Terms + QC Routing + QC Status share a row */}
-            <div className="grid grid-cols-3 gap-x-3 sm:gap-x-4 gap-y-3 mt-3">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-2 mt-3">
               {!isHidden('freight_terms') && (
               <div>
                 <p className="text-xs text-slate-500 uppercase">Freight Terms</p>
@@ -594,41 +594,10 @@ export default function ReceiptAdviceDetail() {
                 )}
               </div>
               )}
-              {!isHidden('qc_routing') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">QC Routing</p>
-                {isEditing ? (
-                  <CustomSelect name="qc_routing" value={editData.qc_routing || ''} onChange={handleChange} disabled={isReadOnly('qc_routing')} className={isReadOnly('qc_routing') ? lockedInputClass : inputClass}>
-                    <option value="">Select...</option>
-                    <option value="WAREHOUSE">Warehouse</option>
-                    <option value="QC_COORDINATOR">QC Coordinator</option>
-                    <option value="QC_MANAGER">QC Manager</option>
-                  </CustomSelect>
-                ) : (
-                  <p className="font-medium">{receipt.qc_routing_display || '-'}</p>
-                )}
-              </div>
-              )}
-              {!isHidden('qc_status') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">QC Status</p>
-                {isEditing ? (
-                  <CustomSelect name="qc_status" value={editData.qc_status || ''} onChange={handleChange} disabled={isReadOnly('qc_status')} className={isReadOnly('qc_status') ? lockedInputClass : inputClass}>
-                    <option value="">Select...</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="PASS">Passed</option>
-                    <option value="FAIL">Failed</option>
-                    <option value="HOLD">On Hold</option>
-                  </CustomSelect>
-                ) : (
-                  <StatusBadge status={receipt.qc_status_display || receipt.qc_status || 'PENDING'} />
-                )}
-              </div>
-              )}
             </div>
 
             {/* Approval Status + Partial Receipt + Remarks share a row */}
-            <div className="grid grid-cols-3 gap-x-4 gap-y-3 mt-3">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-2 mt-3">
               {!isHidden('approval_status') && (
               <div>
                 <p className="text-xs text-slate-500 uppercase">Approval Status</p>
@@ -667,12 +636,12 @@ export default function ReceiptAdviceDetail() {
             || receipt.direct_reason
             || receipt.invoice_date
             || receipt.invoice_amount) && (
-            <div className="bg-white rounded-lg border p-3.5 sm:p-5">
-              <h3 className="text-base sm:text-lg font-semibold text-amber-700 mb-3 pb-2.5 border-b border-amber-200">
+            <div className="bg-white rounded-lg border p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-amber-700 mb-2 pb-1.5 border-b border-amber-200">
                 Direct Receipt Info
                 <span className="ml-2 text-xs font-normal text-amber-600">Required when no PO is selected</span>
               </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
                 <div>
                   <p className="text-xs text-slate-500 uppercase">Reason</p>
                   {isEditing ? (
@@ -740,9 +709,9 @@ export default function ReceiptAdviceDetail() {
               stay first_weight / second_weight / tare_weight even though
               the UI label says "Net Weight" for tare_weight (= First −
               Second = cargo weight per business convention). */}
-          <div className="bg-white rounded-lg border p-3.5 sm:p-5">
-            <div className="flex items-center justify-between mb-3 pb-2.5 border-b">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800">
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">
                 Weighment Details ({(isEditing ? editWeighmentDetails : (receipt.weighment_details || [])).length})
               </h3>
               {isEditing && (
@@ -813,9 +782,9 @@ export default function ReceiptAdviceDetail() {
           </div>
 
           {/* ==================== RECEIPT LINE ITEMS ==================== */}
-          <div className="bg-white rounded-lg border p-3.5 sm:p-5">
-            <div className="flex items-center justify-between mb-3 pb-2.5 border-b">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800">Receipt Line Items ({lines.length})</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Receipt Line Items ({lines.length})</h3>
               {isEditing && (
                 <button onClick={handleAddLine} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
                   <Plus size={16} /> Add Line
@@ -1014,7 +983,7 @@ export default function ReceiptAdviceDetail() {
 
           {/* Totals — Total Received + Receipt Status on one row
               (replaces the old Summary card). */}
-          <div className="bg-white rounded-lg border p-3.5 sm:p-5">
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
             <div className="grid grid-cols-2 gap-x-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide">Total Received</span>
@@ -1030,9 +999,9 @@ export default function ReceiptAdviceDetail() {
           {/* Pulled out to its own full-width row so the wider column set
               (dimensions, Invoice/Received qty, Diff, Batch, Godown,
               Remarks) has room to render — mirrors the Create form. */}
-          <div className="bg-white rounded-lg border p-3.5 sm:p-5">
-            <div className="flex items-center justify-between mb-3 pb-2.5 border-b">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800">Packing Materials ({packingLines.length})</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Packing Materials ({packingLines.length})</h3>
               {isEditing && (
                 <button onClick={handleAddPacking} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
                   <Plus size={16} /> Add Packing Material
@@ -1185,13 +1154,13 @@ export default function ReceiptAdviceDetail() {
           </div>
 
           {/* ==================== ADDITIONAL INFORMATION ==================== */}
-          <div className="bg-white rounded-lg border p-3.5 sm:p-5">
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Additional Information</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Additional Information</h3>
             {!isHidden('remarks') && (
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Remarks</label>
               {isEditing ? (
-                <textarea name="remarks" value={editData.remarks || ''} onChange={handleChange} rows={3} disabled={isReadOnly('remarks')} className={isReadOnly('remarks') ? lockedInputClass : inputClass} />
+                <textarea name="remarks" value={editData.remarks || ''} onChange={handleChange} rows={2} disabled={isReadOnly('remarks')} className={isReadOnly('remarks') ? lockedInputClass : inputClass} />
               ) : (
                 <p className="text-sm text-slate-700">{receipt.remarks || '-'}</p>
               )}
@@ -1201,9 +1170,9 @@ export default function ReceiptAdviceDetail() {
 
           {/* ==================== FREIGHT DETAILS (removed by request) ==================== */}
           {false && (
-          <div className="bg-white rounded-lg border p-3.5 sm:p-5">
-            <div className="flex items-center justify-between mb-3 pb-2.5 border-b">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800">Freight Details ({freightDetails.length})</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Freight Details ({freightDetails.length})</h3>
               {isEditing && (
                 <button onClick={handleAddFreight} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
                   <Plus size={16} /> Add Freight
@@ -1302,9 +1271,9 @@ export default function ReceiptAdviceDetail() {
 
           {/* ==================== LOADING / UNLOADING WAGES (removed by request) ==================== */}
           {false && (
-          <div className="bg-white rounded-lg border p-3.5 sm:p-5">
-            <div className="flex items-center justify-between mb-3 pb-2.5 border-b">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800">Loading / Unloading Wages ({wageLines.length})</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Loading / Unloading Wages ({wageLines.length})</h3>
               {isEditing && (
                 <button onClick={handleAddWage} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
                   <Plus size={16} /> Add Wage Entry
@@ -1381,8 +1350,8 @@ export default function ReceiptAdviceDetail() {
 
           {/* ==================== LINKED FREIGHT ADVICES ==================== */}
           {(receipt.freight_advices || []).length > 0 && (
-            <div className="bg-white rounded-lg border p-3.5 sm:p-5">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Linked Freight Advices ({receipt.freight_advices.length})</h3>
+            <div className="bg-white rounded-lg border p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Linked Freight Advices ({receipt.freight_advices.length})</h3>
               <div className="overflow-x-auto ios-scroll touch-pan-x">
                 <table className="w-full text-sm">
                   <thead>
@@ -1433,8 +1402,8 @@ export default function ReceiptAdviceDetail() {
 
       {/* Actions + Audit share a row; Attachments gets its own full row. */}
       <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 sm:gap-5 mt-3 sm:mt-6 items-start">
-          <div className="bg-white rounded-lg border p-3.5 sm:p-5">
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3">Actions</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Actions</h3>
             {/* Two-up — the Actions card now sits in a half-width row next
                 to Audit, so two buttons per row keeps labels readable. */}
             <div className="grid grid-cols-2 gap-2">
@@ -1583,8 +1552,8 @@ export default function ReceiptAdviceDetail() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border p-3.5 sm:p-5">
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3">Audit</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Audit</h3>
             <div className="space-y-2 text-sm text-slate-600">
               <div className="flex justify-between"><span>Created</span><span>{fmtDate(receipt.created_at)}</span></div>
               <div className="flex justify-between"><span>Updated</span><span>{fmtDate(receipt.updated_at)}</span></div>

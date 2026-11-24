@@ -900,7 +900,7 @@ export default function PurchaseRequestDetailPage() {
 
   return (
     <MainLayout breadcrumbs={breadcrumbs}>
-      <div className="max-w-6xl space-y-3 sm:space-y-6">
+      <div className="max-w-6xl space-y-3">
         {/* Header with title, status badge, and action buttons */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
           <div className="min-w-0">
@@ -1045,57 +1045,52 @@ export default function PurchaseRequestDetailPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           {/* Main content (2 cols) */}
-          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+          <div className="lg:col-span-2 space-y-3">
 
             {/* PR Details Form */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3.5 sm:p-5">
-              <h2 className="text-base sm:text-lg font-semibold text-slate-900 mb-3 sm:mb-4 pb-2 border-b">Request Details</h2>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 sm:gap-5">
+            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+              <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-2 pb-1.5 border-b">Request Details</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
                 {/* PR Number */}
                 {!isHidden('pr_no') && (
                 <div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide">PR Number</p>
-                  <p className="text-sm sm:text-base text-slate-900 font-medium sm:font-semibold mt-0.5 break-words">{prNumber}</p>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5">PR Number</p>
+                  <p className="text-sm text-slate-900 font-medium break-words">{prNumber}</p>
                 </div>
                 )}
 
                 {/* Status */}
                 {!isHidden('approval_status') && (
                 <div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide">Status</p>
-                  <p className="text-sm sm:text-base text-slate-900 font-medium sm:font-semibold mt-0.5 break-words">{approvalStatus.replace('_', ' ')}</p>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Status</p>
+                  <p className="text-sm text-slate-900 font-medium break-words">{approvalStatus.replace('_', ' ')}</p>
                 </div>
                 )}
 
                 {/* Company */}
                 {!isHidden('company') && (
                 <div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide">Company</p>
-                  <p className="text-sm sm:text-base text-slate-900 font-medium sm:font-semibold mt-0.5 break-words">{pr.company_name || '-'}</p>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Company</p>
+                  <p className="text-sm text-slate-900 font-medium break-words">{pr.company_name || '-'}</p>
                 </div>
                 )}
 
                 {/* Requestor Role */}
                 {!isHidden('requestor_role') && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Requestor Role</label>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Requestor Role</p>
                   {isEditing && !isReadOnly('requestor_role') ? (
                     <input
                       type="text"
                       name="requestor_role"
                       value={editData.requestor_role || ''}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   ) : (
-                    <input
-                      type="text"
-                      value={pr.requestor_role || '-'}
-                      disabled
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 cursor-not-allowed"
-                    />
+                    <p className="text-sm text-slate-900 font-medium break-words">{pr.requestor_role || '-'}</p>
                   )}
                 </div>
                 )}
@@ -1103,13 +1098,13 @@ export default function PurchaseRequestDetailPage() {
                 {/* Warehouse */}
                 {!isHidden('warehouse') && (
                 <div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5">Warehouse</p>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Warehouse</p>
                   {isEditing && !isReadOnly('warehouse') ? (
                     <CustomSelect
                       name="warehouse"
                       value={editData.warehouse || ''}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Select Warehouse...</option>
                       {warehouseOptions.map(opt => (
@@ -1117,17 +1112,15 @@ export default function PurchaseRequestDetailPage() {
                       ))}
                     </CustomSelect>
                   ) : (
-                    <p className="text-sm sm:text-base text-slate-900 font-medium sm:font-semibold break-words">{pr.warehouse_name || getWarehouseName(pr.warehouse) || '-'}</p>
+                    <p className="text-sm text-slate-900 font-medium break-words">{pr.warehouse_name || getWarehouseName(pr.warehouse) || '-'}</p>
                   )}
                 </div>
                 )}
 
-                {/* Godown — scoped to the selected warehouse. Reads
-                    the per-warehouse godown list inline (via useLookup)
-                    only while editing; view mode just shows the name. */}
+                {/* Godown */}
                 {!isHidden('godown') && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Godown</label>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Godown</p>
                   {isEditing && !isReadOnly('godown') ? (
                     <GodownEditSelect
                       warehouse={editData.warehouse}
@@ -1135,38 +1128,28 @@ export default function PurchaseRequestDetailPage() {
                       onChange={handleChange}
                     />
                   ) : (
-                    <input
-                      type="text"
-                      value={pr.godown_name || '-'}
-                      disabled
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 cursor-not-allowed"
-                    />
+                    <p className="text-sm text-slate-900 font-medium break-words">{pr.godown_name || '-'}</p>
                   )}
                 </div>
                 )}
 
-                {/* Requirement Type — matches Create page (Goods / Services / Machinery). */}
+                {/* Requirement Type */}
                 {!isHidden('requirement_type') && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Requirement Type</label>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Requirement Type</p>
                   {isEditing && !isReadOnly('requirement_type') ? (
                     <CustomSelect
                       name="requirement_type"
                       value={editData.requirement_type || 'GOODS'}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="GOODS">Goods</option>
                       <option value="SERVICES">Services</option>
                       <option value="MACHINERY">Machinery</option>
                     </CustomSelect>
                   ) : (
-                    <input
-                      type="text"
-                      value={pr.requirement_type_display || pr.requirement_type || '-'}
-                      disabled
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 cursor-not-allowed"
-                    />
+                    <p className="text-sm text-slate-900 font-medium break-words">{pr.requirement_type_display || pr.requirement_type || '-'}</p>
                   )}
                 </div>
                 )}
@@ -1174,13 +1157,13 @@ export default function PurchaseRequestDetailPage() {
                 {/* Priority */}
                 {!isHidden('priority') && (
                 <div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5">Priority</p>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Priority</p>
                   {isEditing && !isReadOnly('priority') ? (
                     <CustomSelect
                       name="priority"
                       value={editData.priority || ''}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Select Priority...</option>
                       <option value="LOW">Low</option>
@@ -1188,7 +1171,7 @@ export default function PurchaseRequestDetailPage() {
                       <option value="HIGH">High</option>
                     </CustomSelect>
                   ) : (
-                    <p className="text-sm sm:text-base text-slate-900 font-medium sm:font-semibold break-words">{pr.priority || '-'}</p>
+                    <p className="text-sm text-slate-900 font-medium break-words">{pr.priority || '-'}</p>
                   )}
                 </div>
                 )}
@@ -1196,48 +1179,37 @@ export default function PurchaseRequestDetailPage() {
                 {/* Required By Date */}
                 {!isHidden('required_by_date') && (
                 <div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5">Required By Date</p>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Required By Date</p>
                   {isEditing && !isReadOnly('required_by_date') ? (
                     <CustomDatePicker
                       name="required_by_date"
                       value={editData.required_by_date || ''}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   ) : (
-                    <p className="text-sm sm:text-base text-slate-900 font-medium sm:font-semibold break-words">{formatDate(pr.required_by_date || pr.deliveryDate)}</p>
+                    <p className="text-sm text-slate-900 font-medium break-words">{formatDate(pr.required_by_date || pr.deliveryDate)}</p>
                   )}
                 </div>
                 )}
 
-                {/* Preferred Vendor — only relevant when "Allow RFQ Skip" was
-                    enabled on the PR (see Create page Vendor section).
-                    Render it as a read-only display in both view and edit
-                    modes — the vendor wiring lives behind a separate skip-RFQ
-                    wizard, not direct form editing. */}
+                {/* Preferred Vendor */}
                 {!isHidden('preferred_vendor') && (pr.allow_rfq_skip || pr.preferred_vendor || pr.preferred_vendor_name) && (
                   <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">Preferred Vendor</label>
-                    <input
-                      type="text"
-                      value={pr.preferred_vendor_name || pr.preferred_vendor || '-'}
-                      disabled
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 cursor-not-allowed"
-                    />
+                    <p className="text-xs font-semibold text-slate-700 mb-0.5">Preferred Vendor</p>
+                    <p className="text-sm text-slate-900 font-medium break-words">{pr.preferred_vendor_name || pr.preferred_vendor || '-'}</p>
                   </div>
                 )}
 
-                {/* Sales Order reference — the requisition's justification
-                    anchor. When a higher authority asks WHY this is being
-                    bought, the WC/WM points at the driving SO here. */}
-                <div className="col-span-1">
-                  <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5">Sales Order Ref</p>
+                {/* Sales Order Ref */}
+                <div>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Sales Order Ref</p>
                   {isEditing ? (
                     <CustomSelect
                       name="sales_order"
                       value={editData.sales_order || ''}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">None (optional)</option>
                       {soOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -1255,18 +1227,18 @@ export default function PurchaseRequestDetailPage() {
                   )}
                 </div>
 
-                {/* Justification + Notes pair up on one row for compactness */}
+                {/* Justification + Notes span full width */}
                 {!isHidden('justification') && (
-                <div className="col-span-1">
-                  <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5">Justification</p>
+                <div className="col-span-2 md:col-span-3 lg:col-span-4">
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Justification</p>
                   {isEditing && !isReadOnly('justification') ? (
                     <textarea
                       name="justification"
                       value={editData.justification || ''}
                       onChange={handleChange}
-                      rows={3}
+                      rows={2}
                       placeholder="Justification for this request..."
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   ) : (
                     <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{pr.justification || '-'}</p>
@@ -1276,16 +1248,16 @@ export default function PurchaseRequestDetailPage() {
 
                 {/* Notes */}
                 {!isHidden('notes') && (
-                <div className="col-span-1">
-                  <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide mb-0.5">Notes</p>
+                <div className="col-span-2 md:col-span-3 lg:col-span-4">
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Notes</p>
                   {isEditing && !isReadOnly('notes') ? (
                     <textarea
                       name="notes"
                       value={editData.notes || ''}
                       onChange={handleChange}
-                      rows={3}
+                      rows={2}
                       placeholder="Additional notes..."
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   ) : (
                     <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{pr.notes || '-'}</p>
@@ -1688,13 +1660,13 @@ export default function PurchaseRequestDetailPage() {
           </div>
 
           {/* Sidebar (1 col) */}
-          <div className="space-y-3 sm:space-y-6">
+          <div className="space-y-3">
 
             {/* Approval Info (shown after approval) */}
             {isApproved && (
-              <div className="bg-green-50 rounded-lg border border-green-200 p-4 sm:p-6">
-                <div className="flex items-center justify-between mb-4 gap-2">
-                  <h3 className="text-lg font-semibold text-green-900 flex items-center gap-2">
+              <div className="bg-green-50 rounded-lg border border-green-200 p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-2 gap-2">
+                  <h3 className="text-sm sm:text-base font-semibold text-green-900 flex items-center gap-2">
                     <CheckCircle size={20} className="text-green-600" />
                     Approved
                   </h3>
@@ -1735,8 +1707,8 @@ export default function PurchaseRequestDetailPage() {
 
             {/* Rejection Info (shown after rejection) */}
             {isRejected && (
-              <div className="bg-red-50 rounded-lg border border-red-200 p-4 sm:p-6">
-                <h3 className="text-lg font-semibold text-red-900 mb-4 flex items-center gap-2">
+              <div className="bg-red-50 rounded-lg border border-red-200 p-3 sm:p-4">
+                <h3 className="text-sm sm:text-base font-semibold text-red-900 mb-2 flex items-center gap-2">
                   <XCircle size={20} className="text-red-600" />
                   Rejected
                 </h3>
@@ -1768,8 +1740,8 @@ export default function PurchaseRequestDetailPage() {
                 Approved/Rejected card otherwise); total amount and created-by
                 may be empty — so without this guard the card would be blank. */}
             {((!isApproved && !isRejected) || pr.totalAmount != null || pr.created_by_name) && (
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Summary</h3>
+            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-2 pb-1.5 border-b">Summary</h3>
               <div className="space-y-3">
                 {/* Current Status is shown in the Approved/Rejected card once
                     the PR is decided; show it here only while still pending
@@ -1804,8 +1776,8 @@ export default function PurchaseRequestDetailPage() {
             )}
 
             {/* Audit Trail / Timeline */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-3">Activity Timeline</h3>
+            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-2 pb-1.5 border-b">Activity Timeline</h3>
               {/* Horizontal timeline — steps left-to-right, connected by a
                   line; scrolls sideways if there are many. */}
               <div className="flex items-start overflow-x-auto ios-scroll pb-1">
@@ -2371,7 +2343,7 @@ export default function PurchaseRequestDetailPage() {
                     </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="block text-xs font-semibold text-slate-700 mb-0.5">
                       Select Vendor <span className="text-red-500">*</span>
                     </label>
                     <CustomSelect

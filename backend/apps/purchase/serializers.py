@@ -111,7 +111,7 @@ class PurchaseAttachmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PurchaseAttachment
-        fields = ['id', 'module', 'record_id', 'file', 'file_url', 'file_name', 'file_size', 'file_type',
+        fields = ['id', 'module', 'record_id', 'category', 'file', 'file_url', 'file_name', 'file_size', 'file_type',
                   'uploaded_by', 'uploaded_by_name', 'created_at']
         read_only_fields = ['id', 'file_url', 'file_name', 'file_size', 'file_type', 'uploaded_by', 'created_at']
 
@@ -2459,7 +2459,8 @@ class ReceiptAdviceSerializer(FieldPermissionMixin, serializers.ModelSerializer)
         fields = [
             'id', 'receipt_advice_no', 'receipt_date', 'warehouse', 'warehouse_name',
             'vendor', 'vendor_name', 'company', 'company_name', 'vehicle_number',
-            'driver_name', 'driver_phone', 'qc_routing', 'qc_routing_display', 'qc_status',
+            'driver_name', 'driver_phone', 'transporter_name', 'freight_bill_no', 'freight_bill_date',
+            'qc_routing', 'qc_routing_display', 'qc_status',
             'qc_status_display', 'partial_receipt_flag',
             'approval_status', 'approved_by', 'approved_at',
             'advance_amount', 'freight_value', 'freight_terms',
@@ -2477,6 +2478,9 @@ class ReceiptAdviceSerializer(FieldPermissionMixin, serializers.ModelSerializer)
             'vehicle_number': {'required': False, 'allow_blank': True},
             'driver_name': {'required': False, 'allow_blank': True},
             'driver_phone': {'required': False, 'allow_blank': True},
+            'transporter_name': {'required': False, 'allow_blank': True},
+            'freight_bill_no': {'required': False, 'allow_blank': True},
+            'freight_bill_date': {'required': False, 'allow_null': True},
             'qc_routing': {'required': False, 'allow_blank': True},
             'qc_status': {'required': False, 'allow_blank': True},
             'advance_amount': {'required': False},

@@ -114,9 +114,10 @@ export default function useFormDraft({
   // printed on-screen forever until the next keystroke fires a save.
   const [, setTick] = useState(0);
   useEffect(() => {
+    if (!lastSavedAt) return;
     const id = setInterval(() => setTick((t) => t + 1), 30_000);
     return () => clearInterval(id);
-  }, []);
+  }, [!!lastSavedAt]);
 
   // ── Look for an existing draft. Silently prune stale /
   //    version-mismatched / corrupted entries so the form never

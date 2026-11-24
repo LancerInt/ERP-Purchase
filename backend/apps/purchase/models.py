@@ -484,6 +484,10 @@ class RFQHeader(BaseModel):
         blank=True,
         related_name='rfqs_approved'
     )
+    vendor_routing = models.JSONField(
+        null=True, blank=True, default=None,
+        help_text="Draft line→vendor mapping saved from Send Email page. Shape: {product_id: [vendor_id, ...]}"
+    )
     linked_prs = models.ManyToManyField(
         PurchaseRequest,
         related_name='rfqs',
@@ -1511,6 +1515,18 @@ class ReceiptAdvice(BaseModel):
         blank=True,
         default='',
         help_text="Driver's contact number — used to reach the driver on transit issues.",
+    )
+    transporter_name = models.CharField(
+        max_length=255, blank=True, default='',
+        help_text="Name of the transporter / carrier.",
+    )
+    freight_bill_no = models.CharField(
+        max_length=100, blank=True, default='',
+        help_text="Freight bill / LR number from the transporter.",
+    )
+    freight_bill_date = models.DateField(
+        null=True, blank=True,
+        help_text="Date on the freight bill.",
     )
     qc_routing = models.CharField(
         max_length=20,
@@ -3740,8 +3756,15 @@ class PurchaseAttachment(BaseModel):
         ('WAGE_ENTRY', _('Wage Entry')),
     )
 
+    CATEGORY_CHOICES = (
+        ('GENERAL', _('General')),
+        ('TRANSPORT', _('Transport')),
+        ('DAMAGE_PROOF', _('Damage Proof')),
+    )
+
     module = models.CharField(max_length=20, choices=MODULE_CHOICES, db_index=True)
     record_id = models.UUIDField(db_index=True, help_text="ID of the related record")
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='GENERAL', db_index=True)
     file = models.FileField(upload_to='purchase/attachments/%Y/%m/')
     file_name = models.CharField(max_length=255)
     file_size = models.PositiveIntegerField(default=0, help_text="File size in bytes")

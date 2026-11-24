@@ -76,9 +76,6 @@ async function fetchAll(endpoint) {
       if (import.meta.env.DEV) {
         console.log(`[useLookup] ${endpoint}: fetched ${all.length} items`);
       }
-    if (import.meta.env.DEV) {
-      console.log(`[useLookup] ${endpoint}: fetched ${all.length} items`);
-    }
     return all;
   } catch (err) {
     console.error(`[useLookup] Failed to fetch ${endpoint}:`, err?.response?.status, err?.response?.data || err.message);
@@ -92,6 +89,13 @@ let pollTimer = null;
 let pollSeconds = 10;
 let pollInFlight = false;
 
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
 function subscribe(endpoint, fn) {
   (subscribers[endpoint] || (subscribers[endpoint] = new Set())).add(fn);
   startPolling();
@@ -100,6 +104,7 @@ function subscribe(endpoint, fn) {
     if (!set) return;
     set.delete(fn);
     if (set.size === 0) delete subscribers[endpoint];
+    if (watchedEndpoints().length === 0) stopPolling();
   };
 }
 

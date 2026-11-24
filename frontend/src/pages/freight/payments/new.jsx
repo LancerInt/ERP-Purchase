@@ -499,7 +499,7 @@ export default function FreightPaymentCreate() {
                   </button>
                 )}
                 <div className="flex gap-3 ml-auto">
-                  <button type="button" onClick={() => navigate('/freight/payments')} className="px-4 sm:px-5 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+                  <button type="button" onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/freight/payments')} className="px-4 sm:px-5 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
                   <button
                     type="submit"
                     disabled={isLoading || !!freightInfo?.is_prepaid}

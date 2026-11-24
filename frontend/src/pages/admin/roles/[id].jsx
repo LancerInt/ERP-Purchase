@@ -85,7 +85,7 @@ export default function RoleDetail() {
     <MainLayout>
       <div className="text-center py-20">
         <p className="text-red-500 mb-3">Role not found.</p>
-        <button onClick={() => navigate('/admin/roles')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
+        <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/admin/roles')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
           <ArrowLeft size={15} /> Back to Roles
         </button>
       </div>
@@ -321,7 +321,7 @@ export default function RoleDetail() {
             <h3 className="text-lg font-semibold text-slate-800 mb-4">Actions</h3>
             <div className="space-y-2">
               <button onClick={() => navigate('/admin/permissions')} className="w-full px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700">Edit Permissions</button>
-              <button onClick={() => navigate('/admin/roles')} className="w-full px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">← Back to Roles</button>
+              <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/admin/roles')} className="w-full px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">← Back to Roles</button>
             </div>
           </div>
         </div>

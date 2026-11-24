@@ -98,7 +98,7 @@ export default function ShiftDefinitionDetail() {
       <MainLayout>
         <div className="text-center py-20">
           <p className="text-red-500 mb-3">Shift not found.</p>
-          <button onClick={() => navigate('/hr/shifts')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
+          <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/hr/shifts')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
             <ArrowLeft size={15} /> Back to Shifts
           </button>
         </div>
@@ -119,7 +119,7 @@ export default function ShiftDefinitionDetail() {
       />
       <div className="flex items-center justify-between mb-4">
         <button
-          onClick={() => navigate('/hr/shifts')}
+          onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/hr/shifts')}
           className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-800"
         >
           <ArrowLeft size={16} /> Back to list

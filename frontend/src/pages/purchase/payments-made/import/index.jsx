@@ -139,7 +139,7 @@ export default function ImportBankStatements() {
 
       {!active && (<>
       <button
-        onClick={() => navigate('/purchase/payments-made')}
+        onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/payments-made')}
         className="inline-flex items-center gap-1 mb-4 text-sm text-slate-500 hover:text-slate-700"
       ><ArrowLeft size={15} /> Back to Payments Made</button>
 

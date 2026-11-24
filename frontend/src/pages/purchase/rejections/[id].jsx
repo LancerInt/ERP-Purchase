@@ -81,7 +81,7 @@ export default function MaterialRejectionDetail() {
 
   return (
     <MainLayout>
-      <div className="max-w-6xl space-y-4 sm:space-y-6">
+      <div className="max-w-6xl space-y-3">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
@@ -105,39 +105,39 @@ export default function MaterialRejectionDetail() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className="lg:col-span-2 space-y-3">
             {/* Rejection Details */}
-            <div className="bg-white rounded-lg border p-4 sm:p-6">
-              <h3 className="text-lg font-semibold text-slate-800 mb-4">Rejection Details</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div className="bg-white rounded-lg border p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Rejection Details</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
                 {!isHidden('receipt_advice') && (
-                <div><span className="text-slate-500 block">Receipt / GRN</span>
+                <div><span className="text-xs font-semibold text-slate-700 block mb-0.5">Receipt / GRN</span>
                   <button onClick={() => navigate(`/purchase/receipts/${rejection.receipt_advice}`)} className="text-primary-600 hover:underline font-medium">{rejection.receipt_no}</button>
                 </div>
                 )}
                 {!isHidden('purchase_order') && (
-                <div><span className="text-slate-500 block">PO Number</span><span className="font-medium">{rejection.po_no || '-'}</span></div>
+                <div><span className="text-xs font-semibold text-slate-700 block mb-0.5">PO Number</span><span className="font-medium">{rejection.po_no || '-'}</span></div>
                 )}
                 {!isHidden('vendor') && (
-                <div><span className="text-slate-500 block">Vendor</span><span className="font-medium">{rejection.vendor_name || '-'}</span></div>
+                <div><span className="text-xs font-semibold text-slate-700 block mb-0.5">Vendor</span><span className="font-medium">{rejection.vendor_name || '-'}</span></div>
                 )}
                 {!isHidden('warehouse') && (
-                <div><span className="text-slate-500 block">Warehouse</span><span className="font-medium">{rejection.warehouse_name || '-'}</span></div>
+                <div><span className="text-xs font-semibold text-slate-700 block mb-0.5">Warehouse</span><span className="font-medium">{rejection.warehouse_name || '-'}</span></div>
                 )}
-                <div><span className="text-slate-500 block">Rejected By</span><span className="font-medium">{rejection.rejected_by_name || '-'}</span></div>
+                <div><span className="text-xs font-semibold text-slate-700 block mb-0.5">Rejected By</span><span className="font-medium">{rejection.rejected_by_name || '-'}</span></div>
                 {!isHidden('rejection_date') && (
-                <div><span className="text-slate-500 block">Date</span><span className="font-medium">{fmtDate(rejection.rejection_date)}</span></div>
+                <div><span className="text-xs font-semibold text-slate-700 block mb-0.5">Date</span><span className="font-medium">{fmtDate(rejection.rejection_date)}</span></div>
                 )}
               </div>
               {rejection.description && !isHidden('description') && (
-                <div className="mt-4 pt-4 border-t"><span className="text-slate-500 text-sm block mb-1">Description</span><p className="text-sm">{rejection.description}</p></div>
+                <div className="mt-3 pt-3 border-t"><span className="text-xs font-semibold text-slate-700 block mb-0.5">Description</span><p className="text-sm">{rejection.description}</p></div>
               )}
             </div>
 
             {/* Line Items */}
-            <div className="bg-white rounded-lg border p-4 sm:p-6">
-              <h3 className="text-lg font-semibold text-slate-800 mb-4">Rejected Items ({lines.length})</h3>
+            <div className="bg-white rounded-lg border p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Rejected Items ({lines.length})</h3>
               {/* Mobile-stacked Rejected Items — read-only summary
                   per line so the screen never side-scrolls on phones. */}
               <div className="sm:hidden space-y-3 mb-4">
@@ -254,21 +254,21 @@ export default function MaterialRejectionDetail() {
 
             {/* Return Details */}
             {rejection.return_to_vendor && !isHidden('return_to_vendor') && (
-              <div className="bg-white rounded-lg border p-4 sm:p-6">
-                <h3 className="text-lg font-semibold text-slate-800 mb-4">Return Details</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div><span className="text-slate-500 block">Return to Vendor</span><span className="text-green-600 font-semibold">Yes</span></div>
+              <div className="bg-white rounded-lg border p-3 sm:p-4">
+                <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Return Details</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 text-sm">
+                  <div><span className="text-xs font-semibold text-slate-700 block mb-0.5">Return to Vendor</span><span className="text-green-600 font-semibold">Yes</span></div>
                   {!isHidden('return_type') && (
-                  <div><span className="text-slate-500 block">Return Type</span><span className="font-medium">{rejection.return_type_display || rejection.return_type || '-'}</span></div>
+                  <div><span className="text-xs font-semibold text-slate-700 block mb-0.5">Return Type</span><span className="font-medium">{rejection.return_type_display || rejection.return_type || '-'}</span></div>
                   )}
                   {!isHidden('return_date') && (
-                  <div><span className="text-slate-500 block">Return Date</span><span className="font-medium">{fmtDate(rejection.return_date)}</span></div>
+                  <div><span className="text-xs font-semibold text-slate-700 block mb-0.5">Return Date</span><span className="font-medium">{fmtDate(rejection.return_date)}</span></div>
                   )}
                   {!isHidden('replacement_expected_date') && (
-                  <div><span className="text-slate-500 block">Replacement Expected</span><span className="font-medium">{fmtDate(rejection.replacement_expected_date)}</span></div>
+                  <div><span className="text-xs font-semibold text-slate-700 block mb-0.5">Replacement Expected</span><span className="font-medium">{fmtDate(rejection.replacement_expected_date)}</span></div>
                   )}
                   {!isHidden('debit_note_required') && (
-                  <div><span className="text-slate-500 block">Debit Note Required</span><span className={`font-medium ${rejection.debit_note_required ? 'text-green-600' : 'text-slate-400'}`}>{rejection.debit_note_required ? 'Yes' : 'No'}</span></div>
+                  <div><span className="text-xs font-semibold text-slate-700 block mb-0.5">Debit Note Required</span><span className={`font-medium ${rejection.debit_note_required ? 'text-green-600' : 'text-slate-400'}`}>{rejection.debit_note_required ? 'Yes' : 'No'}</span></div>
                   )}
                 </div>
               </div>
@@ -278,9 +278,9 @@ export default function MaterialRejectionDetail() {
           </div>
 
           {/* Summary Sidebar */}
-          <div className="space-y-3 sm:space-y-6">
-            <div className="bg-white rounded-lg border p-4 sm:p-6">
-              <h3 className="text-lg font-semibold text-slate-800 mb-4">Summary</h3>
+          <div className="space-y-3">
+            <div className="bg-white rounded-lg border p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Summary</h3>
               <div className="space-y-3">
                 <div className="flex justify-between"><span className="text-sm text-slate-500">Status</span><StatusBadge status={rejection.status_display || rejection.status} /></div>
                 <div><p className="text-xs text-slate-500 uppercase">Total Rejected Value</p><p className="text-2xl font-bold text-red-700 mt-1">{fmt(rejection.total_rejected_value)}</p></div>
@@ -289,8 +289,8 @@ export default function MaterialRejectionDetail() {
                 <div className="flex justify-between"><span className="text-sm text-slate-500">Debit Note</span><span className="text-sm font-medium">{rejection.debit_note_required ? 'Required' : 'Not Required'}</span></div>
               </div>
             </div>
-            <div className="bg-white rounded-lg border p-4 sm:p-6">
-              <h3 className="text-lg font-semibold text-slate-800 mb-4">Actions</h3>
+            <div className="bg-white rounded-lg border p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Actions</h3>
               <div className="space-y-2">
                 <button onClick={() => navigate(`/purchase/receipts/${rejection.receipt_advice}`)} className="w-full px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">View Receipt</button>
                 <button onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/rejections'))} className="w-full px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">← Back to List</button>

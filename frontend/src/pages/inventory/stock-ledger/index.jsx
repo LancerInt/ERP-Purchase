@@ -367,7 +367,7 @@ export default function StockLedger() {
           .join(' · ');
         toast.error(`Import failed — row ${first.row}: ${detail || 'validation error'}. Nothing was imported.`,
           { duration: 8000 });
-        console.log('Stock import errors:', errors);
+        if (import.meta.env.DEV) console.log('Stock import errors:', errors);
       } else {
         toast.success(`Imported ${created} stock row(s).`);
         fetchAll();

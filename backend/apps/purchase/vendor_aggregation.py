@@ -19,15 +19,16 @@ def get_rfq_auto_vendors(rfq):
 
     vendor_ids = set()
 
-    # Get products from linked PRs (ManyToMany: rfq.linked_prs)
-    for pr in rfq.linked_prs.all():
+    prs = rfq.linked_prs.prefetch_related(
+        'lines__product_service__preferred_vendors',
+    )
+    for pr in prs:
         for line in pr.lines.all():
             if line.product_service:
                 for vendor in line.product_service.preferred_vendors.all():
                     vendor_ids.add(vendor.id)
 
-    # Also check RFQ's quote responses for vendors already quoted
-    for quote in rfq.quote_responses.all():
+    for quote in rfq.quote_responses.select_related('vendor').all():
         if quote.vendor_id:
             vendor_ids.add(quote.vendor_id)
 
@@ -47,7 +48,10 @@ def get_rfq_vendor_products(rfq):
     mapping = {}
     seen_per_vendor = {}
 
-    for pr in rfq.linked_prs.all():
+    prs = rfq.linked_prs.prefetch_related(
+        'lines__product_service__preferred_vendors',
+    )
+    for pr in prs:
         for line in pr.lines.all():
             product = line.product_service
             if not product:

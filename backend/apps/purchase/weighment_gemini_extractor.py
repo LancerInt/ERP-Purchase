@@ -186,32 +186,49 @@ def _call_gemini(model_name: str, file_bytes: bytes, filename: str) -> Tuple[Opt
     if not api_key:
         return None, 'GEMINI_API_KEY not configured'
 
+    import mimetypes as _mt
+    INLINE_LIMIT = 20 * 1024 * 1024  # 20 MB
+
     ext = '.' + filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
+    mime = _mt.guess_type(filename)[0] or 'application/octet-stream'
+
     try:
-        tmp.write(file_bytes)
-        tmp.flush()
-        tmp.close()
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name)
-        sample = genai.upload_file(path=tmp.name)
-        # 90s timeout via request_options — without it the SDK's own default
-        # (600s) outlives gunicorn's 120s worker timeout (render.yaml), so a
-        # slow response gets the worker SIGKILLed instead of returning a
-        # clean error. Matches the convention already used in
-        # quote_gemini_extractor.py.
-        response = generate_logged(
-            model, [sample, EXTRACTION_PROMPT],
-            what='weighment', model_name=model_name,
-            request_options={'timeout': 90})
+    except Exception as exc:
+        return None, f'Gemini init error: {type(exc).__name__}: {exc}'
+
+    use_inline = len(file_bytes) <= INLINE_LIMIT
+    tmp_path = None
+    try:
+        if use_inline:
+            response = generate_logged(
+                model,
+                [{'mime_type': mime, 'data': file_bytes}, EXTRACTION_PROMPT],
+                what='weighment-inline', model_name=model_name,
+                request_options={'timeout': 90},
+            )
+        else:
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
+            tmp.write(file_bytes)
+            tmp.flush()
+            tmp.close()
+            tmp_path = tmp.name
+            sample = genai.upload_file(path=tmp_path)
+            response = generate_logged(
+                model, [sample, EXTRACTION_PROMPT],
+                what='weighment-filesapi', model_name=model_name,
+                request_options={'timeout': 90},
+            )
         return getattr(response, 'text', None) or '', 'ok'
     except Exception as exc:
         return None, f'{type(exc).__name__}: {exc}'
     finally:
-        try:
-            os.unlink(tmp.name)
-        except Exception:
-            pass
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
 
 
 def _try_extract(model_name: str, file_bytes: bytes, filename: str) -> Dict[str, Any]:

@@ -125,7 +125,7 @@ export default function UserDetail() {
     <MainLayout>
       <div className="text-center py-20">
         <p className="text-red-500 mb-3">User not found.</p>
-        <button onClick={() => navigate('/admin/users')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
+        <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/admin/users')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
           <ArrowLeft size={15} /> Back to Users
         </button>
       </div>
@@ -400,7 +400,7 @@ export default function UserDetail() {
           <div className="bg-white rounded-lg border p-3.5 sm:p-5">
             <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 pb-2 border-b">Actions</h3>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => navigate('/admin/users')} className={`px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 ${roleId ? '' : 'col-span-2'}`}>← Back to Users</button>
+              <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/admin/users')} className={`px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 ${roleId ? '' : 'col-span-2'}`}>← Back to Users</button>
               {roleId && (
                 <button onClick={() => navigate(`/admin/roles/${roleId}`)} className="px-4 py-2 text-sm bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100">View Role Details</button>
               )}

@@ -46,7 +46,7 @@ export default function LocalFreightDetail() {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
-  const back = () => navigate('/freight/local');
+  const back = () => window.history.state?.idx > 0 ? navigate(-1) : navigate('/freight/local');
 
   const submitPayment = async (e) => {
     e.preventDefault();

@@ -120,16 +120,16 @@ export default function RFQDetailPage() {
 
   const formatDate = (d) => d ? fmtDate(d) : '-';
   const formatDateTime = (d) => d ? fmtDateTime(d) : '-';
-  const inputClass = "w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500";
+  const inputClass = "w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500";
   const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
-  const readonlyClass = "w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-600";
+  const readonlyClass = "w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-600";
 
   if (isLoading) return <MainLayout><div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" /></div></MainLayout>;
   if (!rfq) return <MainLayout><div className="text-center py-12"><FileText className="mx-auto text-slate-300 mb-4" size={48} /><p className="text-slate-500">RFQ not found</p></div></MainLayout>;
 
   return (
     <MainLayout>
-      <div className="max-w-6xl space-y-4 sm:space-y-6">
+      <div className="max-w-6xl space-y-3">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
@@ -200,51 +200,51 @@ export default function RFQDetailPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className="lg:col-span-2 space-y-3">
             {/* RFQ Details */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">RFQ Details</h3>
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">RFQ Details</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
                 {!isHidden('rfq_no') && (
-                <div><label className="block text-sm font-medium text-slate-600 mb-1">RFQ Number</label><input type="text" value={rfq.rfq_no} disabled className={readonlyClass} /></div>
+                <div><label className="block text-xs font-semibold text-slate-700 mb-0.5">RFQ Number</label><input type="text" value={rfq.rfq_no} disabled className={readonlyClass} /></div>
                 )}
                 {!isHidden('rfq_mode') && (
-                <div><label className="block text-sm font-medium text-slate-600 mb-1">Mode</label>
+                <div><label className="block text-xs font-semibold text-slate-700 mb-0.5">Mode</label>
                   {isEditing ? <CustomSelect name="rfq_mode" value={editData.rfq_mode || ''} onChange={handleChange} disabled={isReadOnly('rfq_mode')} className={isReadOnly('rfq_mode') ? lockedInputClass : inputClass}><option value="EMAIL">Email</option><option value="PORTAL">Portal</option><option value="PHONE">Phone</option></CustomSelect> : <input type="text" value={rfq.rfq_mode_display || rfq.rfq_mode} disabled className={readonlyClass} />}
                 </div>
                 )}
                 {!isHidden('rfq_status') && (
-                <div><label className="block text-sm font-medium text-slate-600 mb-1">Status</label>
+                <div><label className="block text-xs font-semibold text-slate-700 mb-0.5">Status</label>
                   {isEditing ? <CustomSelect name="rfq_status" value={editData.rfq_status || ''} onChange={handleChange} disabled={isReadOnly('rfq_status')} className={isReadOnly('rfq_status') ? lockedInputClass : inputClass}><option value="OPEN">Open</option><option value="CLOSED">Closed</option><option value="CANCELLED">Cancelled</option></CustomSelect> : <input type="text" value={rfq.rfq_status_display || rfq.rfq_status} disabled className={readonlyClass} />}
                 </div>
                 )}
                 {!isHidden('quote_count_expected') && (
-                <div><label className="block text-sm font-medium text-slate-600 mb-1">Expected Quotes</label>
+                <div><label className="block text-xs font-semibold text-slate-700 mb-0.5">Expected Quotes</label>
                   {isEditing ? <input type="number" name="quote_count_expected" value={editData.quote_count_expected || ''} onChange={handleChange} disabled={isReadOnly('quote_count_expected')} className={isReadOnly('quote_count_expected') ? lockedInputClass : inputClass} min="1" /> : <input type="text" value={rfq.quote_count_expected} disabled className={readonlyClass} />}
                 </div>
                 )}
                 {!isHidden('linked_prs') && (
-                <div><label className="block text-sm font-medium text-slate-600 mb-1">Linked PRs</label><input type="text" value={(rfq.linked_pr_numbers || []).join(', ') || '-'} disabled className={readonlyClass} /></div>
+                <div><label className="block text-xs font-semibold text-slate-700 mb-0.5">Linked PRs</label><input type="text" value={(rfq.linked_pr_numbers || []).join(', ') || '-'} disabled className={readonlyClass} /></div>
                 )}
-                <div><label className="block text-sm font-medium text-slate-600 mb-1">Created</label><input type="text" value={formatDate(rfq.creation_date)} disabled className={readonlyClass} /></div>
+                <div><label className="block text-xs font-semibold text-slate-700 mb-0.5">Created</label><input type="text" value={formatDate(rfq.creation_date)} disabled className={readonlyClass} /></div>
               </div>
             </div>
 
             {/* Additional Information — matches the Create page section of the
                 same name. In view mode shows read-only text (or a dash); in
                 edit mode renders textareas matching the create form. */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Additional Information</h3>
-              <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Additional Information</h3>
+              <div className="grid grid-cols-2 md:grid-cols-2 gap-x-3 gap-y-2">
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Skip RFQ Justification</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5">Skip RFQ Justification</label>
                   {isEditing ? (
                     <textarea
                       name="skip_rfq_justification"
                       value={editData.skip_rfq_justification || ''}
                       onChange={handleChange}
-                      rows={3}
+                      rows={2}
                       placeholder="Reason for skipping RFQ process..."
                       className={inputClass}
                     />
@@ -255,13 +255,13 @@ export default function RFQDetailPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-600 mb-1">Notes</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5">Notes</label>
                   {isEditing ? (
                     <textarea
                       name="notes"
                       value={editData.notes || ''}
                       onChange={handleChange}
-                      rows={3}
+                      rows={2}
                       placeholder="Additional notes..."
                       className={inputClass}
                     />
@@ -276,15 +276,15 @@ export default function RFQDetailPage() {
 
             {/* Linked Purchase Requests & Line Items */}
             {linkedPRs.map(pr => (
-              <div key={pr.id} className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
-                <div className="flex items-center gap-3 mb-4 pb-2 border-b">
-                  <h3 className="text-base sm:text-lg font-semibold text-slate-800">
+              <div key={pr.id} className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+                <div className="flex items-center gap-3 mb-2 pb-1.5 border-b">
+                  <h3 className="text-sm sm:text-base font-semibold text-slate-800">
                     Purchase Request:{' '}
                     <button onClick={() => navigate(`/purchase/requests/${pr.id}`)} className="text-primary-600 hover:text-primary-800 hover:underline">{pr.pr_no}</button>
                   </h3>
                   <StatusBadge status={pr.approval_status} />
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-3 gap-y-2 mb-3">
                   <div><p className="text-xs text-slate-500">Warehouse</p><p className="text-sm font-medium">{pr.warehouse_name || '-'}</p></div>
                   <div><p className="text-xs text-slate-500">Priority</p><p className="text-sm font-medium">{pr.priority_display || pr.priority || '-'}</p></div>
                   <div><p className="text-xs text-slate-500">Requirement Type</p><p className="text-sm font-medium">{pr.requirement_type_display || pr.requirement_type || '-'}</p></div>
@@ -362,7 +362,7 @@ export default function RFQDetailPage() {
             ))}
 
             {linkedPRs.length === 0 && (
-              <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6 text-center text-slate-400">
+              <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 text-center text-slate-400">
                 No linked Purchase Requests found
               </div>
             )}
@@ -370,11 +370,11 @@ export default function RFQDetailPage() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-3 sm:space-y-6">
+          <div className="space-y-3">
             {/* Summary + Products Required share a row on mobile; back to a
                 single column in the narrow desktop sidebar. */}
-            <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 sm:gap-6">
-            <div className={`bg-white rounded-lg border border-slate-200 p-3.5 sm:p-5 ${linkedPRs.some(pr => pr.lines?.length > 0) ? '' : 'col-span-2 lg:col-span-1'}`}>
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+            <div className={`bg-white rounded-lg border border-slate-200 p-3 sm:p-4 ${linkedPRs.some(pr => pr.lines?.length > 0) ? '' : 'col-span-2 lg:col-span-1'}`}>
               <h4 className="text-sm font-semibold text-slate-700 mb-3">Summary</h4>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between"><span className="text-slate-500">Status</span><StatusBadge status={rfq.rfq_status} /></div>
@@ -385,7 +385,7 @@ export default function RFQDetailPage() {
             </div>
             {/* Products Summary from PRs */}
             {linkedPRs.some(pr => pr.lines?.length > 0) && (
-              <div className="bg-white rounded-lg border border-slate-200 p-3.5 sm:p-5">
+              <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
                 <h4 className="text-sm font-semibold text-slate-700 mb-3">Products Required</h4>
                 <div className="space-y-2">
                   {linkedPRs.flatMap(pr => pr.lines || []).map((line, idx) => (
@@ -405,7 +405,7 @@ export default function RFQDetailPage() {
             )}
             </div>{/* end Summary + Products row */}
 
-            <div className="bg-white rounded-lg border border-slate-200 p-5">
+            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
               <h4 className="text-sm font-semibold text-slate-700 mb-3">Email History</h4>
               {emailLogs.length === 0 ? <p className="text-xs text-slate-400 text-center py-4">No emails sent</p> : (
                 <div className="space-y-2 max-h-64 overflow-y-auto">

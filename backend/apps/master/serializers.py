@@ -400,7 +400,7 @@ class VendorSerializer(serializers.ModelSerializer):
             'country': {'required': False, 'allow_blank': True},
             'pincode': {'required': False, 'allow_blank': True},
             'contact_person': {'required': False, 'allow_blank': True},
-            'contact_email': {'required': False, 'allow_blank': True},
+            'contact_email': {'required': True, 'allow_blank': False},
             'contact_phone': {'required': False, 'allow_blank': True},
             'payment_terms': {'required': False, 'allow_blank': True},
             'custom_payment_days': {'required': False, 'allow_null': True},
@@ -697,6 +697,7 @@ class VendorImportSerializer(VendorSerializer):
         extra_kwargs = {
             **VendorSerializer.Meta.extra_kwargs,
             'gstin': {'required': False, 'allow_null': True, 'allow_blank': True},
+            'contact_email': {'required': False, 'allow_blank': True},
         }
 
     # Maps Excel-friendly vendor-type strings to the model's choice keys.

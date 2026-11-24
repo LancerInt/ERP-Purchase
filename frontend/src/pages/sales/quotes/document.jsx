@@ -231,7 +231,7 @@ export default function SalesQuoteDocument() {
       <MainLayout>
         <div className="text-center py-12">
           <p className="text-slate-600">Quotation not found</p>
-          <button onClick={() => navigate('/sales/quotes')} className="mt-4 text-blue-600 hover:text-blue-800">
+          <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/sales/quotes')} className="mt-4 text-blue-600 hover:text-blue-800">
             Back to Quotes
           </button>
         </div>

@@ -55,7 +55,7 @@ export default function TransferDetail() {
         breadcrumbs={[{ label: 'Bank' }, { label: 'Transfers', to: '/bank/transfers' }, { label: 'Detail' }]}
       />
       <button
-        onClick={() => navigate('/bank/transfers')}
+        onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/bank/transfers')}
         className="inline-flex items-center gap-1 mb-4 text-sm text-slate-500 hover:text-slate-700"
       ><ArrowLeft size={15} /> Back to Transfers</button>
 

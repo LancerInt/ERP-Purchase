@@ -186,7 +186,7 @@ export default function RFQDocument() {
       <MainLayout>
         <div className="text-center py-12">
           <p className="text-slate-600">RFQ not found</p>
-          <button onClick={() => navigate('/purchase/rfq')} className="mt-4 text-blue-600 hover:text-blue-800">
+          <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/rfq')} className="mt-4 text-blue-600 hover:text-blue-800">
             Back to RFQs
           </button>
         </div>

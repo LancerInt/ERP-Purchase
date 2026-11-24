@@ -151,7 +151,7 @@ export default function ReceivableDetail() {
     <MainLayout>
       <div className="text-center py-20">
         <p className="text-red-500 mb-3">Receivable not found.</p>
-        <button onClick={() => navigate('/sales/receivables')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
+        <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/sales/receivables')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
           <ArrowLeft size={15} /> Back to Receivables
         </button>
       </div>
@@ -510,7 +510,7 @@ export default function ReceivableDetail() {
             <div className="bg-white rounded-lg border border-slate-200 p-3.5 sm:p-5">
               <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-3">Actions</h3>
               <div className={`grid ${rec.invoice_reference ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
-                <button onClick={() => navigate('/sales/receivables')} className="px-3 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">← Back to Ledger</button>
+                <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/sales/receivables')} className="px-3 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">← Back to Ledger</button>
                 {rec.invoice_reference && (
                   <button onClick={() => navigate(`/sales/invoices/${rec.invoice_reference}`)} className="px-3 py-2 text-sm bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100">View Invoice</button>
                 )}

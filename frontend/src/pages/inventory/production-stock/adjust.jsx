@@ -243,7 +243,7 @@ export default function ProductionStockAdjustForm() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => navigate('/inventory/production-stock')}
+                onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/inventory/production-stock')}
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
               >
                 <ArrowLeft size={14} /> Back

@@ -180,7 +180,7 @@ export default function CreateCustomerAdvance() {
 
           {/* Actions */}
           <div className="flex flex-row justify-end gap-2 pt-4 border-t">
-            <button type="button" onClick={() => navigate('/sales/advances')}
+            <button type="button" onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/sales/advances')}
               className="px-4 sm:px-6 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">
               Cancel
             </button>

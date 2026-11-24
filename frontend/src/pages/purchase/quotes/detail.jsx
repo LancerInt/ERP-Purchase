@@ -158,7 +158,7 @@ export default function QuoteResponseDetailPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-5">
+      <div className="space-y-3">
         {/* Header bar */}
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -242,26 +242,26 @@ export default function QuoteResponseDetailPage() {
         </div>
 
         {/* RFQ summary card */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="bg-white rounded-lg border border-slate-200 p-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+          <div className="bg-white rounded-lg border border-slate-200 p-2.5">
             <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">RFQ No</p>
             <p className="text-sm font-semibold text-slate-900 mt-0.5">{rfq.rfq_no || '-'}</p>
           </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-3">
+          <div className="bg-white rounded-lg border border-slate-200 p-2.5">
             <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">RFQ Date</p>
             <p className="text-sm font-semibold text-slate-900 mt-0.5">{rfq.rfq_date || '-'}</p>
           </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-3">
+          <div className="bg-white rounded-lg border border-slate-200 p-2.5">
             <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">Quotes Received</p>
             <p className="text-sm font-semibold text-primary-700 mt-0.5">{totals.count}</p>
           </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-3">
+          <div className="bg-white rounded-lg border border-slate-200 p-2.5">
             <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">Lowest Quote</p>
             <p className="text-sm font-semibold text-emerald-700 mt-0.5">
               {totals.lowest != null ? fmtMoney(totals.lowest, rfq.currency_symbol) : '-'}
             </p>
           </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-3">
+          <div className="bg-white rounded-lg border border-slate-200 p-2.5">
             <p className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">Highest Quote</p>
             <p className="text-sm font-semibold text-slate-700 mt-0.5">
               {totals.highest != null ? fmtMoney(totals.highest, rfq.currency_symbol) : '-'}
@@ -280,15 +280,15 @@ export default function QuoteResponseDetailPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b">
-                    <th className="w-10 px-2 py-3"></th>
-                    <th className="text-left px-3 py-3 font-medium text-slate-600">Vendor</th>
-                    {!isHidden('quote_date') && <th className="text-left px-3 py-3 font-medium text-slate-600 hidden sm:table-cell">Quote Date</th>}
-                    {!isHidden('price_valid_till') && <th className="text-left px-3 py-3 font-medium text-slate-600 hidden sm:table-cell">Valid Till</th>}
-                    {!isHidden('lead_time_days') && <th className="text-left px-3 py-3 font-medium text-slate-600 hidden sm:table-cell">Lead Time</th>}
-                    {!isHidden('payment_terms') && <th className="text-left px-3 py-3 font-medium text-slate-600 hidden sm:table-cell">Payment Terms</th>}
-                    <th className="text-right px-3 py-3 font-medium text-slate-600">Total Amount</th>
-                    <th className="text-left px-3 py-3 font-medium text-slate-600 hidden sm:table-cell">Attachments</th>
-                    <th className="text-left px-3 py-3 font-medium text-slate-600">Status</th>
+                    <th className="w-10 px-2 py-2"></th>
+                    <th className="text-left px-3 py-2 font-medium text-slate-600">Vendor</th>
+                    {!isHidden('quote_date') && <th className="text-left px-3 py-2 font-medium text-slate-600 hidden sm:table-cell">Quote Date</th>}
+                    {!isHidden('price_valid_till') && <th className="text-left px-3 py-2 font-medium text-slate-600 hidden sm:table-cell">Valid Till</th>}
+                    {!isHidden('lead_time_days') && <th className="text-left px-3 py-2 font-medium text-slate-600 hidden sm:table-cell">Lead Time</th>}
+                    {!isHidden('payment_terms') && <th className="text-left px-3 py-2 font-medium text-slate-600 hidden sm:table-cell">Payment Terms</th>}
+                    <th className="text-right px-3 py-2 font-medium text-slate-600">Total Amount</th>
+                    <th className="text-left px-3 py-2 font-medium text-slate-600 hidden sm:table-cell">Attachments</th>
+                    <th className="text-left px-3 py-2 font-medium text-slate-600">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -315,10 +315,10 @@ export default function QuoteResponseDetailPage() {
                           }`}
                           onClick={() => toggleExpand(q.id)}
                         >
-                          <td className="px-2 py-3 text-slate-400">
+                          <td className="px-2 py-2 text-slate-400">
                             {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                           </td>
-                          <td className="px-3 py-3">
+                          <td className="px-3 py-2">
                             <div className={`font-medium ${isChosen ? 'text-emerald-900' : 'text-slate-900'}`}>
                               {q.vendor_name || q.vendor_name_text || '-'}
                             </div>
@@ -331,14 +331,14 @@ export default function QuoteResponseDetailPage() {
                               </div>
                             )}
                           </td>
-                          {!isHidden('quote_date') && <td className="px-3 py-3 text-slate-700 hidden sm:table-cell">{q.quote_date || '-'}</td>}
-                          {!isHidden('price_valid_till') && <td className="px-3 py-3 text-slate-700 hidden sm:table-cell">{q.price_valid_till || '-'}</td>}
-                          {!isHidden('lead_time_days') && <td className="px-3 py-3 text-slate-700 hidden sm:table-cell">{q.lead_time_days || '-'}</td>}
-                          {!isHidden('payment_terms') && <td className="px-3 py-3 text-slate-700 hidden sm:table-cell">{fmtPaymentTerms(q)}</td>}
-                          <td className="px-3 py-3 text-right font-semibold text-slate-900">
+                          {!isHidden('quote_date') && <td className="px-3 py-2 text-slate-700 hidden sm:table-cell">{q.quote_date || '-'}</td>}
+                          {!isHidden('price_valid_till') && <td className="px-3 py-2 text-slate-700 hidden sm:table-cell">{q.price_valid_till || '-'}</td>}
+                          {!isHidden('lead_time_days') && <td className="px-3 py-2 text-slate-700 hidden sm:table-cell">{q.lead_time_days || '-'}</td>}
+                          {!isHidden('payment_terms') && <td className="px-3 py-2 text-slate-700 hidden sm:table-cell">{fmtPaymentTerms(q)}</td>}
+                          <td className="px-3 py-2 text-right font-semibold text-slate-900">
                             {fmtMoney(q.total_cost, rfq.currency_symbol || q.currency)}
                           </td>
-                          <td className="px-3 py-3 hidden sm:table-cell">
+                          <td className="px-3 py-2 hidden sm:table-cell">
                             {atts.length === 0 ? (
                               <span className="text-xs text-slate-400 italic">No file</span>
                             ) : (
@@ -360,7 +360,7 @@ export default function QuoteResponseDetailPage() {
                               </div>
                             )}
                           </td>
-                          <td className="px-3 py-3">
+                          <td className="px-3 py-2">
                             {/* Chosen rows render a custom badge instead
                                 of going through StatusBadge so the
                                 "Selected Quote" wording + check icon are
@@ -378,11 +378,11 @@ export default function QuoteResponseDetailPage() {
 
                         {isOpen && (
                           <tr key={`${q.id}-detail`} className="border-b bg-slate-50/50">
-                            <td colSpan={9} className="px-4 sm:px-6 py-4">
+                            <td colSpan={9} className="px-3 sm:px-4 py-3">
                               {/* Mobile-only quick facts — these columns are
                                   hidden in the table on phones, so surface
                                   them here on expand instead of losing them. */}
-                              <div className="sm:hidden grid grid-cols-2 gap-2 mb-4 text-xs">
+                              <div className="sm:hidden grid grid-cols-2 gap-2 mb-3 text-xs">
                                 {!isHidden('quote_date') && <div className="bg-white rounded p-2 border border-slate-200"><div className="text-[10px] uppercase text-slate-400 font-medium">Quote Date</div><div className="text-slate-700 mt-0.5">{q.quote_date || '-'}</div></div>}
                                 {!isHidden('price_valid_till') && <div className="bg-white rounded p-2 border border-slate-200"><div className="text-[10px] uppercase text-slate-400 font-medium">Valid Till</div><div className="text-slate-700 mt-0.5">{q.price_valid_till || '-'}</div></div>}
                                 {!isHidden('lead_time_days') && <div className="bg-white rounded p-2 border border-slate-200"><div className="text-[10px] uppercase text-slate-400 font-medium">Lead Time</div><div className="text-slate-700 mt-0.5">{q.lead_time_days || '-'}</div></div>}
@@ -394,7 +394,7 @@ export default function QuoteResponseDetailPage() {
                                   always shown when present (helpful when the
                                   Total Amount column above uses a generic ₹). */}
                               {(q.vendor_address || q.remarks || q.delivery_terms || q.freight_terms || q.currency) && (
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 text-xs">
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mb-3 text-xs">
                                   {!isHidden('currency') && q.currency && (
                                     <div className="bg-white rounded p-2 border border-slate-200">
                                       <div className="text-[10px] uppercase text-slate-400 font-medium">Currency</div>
@@ -420,7 +420,7 @@ export default function QuoteResponseDetailPage() {
                                     </div>
                                   )}
                                   {!isHidden('remarks') && q.remarks && (
-                                    <div className="bg-white rounded p-2 border border-slate-200 md:col-span-3">
+                                    <div className="bg-white rounded p-2 border border-slate-200 md:col-span-3 lg:col-span-4">
                                       <div className="text-[10px] uppercase text-slate-400 font-medium">Remarks</div>
                                       <div className="text-slate-700 mt-0.5 whitespace-pre-wrap">{q.remarks}</div>
                                     </div>

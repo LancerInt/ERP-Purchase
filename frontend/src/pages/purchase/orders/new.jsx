@@ -18,7 +18,7 @@ import { PAYMENT_TERM_OPTIONS, FREIGHT_TERM_OPTIONS, withCurrent, paymentTermMes
 
 // Base input classes pulled from this form's inline styling so the
 // field-permission lock state can reuse them.
-const inputClass = "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
+const inputClass = "w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
 const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
 const lineInputClass = "w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm";
 const lockedLineInputClass = `${lineInputClass} bg-slate-100 cursor-not-allowed`;
@@ -337,15 +337,15 @@ export default function CreatePurchaseOrder() {
         );
       })()}
 
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
         <form onSubmit={handleSubmit}>
-          <EditGate canEdit={editable} className="space-y-3 sm:space-y-6">
+          <EditGate canEdit={editable} className="space-y-3">
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Order Details</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Order Details</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
               {!isHidden('vendor') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Vendor <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Vendor <span className="text-red-500">*</span></label>
                 <CustomSelect name="vendor" value={formData.vendor} onChange={handleChange} required disabled={isReadOnly('vendor')} className={isReadOnly('vendor') ? lockedInputClass : inputClass}>
                   <option value="">Select Vendor</option>
                   {filteredVendorOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -364,7 +364,7 @@ export default function CreatePurchaseOrder() {
               )}
               {!isHidden('company') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Company <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Company <span className="text-red-500">*</span></label>
                 <CustomSelect name="company" value={formData.company} onChange={handleChange} required disabled={isReadOnly('company')} className={isReadOnly('company') ? lockedInputClass : inputClass}>
                   <option value="">Select Company</option>
                   {companyOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -373,8 +373,8 @@ export default function CreatePurchaseOrder() {
               )}
               {!isHidden('warehouse') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Warehouse <span className="text-red-500">*</span></label>
-                <CustomSelect name="warehouse" value={formData.warehouse} onChange={handleChange} required disabled={isReadOnly('warehouse') || !formData.company} className={isReadOnly('warehouse') ? lockedInputClass : "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-slate-100 disabled:cursor-not-allowed"}>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Warehouse <span className="text-red-500">*</span></label>
+                <CustomSelect name="warehouse" value={formData.warehouse} onChange={handleChange} required disabled={isReadOnly('warehouse') || !formData.company} className={isReadOnly('warehouse') ? lockedInputClass : "w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-slate-100 disabled:cursor-not-allowed"}>
                   <option value="">{formData.company ? 'Select Warehouse' : 'Select company first...'}</option>
                   {warehouseOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </CustomSelect>
@@ -382,9 +382,9 @@ export default function CreatePurchaseOrder() {
               )}
               {!isHidden('linked_prs') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Linked PR</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Linked PR</label>
                 {isSkipRfq ? (
-                  <input type="text" name="linked_prs" value={skipRfqData?.pr_no || formData.linked_prs} readOnly className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-600" />
+                  <input type="text" name="linked_prs" value={skipRfqData?.pr_no || formData.linked_prs} readOnly className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm bg-slate-50 text-slate-600" />
                 ) : (
                   <CustomSelect name="linked_prs" value={formData.linked_prs} onChange={handleChange} disabled={isReadOnly('linked_prs')} className={isReadOnly('linked_prs') ? lockedInputClass : inputClass}>
                     <option value="">Select Purchase Request</option>
@@ -395,7 +395,7 @@ export default function CreatePurchaseOrder() {
               )}
               {!isHidden('linked_rfq') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Linked RFQ</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Linked RFQ</label>
                 {isSkipRfq ? (
                   <div className="w-full border border-amber-300 bg-amber-50 rounded-lg px-3 py-2 text-sm font-semibold text-amber-700">
                     SKIP RFQ
@@ -410,19 +410,19 @@ export default function CreatePurchaseOrder() {
               )}
               {!isHidden('po_date') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">PO Date <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">PO Date <span className="text-red-500">*</span></label>
                 <CustomDatePicker name="po_date" value={formData.po_date} onChange={handleChange} required disabled={isReadOnly('po_date')} className={isReadOnly('po_date') ? lockedInputClass : inputClass} />
               </div>
               )}
               {!isHidden('expected_delivery_start') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Expected Delivery Start</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Expected Delivery Start</label>
                 <CustomDatePicker name="expected_delivery_start" value={formData.expected_delivery_start} onChange={handleChange} disabled={isReadOnly('expected_delivery_start')} className={isReadOnly('expected_delivery_start') ? lockedInputClass : inputClass} />
               </div>
               )}
               {!isHidden('expected_delivery_end') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Expected Delivery End</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Expected Delivery End</label>
                 <CustomDatePicker name="expected_delivery_end" value={formData.expected_delivery_end} onChange={handleChange} disabled={isReadOnly('expected_delivery_end')} className={isReadOnly('expected_delivery_end') ? lockedInputClass : inputClass} />
               </div>
               )}
@@ -430,11 +430,11 @@ export default function CreatePurchaseOrder() {
           </div>
 
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Terms & Currency</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Terms & Currency</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
               {!isHidden('freight_terms') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Freight Terms <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Freight Terms <span className="text-red-500">*</span></label>
                 <CustomSelect name="freight_terms" value={formData.freight_terms} onChange={handleChange} required disabled={isReadOnly('freight_terms')} className={isReadOnly('freight_terms') ? lockedInputClass : inputClass}>
                   <option value="">Select Freight Terms</option>
                   {withCurrent(FREIGHT_TERM_OPTIONS, formData.freight_terms).map(o => <option key={o} value={o}>{o}</option>)}
@@ -443,7 +443,7 @@ export default function CreatePurchaseOrder() {
               )}
               {!isHidden('payment_terms') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Payment Terms</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Payment Terms</label>
                 <CustomSelect name="payment_terms" value={formData.payment_terms} onChange={handleChange} disabled={isReadOnly('payment_terms')} className={isReadOnly('payment_terms') ? lockedInputClass : inputClass}>
                   <option value="">Select Payment Terms</option>
                   {withCurrent(PAYMENT_TERM_OPTIONS, formData.payment_terms).map(o => <option key={o} value={o}>{o}</option>)}
@@ -452,7 +452,7 @@ export default function CreatePurchaseOrder() {
               )}
               {!isHidden('currency') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Currency <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Currency <span className="text-red-500">*</span></label>
                 <CustomSelect name="currency" value={formData.currency} onChange={handleChange} required disabled={isReadOnly('currency')} className={isReadOnly('currency') ? lockedInputClass : inputClass}>
                   <option value="">Select Currency</option>
                   <option value="INR">INR</option>
@@ -462,7 +462,7 @@ export default function CreatePurchaseOrder() {
               )}
               {!isHidden('broker_name') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Broker Name</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Broker Name</label>
                 {/* Sourced from /api/brokers/ (Broker master). PO stores
                     broker_name as a string for backward compat; the
                     dropdown just constrains input to the master list. */}
@@ -487,8 +487,8 @@ export default function CreatePurchaseOrder() {
 
           {/* Line Items Section */}
           <div>
-            <div className="flex items-center justify-between mb-4 pb-2 border-b">
-              <h3 className="text-lg font-semibold text-slate-800">Line Items</h3>
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Line Items</h3>
               <button type="button" onClick={addLineItem} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition">
                 <Plus size={14} /> Add Item
               </button>
@@ -501,7 +501,7 @@ export default function CreatePurchaseOrder() {
                   <div key={index} className="grid grid-cols-1 md:grid-cols-8 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 items-end">
                     {!isLineHidden('product_service') && (
                     <div className="col-span-2 md:col-span-2">
-                      <label className="block text-xs font-medium text-slate-600 mb-1">Item <span className="text-red-500">*</span></label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-0.5">Item <span className="text-red-500">*</span></label>
                       {/* Encoded "<TYPE>:<ID>" so the change handler can
                           recover the item_type without an extra lookup.
                           Items are grouped by type so users can scan
@@ -566,7 +566,7 @@ export default function CreatePurchaseOrder() {
                           Receipt Line Items. Pre-fills from the PR
                           line on PR→PO; editable on the PO so the
                           operator can override per order. */}
-                      <label className="block text-xs font-medium text-slate-600 mb-1">Category</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-0.5">Category</label>
                       <CustomSelect
                         value={item.category || ''}
                         onChange={e => handleLineChange(index, 'category', e.target.value)}
@@ -586,25 +586,25 @@ export default function CreatePurchaseOrder() {
                     </div>
                     {!isLineHidden('quantity_ordered') && (
                     <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">Qty <span className="text-red-500">*</span></label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-0.5">Qty <span className="text-red-500">*</span></label>
                       <input type="number" step="0.01" min="0.01" value={item.quantity} onChange={e => handleLineChange(index, 'quantity', e.target.value)} required disabled={isLineRO('quantity_ordered')} className={isLineRO('quantity_ordered') ? lockedLineInputClass : lineInputClass} />
                     </div>
                     )}
                     {!isLineHidden('uom') && (
                     <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">UOM</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-0.5">UOM</label>
                       <input type="text" value={item.uom} onChange={e => handleLineChange(index, 'uom', e.target.value)} disabled={isLineRO('uom')} className={isLineRO('uom') ? lockedLineInputClass : lineInputClass} />
                     </div>
                     )}
                     {!isLineHidden('unit_price') && (
                     <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">Unit Price</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-0.5">Unit Price</label>
                       <input type="number" step="0.01" min="0" value={item.unit_price} onChange={e => handleLineChange(index, 'unit_price', e.target.value)} disabled={isLineRO('unit_price')} className={isLineRO('unit_price') ? lockedLineInputClass : lineInputClass} />
                     </div>
                     )}
                     {!isLineHidden('gst') && (
                     <div>
-                      <label className="block text-xs font-medium text-slate-600 mb-1">GST %</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-0.5">GST %</label>
                       <input type="number" step="0.01" min="0" max="100" value={item.gst} onChange={e => handleLineChange(index, 'gst', e.target.value)} disabled={isLineRO('gst')} className={isLineRO('gst') ? lockedLineInputClass : lineInputClass} />
                     </div>
                     )}
@@ -620,17 +620,17 @@ export default function CreatePurchaseOrder() {
           </div>
 
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Additional Information</h3>
-            <div className="grid grid-cols-1 gap-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Additional Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {!isHidden('terms_and_conditions') && (
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Terms and Conditions</label>
-                <textarea name="terms_and_conditions" value={formData.terms_and_conditions} onChange={handleChange} rows={3} disabled={isReadOnly('terms_and_conditions')} className={isReadOnly('terms_and_conditions') ? lockedInputClass : inputClass} />
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Terms and Conditions</label>
+                <textarea name="terms_and_conditions" value={formData.terms_and_conditions} onChange={handleChange} rows={2} disabled={isReadOnly('terms_and_conditions')} className={isReadOnly('terms_and_conditions') ? lockedInputClass : inputClass} />
               </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
-                <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Notes</label>
+                <textarea name="notes" value={formData.notes} onChange={handleChange} rows={2} className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
               </div>
             </div>
           </div>

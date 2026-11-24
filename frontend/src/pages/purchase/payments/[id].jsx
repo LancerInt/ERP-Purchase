@@ -159,7 +159,7 @@ export default function VendorPaymentDetail() {
 
   const netPayable = Number(payment.net_payable_amount) || 0;
   const balance = Number(payment.balance_amount) || 0;
-  const inputClass = "w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
+  const inputClass = "w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
   const isDraft = payment.status === 'DRAFT';
 
   // Compute live edit values for the amount breakdown (parity with Create)
@@ -181,13 +181,13 @@ export default function VendorPaymentDetail() {
         ]}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+        <div className="lg:col-span-2 space-y-3">
           {/* Bill Details */}
-          <div className="bg-white rounded-lg border p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-3 sm:mb-4 pb-2 border-b">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800">Bill Details</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Bill Details</h3>
               <div className="flex gap-2">
                 {!isEditing && canEdit && canEdit('Payment Made') && isDraft && (
                   <button onClick={handleEditToggle} className="px-4 py-2 text-sm bg-white border border-slate-300 rounded-lg hover:bg-slate-50">Edit</button>
@@ -202,17 +202,17 @@ export default function VendorPaymentDetail() {
                 )}
               </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
               <div>
-                <p className="text-xs text-slate-500 uppercase">Bill / Payment No</p>
+                <p className="text-xs font-semibold text-slate-700 mb-0.5 uppercase">Bill / Payment No</p>
                 <p className="font-medium">{payment.advice_no}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 uppercase">Vendor</p>
+                <p className="text-xs font-semibold text-slate-700 mb-0.5 uppercase">Vendor</p>
                 <p className="font-medium">{payment.vendor_name || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 uppercase">Receipt Advice {isEditing && <span className="text-red-500">*</span>}</p>
+                <p className="text-xs font-semibold text-slate-700 mb-0.5 uppercase">Receipt Advice {isEditing && <span className="text-red-500">*</span>}</p>
                 {isEditing ? (
                   <CustomSelect name="receipt_advice" value={editData.receipt_advice || ''} onChange={handleEditChange} className={inputClass}>
                     <option value="">Select Receipt Advice</option>
@@ -225,7 +225,7 @@ export default function VendorPaymentDetail() {
                 ) : (<p className="font-medium">-</p>)}
               </div>
               <div>
-                <p className="text-xs text-slate-500 uppercase">Bill / Invoice No</p>
+                <p className="text-xs font-semibold text-slate-700 mb-0.5 uppercase">Bill / Invoice No</p>
                 {isEditing ? (
                   <input type="text" name="invoice_no" value={editData.invoice_no || ''} onChange={handleEditChange} className={inputClass} placeholder="Vendor invoice number" />
                 ) : (
@@ -233,7 +233,7 @@ export default function VendorPaymentDetail() {
                 )}
               </div>
               <div>
-                <p className="text-xs text-slate-500 uppercase">Invoice Date</p>
+                <p className="text-xs font-semibold text-slate-700 mb-0.5 uppercase">Invoice Date</p>
                 {isEditing ? (
                   <CustomDatePicker name="invoice_date" value={editData.invoice_date || ''} onChange={handleEditChange} className={inputClass} />
                 ) : (
@@ -241,7 +241,7 @@ export default function VendorPaymentDetail() {
                 )}
               </div>
               <div>
-                <p className="text-xs text-slate-500 uppercase">Due Date</p>
+                <p className="text-xs font-semibold text-slate-700 mb-0.5 uppercase">Due Date</p>
                 {isEditing ? (
                   <CustomDatePicker name="due_date" value={editData.due_date || ''} onChange={handleEditChange} className={inputClass} />
                 ) : (
@@ -249,7 +249,7 @@ export default function VendorPaymentDetail() {
                 )}
               </div>
               <div>
-                <p className="text-xs text-slate-500 uppercase">Status</p>
+                <p className="text-xs font-semibold text-slate-700 mb-0.5 uppercase">Status</p>
                 {isEditing ? (
                   <CustomSelect name="status" value={editData.status || ''} onChange={handleEditChange} className={inputClass}>
                     <option value="DRAFT">Draft</option>
@@ -259,7 +259,7 @@ export default function VendorPaymentDetail() {
                 )}
               </div>
               <div>
-                <p className="text-xs text-slate-500 uppercase">Payment Mode</p>
+                <p className="text-xs font-semibold text-slate-700 mb-0.5 uppercase">Payment Mode</p>
                 {isEditing ? (
                   <CustomSelect name="payment_method" value={editData.payment_method || ''} onChange={handleEditChange} className={inputClass}>
                     <option value="">Select Payment Mode</option>
@@ -276,7 +276,7 @@ export default function VendorPaymentDetail() {
               </div>
               {payment.po_numbers && payment.po_numbers.length > 0 && (
                 <div>
-                  <p className="text-xs text-slate-500 uppercase">Linked PO Numbers</p>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5 uppercase">Linked PO Numbers</p>
                   <p className="font-medium text-primary-600">{payment.po_numbers.join(', ')}</p>
                 </div>
               )}
@@ -284,28 +284,28 @@ export default function VendorPaymentDetail() {
           </div>
 
           {/* Amount Breakdown */}
-          <div className="bg-white rounded-lg border p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Amount Details</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Amount Details</h3>
             {isEditing ? (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1 uppercase">Total Invoice Amount <span className="text-red-500">*</span></label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5 uppercase">Total Invoice Amount <span className="text-red-500">*</span></label>
                   <input type="number" step="0.01" name="amount" value={editData.amount || ''} onChange={handleEditChange} required className={inputClass} placeholder="0.00" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1 uppercase">TDS Amount</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5 uppercase">TDS Amount</label>
                   <input type="number" step="0.01" name="tds_amount" value={editData.tds_amount || ''} onChange={handleEditChange} className={inputClass} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1 uppercase">Other Deductions</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5 uppercase">Other Deductions</label>
                   <input type="number" step="0.01" name="other_deductions" value={editData.other_deductions || ''} onChange={handleEditChange} className={inputClass} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1 uppercase">Net Payable Amount</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5 uppercase">Net Payable Amount</label>
                   <input type="text" readOnly value={formatCurrency(editNetPayable)} className={`${inputClass} bg-slate-50 cursor-not-allowed`} />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1 uppercase">Amount Paid</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5 uppercase">Amount Paid</label>
                   <input type="number" step="0.01" name="paid_amount" value={editData.paid_amount || ''} onChange={handleEditChange} className={inputClass} />
                 </div>
                 <div className="flex items-end">
@@ -355,8 +355,8 @@ export default function VendorPaymentDetail() {
 
           {/* Product Line Items from Receipt */}
           {receiptData && (receiptData.receipt_lines || []).length > 0 && (
-            <div className="bg-white rounded-lg border p-4 sm:p-6">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Product Line Items (from Receipt)</h3>
+            <div className="bg-white rounded-lg border p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Product Line Items (from Receipt)</h3>
               <div className="overflow-x-auto ios-scroll">
                 <table className="w-full text-sm">
                   <thead>
@@ -391,11 +391,11 @@ export default function VendorPaymentDetail() {
 
           {/* Payment Information */}
           {(isEditing || payment.payment_reference || payment.bank_name || payment.transaction_id || payment.payment_date) && (
-            <div className="bg-white rounded-lg border p-4 sm:p-6">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Payment Information</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="bg-white rounded-lg border p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Payment Information</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
                 <div>
-                  <p className="text-xs text-slate-500 uppercase">Payment Reference No</p>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5 uppercase">Payment Reference No</p>
                   {isEditing ? (
                     <input type="text" name="payment_reference" value={editData.payment_reference || ''} onChange={handleEditChange} className={inputClass} placeholder="UTR / Reference number" />
                   ) : (
@@ -403,7 +403,7 @@ export default function VendorPaymentDetail() {
                   )}
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 uppercase">Payment Date</p>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5 uppercase">Payment Date</p>
                   {isEditing ? (
                     <CustomDatePicker name="payment_date" value={editData.payment_date || ''} onChange={handleEditChange} className={inputClass} />
                   ) : (
@@ -411,7 +411,7 @@ export default function VendorPaymentDetail() {
                   )}
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 uppercase">Bank Name</p>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5 uppercase">Bank Name</p>
                   {isEditing ? (
                     <input type="text" name="bank_name" value={editData.bank_name || ''} onChange={handleEditChange} className={inputClass} placeholder="Bank name" />
                   ) : (
@@ -419,7 +419,7 @@ export default function VendorPaymentDetail() {
                   )}
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 uppercase">Transaction ID</p>
+                  <p className="text-xs font-semibold text-slate-700 mb-0.5 uppercase">Transaction ID</p>
                   {isEditing ? (
                     <input type="text" name="transaction_id" value={editData.transaction_id || ''} onChange={handleEditChange} className={inputClass} placeholder="Transaction ID" />
                   ) : (
@@ -432,10 +432,10 @@ export default function VendorPaymentDetail() {
 
           {/* Remarks */}
           {(isEditing || payment.notes) && (
-            <div className="bg-white rounded-lg border p-4 sm:p-6">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Remarks</h3>
+            <div className="bg-white rounded-lg border p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Remarks</h3>
               {isEditing ? (
-                <textarea name="notes" value={editData.notes || ''} onChange={handleEditChange} rows={3} className={inputClass} placeholder="Additional notes..." />
+                <textarea name="notes" value={editData.notes || ''} onChange={handleEditChange} rows={2} className={inputClass} placeholder="Additional notes..." />
               ) : (
                 <p className="text-sm text-slate-700">{payment.notes}</p>
               )}
@@ -444,10 +444,10 @@ export default function VendorPaymentDetail() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-3 sm:space-y-6">
+        <div className="space-y-3">
           {/* Summary */}
-          <div className="bg-white rounded-lg border p-4 sm:p-6">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Summary</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Summary</h3>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-slate-500">Status</span>
@@ -487,8 +487,8 @@ export default function VendorPaymentDetail() {
           </div>
 
           {/* Actions */}
-          <div className="bg-white rounded-lg border p-4 sm:p-6">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Actions</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Actions</h3>
             <div className="space-y-2">
               {canApprove('Payment Made') && (payment.status === 'DRAFT' || payment.status === 'PENDING') && (
                 <button
@@ -518,32 +518,32 @@ export default function VendorPaymentDetail() {
       {/* Record Payment Modal */}
       {showPaymentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl p-4 sm:p-6 w-full max-w-lg mx-4" role="dialog" aria-modal="true" aria-label="Record Payment">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Record Payment</h3>
-            <p className="text-sm text-slate-500 mb-4">
+          <div className="bg-white rounded-xl shadow-xl p-3 sm:p-4 w-full max-w-lg mx-4" role="dialog" aria-modal="true" aria-label="Record Payment">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Record Payment</h3>
+            <p className="text-sm text-slate-500 mb-3">
               Balance due: <span className="font-bold text-red-600">{formatCurrency(balance)}</span>
             </p>
-            <form onSubmit={handleRecordPayment} className="space-y-4">
+            <form onSubmit={handleRecordPayment} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Amount <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Amount <span className="text-red-500">*</span></label>
                 <input
                   type="number"
                   step="0.01"
                   required
                   value={paymentForm.amount_paid}
                   onChange={e => setPaymentForm(prev => ({ ...prev, amount_paid: e.target.value }))}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   placeholder="0.00"
                   max={balance}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Payment Mode</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5">Payment Mode</label>
                   <CustomSelect
                     value={paymentForm.payment_mode}
                     onChange={e => setPaymentForm(prev => ({ ...prev, payment_mode: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   >
                     <option value="">Select</option>
                     <option value="BANK_TRANSFER">Bank Transfer</option>
@@ -555,42 +555,42 @@ export default function VendorPaymentDetail() {
                   </CustomSelect>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Payment Date</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5">Payment Date</label>
                   <CustomDatePicker
                     value={paymentForm.payment_date}
                     onChange={e => setPaymentForm(prev => ({ ...prev, payment_date: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Payment Reference / UTR <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Payment Reference / UTR <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   required
                   value={paymentForm.payment_reference}
                   onChange={e => setPaymentForm(prev => ({ ...prev, payment_reference: e.target.value }))}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   placeholder="UTR / Reference number"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Bank Name</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5">Bank Name</label>
                   <input
                     type="text"
                     value={paymentForm.bank_name}
                     onChange={e => setPaymentForm(prev => ({ ...prev, bank_name: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Transaction ID</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5">Transaction ID</label>
                   <input
                     type="text"
                     value={paymentForm.transaction_id}
                     onChange={e => setPaymentForm(prev => ({ ...prev, transaction_id: e.target.value }))}
-                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                   />
                 </div>
               </div>

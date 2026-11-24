@@ -65,7 +65,7 @@ export default function FreightPaymentDetail() {
   );
 
   if (isLoading) return <MainLayout><div className="space-y-4">{[1, 2, 3].map(i => <div key={i} className="h-32 bg-slate-200 rounded animate-pulse" />)}</div></MainLayout>;
-  if (!payment) return <MainLayout><div className="text-center py-12"><FileText className="mx-auto text-slate-300 mb-4" size={48} /><p className="text-slate-600">Payment not found</p><button onClick={() => navigate('/sales/freight-payments')} className="mt-4 text-blue-600">Back</button></div></MainLayout>;
+  if (!payment) return <MainLayout><div className="text-center py-12"><FileText className="mx-auto text-slate-300 mb-4" size={48} /><p className="text-slate-600">Payment not found</p><button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/sales/freight-payments')} className="mt-4 text-blue-600">Back</button></div></MainLayout>;
 
   return (
     <MainLayout>
@@ -183,7 +183,7 @@ export default function FreightPaymentDetail() {
             <div className="bg-white rounded-lg border border-slate-200 p-4 sm:p-6">
               <h3 className="text-lg font-semibold text-slate-900 mb-4">Actions</h3>
               <div className="space-y-2">
-                <button onClick={() => navigate('/sales/freight-payments')} className="w-full px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">← Back to Payments</button>
+                <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/sales/freight-payments')} className="w-full px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">← Back to Payments</button>
                 {freight && (
                   <button onClick={() => navigate(`/sales/freight/${freight.id}`)} className="w-full px-4 py-2 text-sm bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100">View Outward Freight</button>
                 )}

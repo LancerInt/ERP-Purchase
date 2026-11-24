@@ -70,7 +70,7 @@ export default function WagePaymentDetail() {
     <MainLayout>
       <div className="text-center py-20">
         <p className="text-red-500 mb-3">Payment not found.</p>
-        <button onClick={() => navigate('/freight/wages/payments')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
+        <button onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/freight/wages/payments')} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
           <ArrowLeft size={15} /> Back to Payments
         </button>
       </div>

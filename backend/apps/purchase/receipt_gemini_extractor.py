@@ -381,40 +381,61 @@ def _call_gemini(model_name: str, file_bytes: bytes, mime: str, filename: str,
     if not api_key:
         return None, 'GEMINI_API_KEY not configured in backend/.env'
 
-    ext = ''
-    if '.' in filename:
-        ext = '.' + filename.rsplit('.', 1)[-1].lower()
-    elif mime == 'application/pdf':
-        ext = '.pdf'
-    elif mime.startswith('image/'):
-        ext = '.' + mime.split('/', 1)[1]
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
+    INLINE_LIMIT = 20 * 1024 * 1024  # 20 MB — Gemini's inline data limit
+
     try:
-        tmp.write(file_bytes)
-        tmp.flush()
-        tmp.close()
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(model_name)
+    except Exception as exc:
+        logger.exception('Gemini init failed (model=%s)', model_name)
+        return None, f'Gemini init error: {type(exc).__name__}: {exc}'
 
-        try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(model_name)   # NO generation_config — matches working script
-            sample_file = genai.upload_file(path=tmp.name, display_name=filename or 'Receipt')
-        except Exception as exc:
-            logger.exception('Gemini init/upload failed (model=%s)', model_name)
-            return None, f'Gemini init/upload error: {type(exc).__name__}: {exc}'
+    use_inline = len(file_bytes) <= INLINE_LIMIT
+    upload_path = 'inline' if use_inline else 'files-api'
 
-        try:
-            # 90s timeout via request_options — without it the SDK's own
-            # default (600s) outlives gunicorn's 120s worker timeout
-            # (render.yaml), so a slow response gets the worker SIGKILLed
-            # instead of returning a clean error. Matches the convention
-            # already used in quote_gemini_extractor.py.
-            response = generate_logged(
-                model, [sample_file, EXTRACTION_PROMPT],
-                what='receipt', model_name=model_name,
-                request_options={'timeout': 90})
-        except Exception as exc:
-            logger.exception('Gemini generate_content failed (model=%s)', model_name)
-            return None, f'Gemini API error: {type(exc).__name__}: {exc}'
+    tmp_path: Optional[str] = None
+    response = None
+    try:
+        if use_inline:
+            try:
+                response = generate_logged(
+                    model,
+                    [{'mime_type': mime, 'data': file_bytes}, EXTRACTION_PROMPT],
+                    what='receipt-inline', model_name=model_name,
+                    request_options={'timeout': 90},
+                )
+            except Exception as exc:
+                logger.exception('Gemini inline generate_content failed (model=%s)', model_name)
+                return None, f'Gemini API error: {type(exc).__name__}: {exc}'
+        else:
+            ext = ''
+            if '.' in filename:
+                ext = '.' + filename.rsplit('.', 1)[-1].lower()
+            elif mime == 'application/pdf':
+                ext = '.pdf'
+            elif mime.startswith('image/'):
+                ext = '.' + mime.split('/', 1)[1]
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
+            tmp.write(file_bytes)
+            tmp.flush()
+            tmp.close()
+            tmp_path = tmp.name
+
+            try:
+                sample_file = genai.upload_file(path=tmp_path, display_name=filename or 'Receipt')
+            except Exception as exc:
+                logger.exception('Gemini upload failed (model=%s)', model_name)
+                return None, f'Gemini upload error: {type(exc).__name__}: {exc}'
+
+            try:
+                response = generate_logged(
+                    model, [sample_file, EXTRACTION_PROMPT],
+                    what='receipt-filesapi', model_name=model_name,
+                    request_options={'timeout': 90},
+                )
+            except Exception as exc:
+                logger.exception('Gemini generate_content failed (model=%s)', model_name)
+                return None, f'Gemini API error: {type(exc).__name__}: {exc}'
 
         text = ''
         try:
@@ -441,7 +462,7 @@ def _call_gemini(model_name: str, file_bytes: bytes, mime: str, filename: str,
             pass
 
         if debug_sink is not None:
-            debug_sink['upload_path'] = 'files-api'
+            debug_sink['upload_path'] = upload_path
             debug_sink['response_length'] = len(text)
             debug_sink['response_preview'] = text[:800]
             debug_sink['finish_reason'] = finish_reason
@@ -452,10 +473,11 @@ def _call_gemini(model_name: str, file_bytes: bytes, mime: str, filename: str,
 
         return text, f'ok (model={model_name})'
     finally:
-        try:
-            os.unlink(tmp.name)
-        except OSError:
-            pass
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 # ─── Public entry point ────────────────────────────────────────────────────

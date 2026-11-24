@@ -299,9 +299,9 @@ export default function CreateVendorCredit() {
     }
   };
 
-  const inputClass = "w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
+  const inputClass = "w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
   const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
-  const labelClass = "block text-sm font-medium text-slate-700 mb-1";
+  const labelClass = "block text-xs font-semibold text-slate-700 mb-0.5";
 
   // Product/Item picker for a line — shared by the desktop table and the
   // mobile cards. Bill-autofilled lines are locked to a read-only label;
@@ -363,12 +363,12 @@ export default function CreateVendorCredit() {
           { label: 'New Credit' },
         ]}
       />
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
-        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           {/* Credit Details */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Credit Details</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Credit Details</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
               {!isHidden('vendor') && (
               <div>
                 <label className={labelClass}>Vendor <span className="text-red-500">*</span></label>
@@ -397,7 +397,7 @@ export default function CreateVendorCredit() {
             </div>
             {/* Bill No - for Credit Note and Debit Note types */}
             {(formData.credit_type === 'CREDIT' || formData.credit_type === 'DEBIT') && !isHidden('bill') && (
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2 mt-3">
                 <div>
                   <label className={labelClass}>Bill No</label>
                   <CustomSelect name="bill" value={formData.bill || ''} onChange={handleBillSelect} disabled={isReadOnly('bill')} className={isReadOnly('bill') ? lockedInputClass : inputClass}>
@@ -419,7 +419,7 @@ export default function CreateVendorCredit() {
               </div>
             )}
             {!isHidden('reason') && (
-            <div className="mt-4">
+            <div className="mt-3">
               <label className={labelClass}>Reason</label>
               <textarea name="reason" value={formData.reason} onChange={handleChange} rows={2} disabled={isReadOnly('reason')} className={isReadOnly('reason') ? lockedInputClass : inputClass} placeholder="Reason for credit/debit note..." />
             </div>
@@ -428,9 +428,9 @@ export default function CreateVendorCredit() {
 
           {/* Advance Amount (only for ADVANCE type) */}
           {formData.credit_type === 'ADVANCE' && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 sm:p-6">
-              <h3 className="text-lg font-semibold text-green-800 mb-4 pb-2 border-b border-green-200">Advance Payment Details</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-green-800 mb-2 pb-1.5 border-b border-green-200">Advance Payment Details</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
                 <div>
                   <label className={labelClass}>Advance Amount <span className="text-red-500">*</span></label>
                   <input type="number" step="0.01" min="0" name="advance_amount" value={formData.advance_amount || ''} onChange={(e) => {
@@ -473,7 +473,7 @@ export default function CreateVendorCredit() {
 
           {/* Line Items (hidden for ADVANCE type) */}
           {formData.credit_type !== 'ADVANCE' && <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Line Items</h3>
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Line Items</h3>
             <div className="hidden md:block overflow-x-auto ios-scroll">
               <table className="w-full text-sm">
                 <thead>
@@ -564,7 +564,7 @@ export default function CreateVendorCredit() {
 
           {/* Summary */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Summary</h3>
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Summary</h3>
             <div className="max-w-md ml-auto space-y-2 text-sm">
               {formData.credit_type === 'ADVANCE' ? (
                 <>
@@ -600,7 +600,7 @@ export default function CreateVendorCredit() {
           {!isHidden('notes') && (
           <div>
             <label className={labelClass}>Notes</label>
-            <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} disabled={isReadOnly('notes')} className={isReadOnly('notes') ? lockedInputClass : inputClass} placeholder="Additional notes..." />
+            <textarea name="notes" value={formData.notes} onChange={handleChange} rows={2} disabled={isReadOnly('notes')} className={isReadOnly('notes') ? lockedInputClass : inputClass} placeholder="Additional notes..." />
           </div>
           )}
 

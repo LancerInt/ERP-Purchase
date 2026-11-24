@@ -4602,7 +4602,7 @@ export default function CreateCustomerPO() {
           {/* Mobile-friendly action row — stack full-width with
               the primary action on top, side-by-side on sm+. */}
           <div className="flex flex-row justify-end gap-2 pt-4 border-t">
-            <button type="button" onClick={() => navigate('/sales/customer-po')} className="w-full sm:w-auto px-4 sm:px-6 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button type="button" onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/sales/customer-po')} className="w-full sm:w-auto px-4 sm:px-6 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
             <button type="submit" disabled={isLoading} className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">{isLoading ? 'Creating...' : 'Create Customer PO'}</button>
           </div>
         </form>

@@ -75,26 +75,54 @@ def _client_ip(request) -> Optional[str]:
     return meta.get('REMOTE_ADDR')
 
 
+_role_cache = threading.local()
+
+
 def _role_name_for(user) -> str:
     """Try common role-holder shapes without hard-depending on the
     stakeholder/RBAC model tree — keeps this helper importable from
-    anywhere."""
+    anywhere.  Caches per-request via thread-local keyed on user PK."""
     if user is None:
         return ''
+    uid = getattr(user, 'pk', None)
+    if uid is not None:
+        cached = getattr(_role_cache, 'map', None)
+        if cached is not None and uid in cached:
+            return cached[uid]
     try:
         from django.apps import apps as django_apps  # noqa: WPS433
         UserRoleAssignment = django_apps.get_model('rbac', 'UserRoleAssignment')
         ura = UserRoleAssignment.objects.select_related('role').filter(user=user).first()
         if ura and ura.role:
-            return ura.role.name or ''
+            name = ura.role.name or ''
+            _role_cache_set(uid, name)
+            return name
     except Exception:  # noqa: BLE001
         pass
-    # Fallback shapes
     role = getattr(user, 'role', None)
     if role:
         name = getattr(role, 'name', None) or str(role)
+        _role_cache_set(uid, name or '')
         return name or ''
+    _role_cache_set(uid, '')
     return ''
+
+
+def _role_cache_set(uid, value):
+    if uid is None:
+        return
+    if not hasattr(_role_cache, 'map'):
+        _role_cache.map = {}
+    _role_cache.map[uid] = value
+
+
+def _role_cache_clear(**kwargs):
+    """Clear the per-request role cache. Connected to request_started."""
+    _role_cache.map = {}
+
+
+from django.core.signals import request_started  # noqa: E402
+request_started.connect(_role_cache_clear)
 
 
 def audit_event(

@@ -331,7 +331,7 @@ export default function PurchaseOrderDetail() {
   if (isLoading) {
     return (
       <MainLayout>
-        <div className="space-y-4 max-w-6xl">
+        <div className="space-y-3 max-w-6xl">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-32 bg-slate-200 rounded animate-pulse" />
           ))}
@@ -393,7 +393,7 @@ export default function PurchaseOrderDetail() {
 
   return (
     <MainLayout breadcrumbs={breadcrumbs}>
-      <div className="max-w-6xl space-y-4 sm:space-y-6">
+      <div className="max-w-6xl space-y-3">
         {/* Header with title, status badge, and action buttons */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
@@ -545,9 +545,9 @@ export default function PurchaseOrderDetail() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           {/* Main content (2 cols) */}
-          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+          <div className="lg:col-span-2 space-y-3">
 
             {/* SPLIT banner — explains why there are no active
                 actions on this PO and links to the child DRAFT POs
@@ -600,9 +600,9 @@ export default function PurchaseOrderDetail() {
             <POAmendment po={po} canRequest={canRequestAmendment('Purchase Order')} canApprove={canApproveAmendment('Purchase Order')} onApplied={fetchPO} />
 
             {/* PO Details */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3.5 sm:p-5">
-              <h2 className="text-base sm:text-lg font-semibold text-slate-900 mb-3 sm:mb-4">PO Details</h2>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:gap-y-3">
+            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+              <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-2">PO Details</h2>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                 {!isHidden('po_no') && (
                 <div>
                   <p className="text-sm text-slate-600 font-medium">PO Number</p>
@@ -776,7 +776,7 @@ export default function PurchaseOrderDetail() {
                 <div>
                   <p className="text-sm text-slate-600 font-medium">Terms & Conditions</p>
                   {isEditing ? (
-                    <textarea name="terms_and_conditions" value={editData.terms_and_conditions || ''} onChange={handleEditChange} rows={3} disabled={isReadOnly('terms_and_conditions')} className={isReadOnly('terms_and_conditions') ? lockedInputClass : inputClass} />
+                    <textarea name="terms_and_conditions" value={editData.terms_and_conditions || ''} onChange={handleEditChange} rows={2} disabled={isReadOnly('terms_and_conditions')} className={isReadOnly('terms_and_conditions') ? lockedInputClass : inputClass} />
                   ) : (
                     <p className="text-slate-900 mt-1 whitespace-pre-wrap">{po.terms_and_conditions || '-'}</p>
                   )}
@@ -786,18 +786,18 @@ export default function PurchaseOrderDetail() {
             </div>
 
             {/* Line Items */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
-              <h2 className="text-xl font-semibold text-slate-900 mb-4 sm:mb-6">
+            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+              <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-2">
                 Line Items ({lineItems.length})
               </h2>
               {lineItems.length === 0 ? (
-                <p className="text-slate-500 text-center py-4 sm:py-6">No line items</p>
+                <p className="text-slate-500 text-center py-4">No line items</p>
               ) : (
                 <>
                 {/* Mobile-stacked cards — one card per PO line, with
                     the same data the desktop table shows. Editing
                     works the same way (the inputs are reused). */}
-                <div className="sm:hidden space-y-3 mb-4">
+                <div className="sm:hidden space-y-3 mb-3">
                   {(isEditing ? editLines : lineItems).map((line, idx) => {
                     const qty = Number(line.quantity_ordered) || 0;
                     const price = Number(line.unit_price) || 0;
@@ -1066,7 +1066,7 @@ export default function PurchaseOrderDetail() {
                   </table>
 
                   {/* Financial Summary */}
-                  <div className="border-t border-slate-200 mt-2 pt-4 flex justify-end">
+                  <div className="border-t border-slate-200 mt-2 pt-3 flex justify-end">
                     <div className="w-64 space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-slate-600">Subtotal</span>
@@ -1099,12 +1099,12 @@ export default function PurchaseOrderDetail() {
           </div>
 
           {/* Sidebar (1 col) */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Status Summary */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3.5 sm:p-5">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-3">Summary</h3>
+            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-2">Summary</h3>
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                   <div>
                     <p className="text-xs text-slate-500">Status</p>
                     <div className="mt-1"><StatusBadge status={po?.fulfillment_status || poStatus} /></div>
@@ -1168,7 +1168,7 @@ export default function PurchaseOrderDetail() {
 
       <FileAttachments module="PO" recordId={id} readOnly={!isEditing} />
 
-      <div className="mt-4">
+      <div className="mt-3">
         <ActivityLog module="Purchase Order" recordId={id} />
       </div>
 

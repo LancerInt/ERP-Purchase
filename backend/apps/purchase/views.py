@@ -2103,6 +2103,19 @@ class RFQHeaderViewSet(viewsets.ModelViewSet):
             'vendor_products': vendor_products,
         })
 
+    @action(detail=True, methods=['get', 'put'], url_path='vendor-routing')
+    def vendor_routing(self, request, pk=None):
+        """Save or load draft line→vendor routing for the Send Email page."""
+        rfq = self.get_object()
+        if request.method == 'GET':
+            return Response({'vendor_routing': rfq.vendor_routing})
+        routing = request.data.get('vendor_routing')
+        if routing is not None and not isinstance(routing, dict):
+            return Response({'detail': 'vendor_routing must be a JSON object.'}, status=status.HTTP_400_BAD_REQUEST)
+        rfq.vendor_routing = routing
+        rfq.save(update_fields=['vendor_routing'])
+        return Response({'vendor_routing': rfq.vendor_routing})
+
     @action(detail=True, methods=['post'])
     def close(self, request, pk=None):
         """Close an RFQ."""
@@ -3592,6 +3605,38 @@ class ReceiptAdviceViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet):
         except Exception as exc:
             return Response({'error': f'Failed to read upload: {exc}'}, status=status.HTTP_400_BAD_REQUEST)
         result = extract_receipt(file_bytes, upload.name or 'document')
+        return Response(result, status=status.HTTP_200_OK)
+
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='extract-freight-bill',
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def extract_freight_bill(self, request):
+        """POST /api/purchase/receipts/extract-freight-bill/
+
+        Gemini-based extraction for a freight bill / transporter slip.
+        Auto-fills Transport Details on the Receipt Advice create page.
+        """
+        from .freight_bill_extractor import extract_freight_bill
+
+        upload = request.FILES.get('file')
+        if not upload:
+            return Response(
+                {'error': 'No file uploaded. Send multipart form with key "file".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if upload.size > 20 * 1024 * 1024:
+            return Response(
+                {'error': 'File too large. Max 20MB.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            file_bytes = upload.read()
+        except Exception as exc:
+            return Response({'error': f'Failed to read upload: {exc}'}, status=status.HTTP_400_BAD_REQUEST)
+        result = extract_freight_bill(file_bytes, upload.name or 'document')
         return Response(result, status=status.HTTP_200_OK)
 
     @action(
@@ -8061,6 +8106,9 @@ class PurchaseAttachmentViewSet(viewsets.ModelViewSet):
             qs = qs.filter(module=module)
         if record_id:
             qs = qs.filter(record_id=record_id)
+        category = self.request.query_params.get('category')
+        if category:
+            qs = qs.filter(category=category)
         return qs
 
     @action(detail=True, methods=['get'], url_path='signed-url',

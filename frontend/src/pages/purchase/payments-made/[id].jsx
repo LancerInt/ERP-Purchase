@@ -182,7 +182,7 @@ export default function PaymentMadeDetail() {
   }
 
   const isDraft = payment.status === 'DRAFT';
-  const inputClass = "w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
+  const inputClass = "w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
   const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
 
   return (
@@ -195,12 +195,12 @@ export default function PaymentMadeDetail() {
         ]}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+        <div className="lg:col-span-2 space-y-3">
           {/* Header */}
-          <div className="bg-white rounded-lg border p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
                 {!isHidden('payment_no') && <h2 className="text-xl font-bold text-slate-900">{payment.payment_no}</h2>}
                 {!isHidden('status') && <StatusBadge status={payment.status_display || payment.status} />}
@@ -246,10 +246,10 @@ export default function PaymentMadeDetail() {
             </div>
 
             {/* Payment Details */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
               {!isHidden('vendor') && (
               <div>
-                <p className="text-xs text-slate-500 uppercase">Vendor</p>
+                <p className="text-xs font-semibold text-slate-700">Vendor</p>
                 {isEditing ? (
                   <CustomSelect name="vendor" value={editData.vendor || ''} onChange={handleChange} disabled={isReadOnly('vendor')} className={isReadOnly('vendor') ? lockedInputClass : inputClass}>
                     <option value="">Select Vendor</option>
@@ -262,7 +262,7 @@ export default function PaymentMadeDetail() {
               )}
               {!isHidden('bill') && (
               <div>
-                <p className="text-xs text-slate-500 uppercase">Bill No</p>
+                <p className="text-xs font-semibold text-slate-700">Bill No</p>
                 {isEditing ? (
                   <CustomSelect name="bill" value={editData.bill || ''} onChange={handleChange} disabled={isReadOnly('bill')} className={isReadOnly('bill') ? lockedInputClass : inputClass}>
                     <option value="">Select Bill (optional)</option>
@@ -284,7 +284,7 @@ export default function PaymentMadeDetail() {
               )}
               {!isHidden('payment_date') && (
               <div>
-                <p className="text-xs text-slate-500 uppercase">Payment Date</p>
+                <p className="text-xs font-semibold text-slate-700">Payment Date</p>
                 {isEditing ? (
                   <CustomDatePicker name="payment_date" value={editData.payment_date || ''} onChange={handleChange} disabled={isReadOnly('payment_date')} className={isReadOnly('payment_date') ? lockedInputClass : inputClass} />
                 ) : (
@@ -294,7 +294,7 @@ export default function PaymentMadeDetail() {
               )}
               {!isHidden('payment_mode') && (
               <div>
-                <p className="text-xs text-slate-500 uppercase">Payment Mode</p>
+                <p className="text-xs font-semibold text-slate-700">Payment Mode</p>
                 {isEditing ? (
                   <CustomSelect name="payment_mode" value={editData.payment_mode || ''} onChange={handleChange} disabled={isReadOnly('payment_mode')} className={isReadOnly('payment_mode') ? lockedInputClass : inputClass}>
                     <option value="BANK_TRANSFER">Bank Transfer</option>
@@ -313,12 +313,12 @@ export default function PaymentMadeDetail() {
           </div>
 
           {/* Amount & Reference */}
-          <div className="bg-white rounded-lg border p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Payment Information</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Payment Information</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
               {!isHidden('amount') && (
               <div>
-                <p className="text-xs text-slate-500 uppercase">Amount</p>
+                <p className="text-xs font-semibold text-slate-700">Amount</p>
                 {isEditing ? (
                   <input type="number" step="0.01" name="amount" value={editData.amount || ''} onChange={handleChange} disabled={isReadOnly('amount')} className={isReadOnly('amount') ? lockedInputClass : inputClass} />
                 ) : (
@@ -328,7 +328,7 @@ export default function PaymentMadeDetail() {
               )}
               {!isHidden('reference_no') && (
               <div>
-                <p className="text-xs text-slate-500 uppercase">Reference No</p>
+                <p className="text-xs font-semibold text-slate-700">Reference No</p>
                 {isEditing ? (
                   <input type="text" name="reference_no" value={editData.reference_no || ''} onChange={handleChange} disabled={isReadOnly('reference_no')} className={isReadOnly('reference_no') ? lockedInputClass : inputClass} />
                 ) : (
@@ -338,7 +338,7 @@ export default function PaymentMadeDetail() {
               )}
               {!isHidden('bank_name') && (
               <div>
-                <p className="text-xs text-slate-500 uppercase">Bank Name</p>
+                <p className="text-xs font-semibold text-slate-700">Bank Name</p>
                 {isEditing ? (
                   <input type="text" name="bank_name" value={editData.bank_name || ''} onChange={handleChange} disabled={isReadOnly('bank_name')} className={isReadOnly('bank_name') ? lockedInputClass : inputClass} />
                 ) : (
@@ -348,9 +348,9 @@ export default function PaymentMadeDetail() {
               )}
               {!isHidden('notes') && (
               <div className="md:col-span-3">
-                <p className="text-xs text-slate-500 uppercase">Notes</p>
+                <p className="text-xs font-semibold text-slate-700">Notes</p>
                 {isEditing ? (
-                  <textarea name="notes" value={editData.notes || ''} onChange={handleChange} rows={3} disabled={isReadOnly('notes')} className={isReadOnly('notes') ? lockedInputClass : inputClass} />
+                  <textarea name="notes" value={editData.notes || ''} onChange={handleChange} rows={2} disabled={isReadOnly('notes')} className={isReadOnly('notes') ? lockedInputClass : inputClass} />
                 ) : (
                   <p className="text-sm text-slate-700 mt-1">{payment.notes || '-'}</p>
                 )}
@@ -361,9 +361,9 @@ export default function PaymentMadeDetail() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-3 sm:space-y-6">
-          <div className="bg-white rounded-lg border p-3.5 sm:p-5">
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3">Actions</h3>
+        <div className="space-y-3">
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Actions</h3>
             <div className={`grid ${payment.bill ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
               <button onClick={goBack} className="px-3 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
                 ← Back to List
@@ -377,9 +377,9 @@ export default function PaymentMadeDetail() {
           </div>
 
           {/* Audit */}
-          <div className="bg-white rounded-lg border p-3.5 sm:p-5">
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3">Audit Trail</h3>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Audit Trail</h3>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
               <div>
                 <p className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide">Created</p>
                 <p className="text-slate-700 mt-0.5">{formatDate(payment.created_at)}</p>
@@ -398,10 +398,10 @@ export default function PaymentMadeDetail() {
           the vendorOutstanding state comment above for why the old version
           of this section was replaced). */}
       {payment.vendor && (
-        <div className="bg-white rounded-lg border p-3.5 sm:p-5 mt-4 sm:mt-6">
+        <div className="bg-white rounded-lg border p-3 sm:p-4 mt-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800">Vendor Balance</h3>
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Vendor Balance</h3>
               <p className="text-xs text-slate-500 mt-0.5">{payment.vendor_name || 'Vendor'}</p>
             </div>
             <Link
@@ -411,7 +411,7 @@ export default function PaymentMadeDetail() {
               View Full Ledger <ExternalLink size={14} />
             </Link>
           </div>
-          <div className="grid grid-cols-2 gap-3 mt-4">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-3">
             <div className="bg-amber-50 rounded-lg px-3 py-2">
               <p className="text-[10px] font-semibold text-amber-600 uppercase">Currently Outstanding</p>
               <p className="text-sm font-bold text-amber-700">

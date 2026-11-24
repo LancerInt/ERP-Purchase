@@ -101,29 +101,29 @@ export default function QuoteEvaluationDetail() {
         ]}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Main Content */}
-        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+        <div className="lg:col-span-2 space-y-3">
           {/* Evaluation Details */}
-          <div className="bg-white rounded-lg border p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-4 pb-2 border-b">
-              <h3 className="text-lg font-semibold text-slate-800">Evaluation Details</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Evaluation Details</h3>
               {canEdit('Quote Evaluation') && !isEditing && (
                 <button onClick={() => setIsEditing(true)} className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700">
                   <Edit3 size={14} /> Edit
                 </button>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
               {!isHidden('evaluation_id') && (
               <div>
-                <p className="text-xs text-slate-500 uppercase">Evaluation ID</p>
+                <p className="text-xs font-semibold text-slate-700">Evaluation ID</p>
                 <p className="font-medium">{evaluation.evaluation_id}</p>
               </div>
               )}
               {!isHidden('rfq') && (
               <div>
-                <p className="text-xs text-slate-500 uppercase">RFQ</p>
+                <p className="text-xs font-semibold text-slate-700">RFQ</p>
                 {isEditing ? (
                   <CustomSelect value={editData.rfq} onChange={(e) => setEditData(prev => ({ ...prev, rfq: e.target.value }))} disabled={isReadOnly('rfq')} className={isReadOnly('rfq') ? lockedInputClass : inputClass}>
                     <option value="">Select RFQ</option>
@@ -135,16 +135,16 @@ export default function QuoteEvaluationDetail() {
               </div>
               )}
               <div>
-                <p className="text-xs text-slate-500 uppercase">Evaluation Date</p>
+                <p className="text-xs font-semibold text-slate-700">Evaluation Date</p>
                 <p className="font-medium">{fmtDate(evaluation.evaluation_date)}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 uppercase">Evaluated By</p>
+                <p className="text-xs font-semibold text-slate-700">Evaluated By</p>
                 <p className="font-medium">{evaluation.evaluated_by_name || '-'}</p>
               </div>
               {!isHidden('recommended_vendor') && (
               <div>
-                <p className="text-xs text-slate-500 uppercase">Recommended Vendor</p>
+                <p className="text-xs font-semibold text-slate-700">Recommended Vendor</p>
                 {isEditing ? (
                   <CustomSelect value={editData.recommended_vendor} onChange={(e) => setEditData(prev => ({ ...prev, recommended_vendor: e.target.value }))} disabled={isReadOnly('recommended_vendor')} className={isReadOnly('recommended_vendor') ? lockedInputClass : inputClass}>
                     <option value="">Select Vendor</option>
@@ -157,7 +157,7 @@ export default function QuoteEvaluationDetail() {
               )}
               {!isHidden('approval_status') && (
               <div>
-                <p className="text-xs text-slate-500 uppercase">Status</p>
+                <p className="text-xs font-semibold text-slate-700">Status</p>
                 {isEditing ? (
                   <CustomSelect value={editData.approval_status} onChange={(e) => setEditData(prev => ({ ...prev, approval_status: e.target.value }))} disabled={isReadOnly('approval_status')} className={isReadOnly('approval_status') ? lockedInputClass : inputClass}>
                     <option value="PENDING">Pending</option>
@@ -171,7 +171,7 @@ export default function QuoteEvaluationDetail() {
               )}
               {!isHidden('best_quote_flag') && (
               <div>
-                <p className="text-xs text-slate-500 uppercase">Best Quote</p>
+                <p className="text-xs font-semibold text-slate-700">Best Quote</p>
                 <p className="font-medium">{evaluation.best_quote_flag ? 'Yes' : 'No'}</p>
               </div>
               )}
@@ -180,9 +180,9 @@ export default function QuoteEvaluationDetail() {
             {/* Justification */}
             {!isHidden('justification_notes') && (
             <div className="mt-4 pt-4 border-t">
-              <p className="text-xs text-slate-500 uppercase mb-1">Justification Notes</p>
+              <p className="text-xs font-semibold text-slate-700 mb-1">Justification Notes</p>
               {isEditing ? (
-                <textarea value={editData.justification_notes} onChange={(e) => setEditData(prev => ({ ...prev, justification_notes: e.target.value }))} rows={3} disabled={isReadOnly('justification_notes')} className={isReadOnly('justification_notes') ? `w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-slate-100 cursor-not-allowed` : `w-full border border-slate-300 rounded-lg px-3 py-2 text-sm`} />
+                <textarea value={editData.justification_notes} onChange={(e) => setEditData(prev => ({ ...prev, justification_notes: e.target.value }))} rows={2} disabled={isReadOnly('justification_notes')} className={isReadOnly('justification_notes') ? `w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm bg-slate-100 cursor-not-allowed` : `w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm`} />
               ) : (
                 <p className="text-sm text-slate-700">{evaluation.justification_notes || 'No notes provided'}</p>
               )}
@@ -207,8 +207,8 @@ export default function QuoteEvaluationDetail() {
 
           {/* Vendor Comparison */}
           {comparisons.length > 0 && (
-            <div className="bg-white rounded-lg border p-4 sm:p-6">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Vendor Comparison</h3>
+            <div className="bg-white rounded-lg border p-3 sm:p-4">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Vendor Comparison</h3>
               <div className="overflow-x-auto ios-scroll">
                 <table className="w-full text-sm">
                   <thead>
@@ -248,10 +248,10 @@ export default function QuoteEvaluationDetail() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-3 sm:space-y-6">
+        <div className="space-y-3">
           {/* Summary */}
-          <div className="bg-white rounded-lg border p-4 sm:p-6">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Summary</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Summary</h3>
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-slate-500">Status</span>
@@ -275,8 +275,8 @@ export default function QuoteEvaluationDetail() {
           </div>
 
           {/* Actions */}
-          <div className="bg-white rounded-lg border p-4 sm:p-6">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Actions</h3>
+          <div className="bg-white rounded-lg border p-3 sm:p-4">
+            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Actions</h3>
             <div className="space-y-2">
               {canEdit('Quote Evaluation') && !isEditing && (
                 <button onClick={() => setIsEditing(true)} className="w-full px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center justify-center gap-1">
