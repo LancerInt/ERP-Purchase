@@ -121,4 +121,39 @@ class Command(BaseCommand):
                 n_rl += 1
         w(self.style.SUCCESS(f'Backfilled godown on {n_rl} receipt line(s).'))
 
+        # ── 5) link one bill-less receipt to a matching bill (reference) ──────
+        # So a receipt with goods but no bill also shows the green "Bill Raised"
+        # button + reach link. Idempotent: skips receipts that already have a
+        # bill; the bill mirrors the receipt's own lines (received qty @ a demo
+        # rate) so quantities line up, and shares its warehouse/vendor so Stock
+        # dedup (receipt wins) still holds.
+        from purchase.models import ReceiptAdvice, VendorBill, VendorBillLine
+        n_bill = 0
+        for ra in ReceiptAdvice.objects.all():
+            if VendorBill.objects.filter(receipt_advice=ra).exists():
+                continue
+            lines = list(ra.receipt_lines.filter(product__isnull=False))
+            if not lines:
+                continue
+            rate = Decimal('40')
+            subtotal = sum((l.quantity_received or Decimal('0')) * rate for l in lines)
+            if not subtotal:
+                continue
+            tax = (subtotal * Decimal('0.05')).quantize(Decimal('0.01'))
+            inv = f'INV-{(ra.receipt_advice_no or str(ra.id)[:8]).replace("GRN-", "GRN").replace("-", "")}'
+            bd = ra.receipt_date.date() if hasattr(ra.receipt_date, 'date') else (ra.receipt_date or today)
+            b = VendorBill.objects.create(
+                bill_no=inv, vendor_invoice_no=inv, vendor=ra.vendor,
+                warehouse=ra.warehouse, receipt_advice=ra, bill_date=bd,
+                subtotal=subtotal, tax_amount=tax, total_amount=subtotal + tax,
+                status='OPEN', source='MANUAL', purchase_category='RM',
+            )
+            for l in lines:
+                q = l.quantity_received or Decimal('0')
+                VendorBillLine.objects.create(
+                    bill=b, product=l.product, quantity=q,
+                    uom=l.uom or 'KG', rate=rate, amount=q * rate)
+            n_bill += 1
+        w(self.style.SUCCESS(f'Linked {n_bill} bill-less receipt(s) to a reference bill.'))
+
         w(self.style.SUCCESS('Masters ready — PR/RFQ/PO forms can now be filled.'))
