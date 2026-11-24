@@ -3126,10 +3126,12 @@ export default function PurchaseDashboard() {
   const period = searchParams.get('period') || 'month';
   const customFrom = searchParams.get('from') || todayISO();
   const customTo = searchParams.get('to') || todayISO();
-  // Company comes from the GLOBAL sticky filter (chips in the header). It wins
-  // over any stale ?company= in the URL so switching the chip always re-scopes.
+  // Company is driven ONLY by the GLOBAL sticky filter (header chips). Empty =
+  // All companies. We ignore any stale ?company= URL param for scoping so that
+  // toggling a chip OFF ("All") actually shows all, instead of falling back to
+  // the old URL value.
   const { company: globalCompany } = useGlobalCompany();
-  const companyId = globalCompany || searchParams.get('company') || '';
+  const companyId = globalCompany || '';
   const warehouseId = searchParams.get('warehouse') || '';
   const vendorId = searchParams.get('vendor') || '';
   const productId = searchParams.get('product') || '';
