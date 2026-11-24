@@ -11,9 +11,9 @@ import { Loader2, ChevronRight, ChevronLeft, Search, X, Receipt } from 'lucide-r
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import CustomSelect from '@/components/ui/CustomSelect';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import CustomDatePicker from '@/components/ui/CustomDatePicker';
 import apiClient from '../../../utils/api.js';
-import useLookup from '../../../hooks/useLookup.js';
 import usePagerKeys from '../../../hooks/usePagerKeys.js';
 
 const fmt = (v) => `₹${(Number(v) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -518,7 +518,9 @@ export default function PurchaseByCategory() {
   // PERIOD was not (it was pinned to 'all'), so only half the window survived
   // and the half that did was invisible next to an unfiltered total. Both halves
   // are read now, under the SAME param names the Bills page writes.
-  const [companyId, setCompanyId] = useState(sp.get('company') || '');
+  const { company: globalCompany } = useGlobalCompany();
+  const [companyId, setCompanyId] = useState(globalCompany || sp.get('company') || '');
+  useEffect(() => { setCompanyId(globalCompany || ''); }, [globalCompany]);
   // 'all' = all-time (the page default). Otherwise an anchor drives week/month
   // and an FY token drives fy; custom uses cFrom/cTo.
   const [period, setPeriod] = useState(sp.get('period') || 'all');
@@ -526,7 +528,6 @@ export default function PurchaseByCategory() {
   const [cFrom, setCFrom] = useState(sp.get('cfrom') || '');
   const [cTo, setCTo] = useState(sp.get('cto') || '');
 
-  const { options: companyOptions } = useLookup('/api/companies/');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -931,14 +932,7 @@ export default function PurchaseByCategory() {
               <CustomDatePicker value={cTo} onChange={(e) => setCTo(e.target.value)} min={cFrom} max={todayISO()} className="border border-slate-300 rounded px-2 py-1.5" />
             </div>
           )}
-          {/* Company — compact select (matches Analytics), not a wide labelled block. */}
-          <CustomSelect value={companyId} onChange={(e) => setCompanyId(e.target.value)} title="Company"
-            className="border border-slate-300 rounded-lg px-2 py-1.5 text-xs bg-white min-w-0 max-w-[180px] truncate">
-            <option value="">All Companies</option>
-            {(companyOptions || []).map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </CustomSelect>
+          {/* Company comes from the global header filter — no local dropdown. */}
           {/* Ex-GST (ties Tally) ⇄ Incl-GST (ties the Analytics Incl-GST view). */}
           {(screen.name === 'cards' || screen.name === 'items' || screen.name === 'item') && (
             <div className="ml-auto flex items-center gap-1 shrink-0 bg-slate-100 rounded-lg p-0.5">

@@ -97,7 +97,7 @@ export const NAV_SECTIONS = [
       // Standalone (no Tally): Email Bill Inbox, Mappings removed.
       { name: 'Payment Entries', path: '/purchase/payment-entries', module: 'Payment Entries', icon: CreditCard },
       { name: 'Stock', path: '/purchase/stock', module: 'Stock', icon: Box },
-      { name: 'Reports', path: '/purchase/reports', module: 'Consolidated Report', icon: BarChart3 },
+      { name: 'Purchase Report', path: '/reports/summary?tab=purchase', module: 'Reports', icon: BarChart3 },
     ],
   },
   {

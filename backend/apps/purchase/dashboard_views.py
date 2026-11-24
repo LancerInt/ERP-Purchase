@@ -281,6 +281,12 @@ class PurchaseDashboardView(APIView):
     @staticmethod
     def _resolve_range(period, frm, to):
         today = timezone.localdate()
+        if period == 'all':
+            # All-time: a window wide enough to cover every record. Used by the
+            # "All" chip on the standard period navigator so every page can offer
+            # it consistently (the records/list endpoints treat a very early
+            # start as "no lower bound" in practice).
+            return date(2000, 4, 1), today, 'All Time'
         if period == 'today':
             return today, today, 'Today'
         if period == 'week':

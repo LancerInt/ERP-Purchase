@@ -4503,6 +4503,13 @@ class VendorBillListSerializer(FieldPermissionMixin, serializers.ModelSerializer
     quantity = serializers.SerializerMethodField()
     quantity_uom = serializers.SerializerMethodField()
     rate = serializers.SerializerMethodField()
+    # Which pages a bill reaches, so the list can show an "Appears in" chip
+    # without any extra round-trip. Cheap: every non-cancelled bill reaches the
+    # money reports (Analytics / By-Category / Payments / Ledger); Stock needs
+    # goods lines (quantity > 0); PO needs a linked purchase order (plain FK, no
+    # join). Mirrors the real wiring: a scan/manual bill reaches everything but
+    # PO, a receipt/PO bill reaches Stock + PO too.
+    reach = serializers.SerializerMethodField()
     # Actual TDS deducted on the bill (Tally's TDS Payable, linked by ref) — the
     # REAL figure the Bills column shows, beside the engine's expected amount.
     tds_deducted = serializers.SerializerMethodField()
@@ -4550,7 +4557,7 @@ class VendorBillListSerializer(FieldPermissionMixin, serializers.ModelSerializer
             'is_branch_transfer', 'warehouse', 'warehouse_name', 'created_at', 'updated_at',
             'quantity', 'quantity_uom', 'rate',
             'computed_tds_amount', 'computed_tds_section', 'tds_status', 'tds_deducted',
-            'bill_lines', 'vendor_is_msme',
+            'bill_lines', 'vendor_is_msme', 'reach',
         ]
 
     def get_tds_deducted(self, obj):
@@ -4593,6 +4600,23 @@ class VendorBillListSerializer(FieldPermissionMixin, serializers.ModelSerializer
         if n and n > 1:
             return 'MIXED'
         return getattr(obj, '_uom', None) or ''
+
+    def get_reach(self, obj):
+        """Where this bill appears across the app — for the 'Appears in' chip.
+        No extra query: uses the row's own fields / annotations."""
+        live = obj.status != 'CANCELLED'
+        # Goods on the bill → it feeds Stock. _qty is the list annotation; a
+        # mixed-unit bill (_uom_n > 1) still has goods, so treat qty>0 OR mixed.
+        qty = getattr(obj, '_qty', None)
+        has_goods = bool((getattr(obj, '_uom_n', 0) or 0) > 1 or (qty is not None and qty and qty > 0))
+        return {
+            'analytics': live,
+            'by_category': live,
+            'payments': live,
+            'ledger': live,
+            'stock': live and has_goods,
+            'po': bool(obj.purchase_order_id),
+        }
 
     def get_rate(self, obj):
         """Effective per-unit rate, EX-GST: subtotal / quantity.
@@ -4689,6 +4713,7 @@ class VendorBillListSlimSerializer(VendorBillListSerializer):
             # ?slim=list.
             'quantity', 'quantity_uom', 'rate',
             'computed_tds_amount', 'computed_tds_section', 'tds_status', 'tds_deducted',
+            'reach',
         ]
 
 
@@ -5574,6 +5599,8 @@ class VendorCreditSerializer(FieldPermissionMixin, serializers.ModelSerializer):
     field_permission_module = 'Vendor Credit'
     credit_lines = VendorCreditLineSerializer(many=True, required=False)
     vendor_name = serializers.CharField(source='vendor.vendor_name', read_only=True, default='')
+    company = serializers.CharField(source='vendor.company_id', read_only=True, default='')
+    company_name = serializers.CharField(source='vendor.company.legal_name', read_only=True, default='')
     bill_no = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     credit_type_display = serializers.CharField(source='get_credit_type_display', read_only=True)
@@ -5583,7 +5610,7 @@ class VendorCreditSerializer(FieldPermissionMixin, serializers.ModelSerializer):
         from .models import VendorCredit
         model = VendorCredit
         fields = [
-            'id', 'credit_no', 'vendor', 'vendor_name',
+            'id', 'credit_no', 'vendor', 'vendor_name', 'company', 'company_name',
             'credit_date', 'credit_type', 'credit_type_display',
             'reason', 'bill', 'bill_no',
             'subtotal', 'tax_amount', 'total_amount', 'amount_applied',

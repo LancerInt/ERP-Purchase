@@ -9,8 +9,8 @@ import { CTRL_H } from '@/components/common/controls';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import apiClient from '../../../utils/api.js';
-import useLookup from '../../../hooks/useLookup.js';
 import { useUrlState } from '../../../hooks/useUrlState.js';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 
 const fmtFull = (v) => `₹${(Number(v) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtINR = (v) => {
@@ -49,13 +49,14 @@ export default function TdsSummary() {
   const opts = fyOptions();
   // Filters live in the URL so Back / refresh / sharing restore them.
   const [fy, setFy] = useUrlState('fy', opts[0].value);
-  const [company, setCompany] = useUrlState('company', '');
+  // Company is driven by the GLOBAL company filter in the header — not a local
+  // dropdown — so every page re-scopes together. '' = All.
+  const { company: globalCompany } = useGlobalCompany();
+  const company = globalCompany || '';
   const [regime, setRegime] = useUrlState('regime', '');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  const { options: companyOptions } = useLookup('/api/companies/');
 
   useEffect(() => {
     let cancelled = false; setLoading(true); setError(null);
@@ -83,11 +84,7 @@ export default function TdsSummary() {
           className={`border border-slate-300 rounded-lg px-2 text-sm bg-white min-w-[150px] ${CTRL_H}`}>
           {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </CustomSelect>
-        <CustomSelect value={company} onChange={(e) => setCompany(e.target.value)} title="Company"
-          className={`border border-slate-300 rounded-lg px-2 text-sm bg-white min-w-[180px] ${CTRL_H}`}>
-          <option value="">All Companies</option>
-          {(companyOptions || []).map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-        </CustomSelect>
+        {/* Company comes from the global header filter — no local dropdown. */}
         {/* Regime dropdown — Purchase (194Q goods) / Expense / Freight (both 194C).
             Filters the vendor list + totals to one TDS regime. */}
         <CustomSelect value={regime} onChange={(e) => setRegime(e.target.value)} title="TDS regime"

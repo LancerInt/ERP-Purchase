@@ -1,5 +1,5 @@
-import CustomDatePicker from "@/components/ui/CustomDatePicker";
 import CustomSelect from "@/components/ui/CustomSelect";
+import { PeriodNavigator, usePeriodFilter } from '@/components/common/PeriodNavigator';
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import MainLayout from '../../components/layout/MainLayout';
@@ -11,7 +11,7 @@ import useFieldPermissions from '../../hooks/useFieldPermissions.js';
 import apiClient from '../../utils/api.js';
 import useLookup from '../../hooks/useLookup.js';
 import { useUrlState } from '../../hooks/useUrlState.js';
-import CompanyToggle from '../../components/common/CompanyToggle.jsx';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import { CTRL_SEG, CTRL_SEG_ITEM, CTRL_FIELD, CTRL_ROW } from '@/components/common/controls';
 import toast from 'react-hot-toast';
 import { Pencil, Trash2, Eye, Truck, ArrowDownLeft, ArrowUpRight, IndianRupee, Clock, CheckCircle, CheckCircle2, AlertTriangle, CreditCard, Paperclip, X, RefreshCw, Upload, Loader2 } from 'lucide-react';
@@ -60,9 +60,8 @@ export default function UnifiedFreightList() {
   // its own path, so inward / outward keep independent filter sets naturally.
   const [directionFilter, setDirectionFilter] = useUrlState('direction', '');
   const [statusFilter, setStatusFilter] = useUrlState('status', '');
-  const [dateFrom, setDateFrom] = useUrlState('from', '');
-  const [dateTo, setDateTo] = useUrlState('to', '');
-  const [datePreset, setDatePreset] = useState('all'); // today | week | month | custom | all
+  // Standard period navigator (All / Today / Week / Month / FY / Custom).
+  const period = usePeriodFilter('all');
   const [search, setSearch] = useState('');
   // Inward freight source split: all | INVOICE_INCLUDED (freight inside the goods
   // bill) | SEPARATE_SLIP (its own slip). Only shown on the inward/purchase page.
@@ -71,7 +70,14 @@ export default function UnifiedFreightList() {
   // Sales pages so the freight list opens with records visible and
   // the user opts in to filtering via the header Filters button.
   const [showFilters, setShowFilters] = useState(false);
-  const [companyName, setCompanyName] = useUrlState('company', '');   // SS BIOCHEM / UNITED AGRO quick toggle
+  // Company comes from the GLOBAL header filter. The freight list filters by
+  // company NAME, so translate the global company id → its legal name. '' = All.
+  const { company: globalCompany, companies: globalCompanies } = useGlobalCompany();
+  const companyName = globalCompany
+    ? ((globalCompanies || []).find((c) => String(c.id) === String(globalCompany))?.legal_name
+       || (globalCompanies || []).find((c) => String(c.id) === String(globalCompany))?.trade_name
+       || '')
+    : '';
 
   // Fetch EVERY page — the list paginates at 100, so a single request would drop
   // records (e.g. hide April freight behind newer months). Pull page_size=1000 and
@@ -278,10 +284,9 @@ export default function UnifiedFreightList() {
         return token ? rn.includes(token) : (rn === pick || rn.includes(pick) || pick.includes(rn));
       });
     }
-    // Records carry a full datetime (created_date); compare on the date part
-    // so a same-day "to" bound doesn't drop records stamped later in the day.
-    if (dateFrom) result = result.filter(f => (f.date || '').slice(0, 10) >= dateFrom);
-    if (dateTo) result = result.filter(f => (f.date || '').slice(0, 10) <= dateTo);
+    // Records carry a full datetime (created_date); period.match compares on the
+    // date part so a same-day "to" bound doesn't drop records stamped later.
+    result = result.filter(f => period.match((f.date || '').slice(0, 10)));
     if (search) {
       const s = search.toLowerCase();
       result = result.filter(f =>
@@ -298,7 +303,7 @@ export default function UnifiedFreightList() {
       if (da !== db) return da < db ? -1 : 1;
       return (a.advice_no || '').localeCompare(b.advice_no || '', undefined, { numeric: true });
     });
-  }, [unifiedData, lockedDirection, directionFilter, statusFilter, companyName, dateFrom, dateTo, search]);
+  }, [unifiedData, lockedDirection, directionFilter, statusFilter, companyName, period, search]);
 
   // The table narrows further by the freight-source split; the summary cards stay
   // on `filtered` so they always show the full In-invoice vs Separate breakdown.
@@ -332,34 +337,6 @@ export default function UnifiedFreightList() {
     return { total, purchaseCount, salesCount, totalAmount, totalPaid, paidDirection, pendingCount,
       invValue, sepValue, invPaid, sepPaid, invCount: invRows.length, sepCount: sepRows.length };
   }, [filtered, lockedDirection]);
-
-  // Quick date presets — drive both the list and the summary cards (which
-  // recompute from `filtered`). 'all' clears the range.
-  const isoLocal = (d) => {
-    const x = new Date(d);
-    x.setMinutes(x.getMinutes() - x.getTimezoneOffset());
-    return x.toISOString().slice(0, 10);
-  };
-  const applyDatePreset = (k) => {
-    setDatePreset(k);
-    const today = new Date();
-    if (k === 'all') { setDateFrom(''); setDateTo(''); return; }
-    if (k === 'today') { const t = isoLocal(today); setDateFrom(t); setDateTo(t); return; }
-    if (k === 'week') {
-      const from = new Date(today); from.setDate(from.getDate() - 6);
-      setDateFrom(isoLocal(from)); setDateTo(isoLocal(today)); return;
-    }
-    if (k === 'month') {
-      const from = new Date(today.getFullYear(), today.getMonth(), 1);
-      setDateFrom(isoLocal(from)); setDateTo(isoLocal(today)); return;
-    }
-    if (k === 'fy') {
-      // Financial year to date — 1 Apr of the current FY → today (matches the
-      // "FY 2026-27 (to date)" default on Purchase Analytics).
-      const y = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
-      setDateFrom(isoLocal(new Date(y, 3, 1))); setDateTo(isoLocal(today)); return;
-    }
-  };
 
   const handleDelete = async (e, row) => {
     e.stopPropagation();
@@ -644,11 +621,8 @@ export default function UnifiedFreightList() {
           onFilter: () => setShowFilters(!showFilters),
           // Inward: import freight from Zoho + reconcile from live Tally.
           // Outward: upload a paid-freight register (Excel / CSV).
-          ...(lockedDirection !== 'Sales' ? { right: (
-            <CompanyToggle value={companyName} onChange={setCompanyName} />
-          ) } : { right: (
+          ...(lockedDirection !== 'Sales' ? {} : { right: (
             <div className="flex items-center gap-2">
-              <CompanyToggle value={companyName} onChange={setCompanyName} />
               <button onClick={() => setShowUpload(true)} title="Upload a freight register (Excel / CSV)"
                 className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 border border-emerald-300 text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition text-sm font-medium">
                 <Upload size={16} /> <span className="hidden sm:inline">Upload Register</span>
@@ -697,26 +671,8 @@ export default function UnifiedFreightList() {
           below and the list (both recompute from it). */}
       <div className="bg-white rounded-lg border border-slate-200 mb-3 sm:mb-4 px-2.5 py-2.5">
         <div className={CTRL_ROW}>
-          {/* Period presets — segmented control */}
-          <div className={`${CTRL_SEG} shrink-0`}>
-            {[
-              { k: 'today', label: 'Today' },
-              { k: 'week', label: 'Week' },
-              { k: 'month', label: 'Month' },
-              { k: 'fy', label: 'FY' },
-              { k: 'all', label: 'All' },
-            ].map((p, i) => (
-              <button key={p.k} type="button" onClick={() => applyDatePreset(p.k)}
-                className={CTRL_SEG_ITEM(datePreset === p.k, i === 0)}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-          {/* Date range */}
-          <CustomDatePicker value={dateFrom} onChange={e => { setDateFrom(e.target.value); setDatePreset('custom'); }} className={`${CTRL_FIELD} max-w-[150px] shrink-0`} placeholder="From" />
-          <span className="text-slate-400 text-xs shrink-0">→</span>
-          <CustomDatePicker value={dateTo} onChange={e => { setDateTo(e.target.value); setDatePreset('custom'); }} className={`${CTRL_FIELD} max-w-[150px] shrink-0`} placeholder="To" />
-          {/* In-invoice / Separate-slip chips removed to match the Bills page. */}
+          {/* Standard period navigator (All / Today / Week / Month / FY / Custom). */}
+          <PeriodNavigator allowAll {...period.navProps} />
           {/* Search — fills the rest of the row */}
           <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search freight no, vendor, customer, vehicle…"
             className={`${CTRL_FIELD} flex-1 min-w-[160px]`} />
@@ -729,7 +685,7 @@ export default function UnifiedFreightList() {
           spacing throughout. */}
       {showFilters && (
         <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3 sm:mb-4">
-          <div className={`grid grid-cols-2 gap-2 sm:gap-3 ${lockedDirection ? 'md:grid-cols-3' : 'md:grid-cols-4'}`}>
+          <div className={`grid grid-cols-2 gap-2 sm:gap-3 ${lockedDirection ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
             {!lockedDirection && (
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Freight Type</label>
@@ -746,14 +702,6 @@ export default function UnifiedFreightList() {
                 <option value="">All Status</option>
                 {allStatuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </CustomSelect>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">From Date</label>
-              <CustomDatePicker value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={inputClass + ' w-full'} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">To Date</label>
-              <CustomDatePicker value={dateTo} onChange={e => setDateTo(e.target.value)} className={inputClass + ' w-full'} />
             </div>
           </div>
         </div>

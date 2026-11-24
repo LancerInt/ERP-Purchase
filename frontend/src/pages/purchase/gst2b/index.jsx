@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 import apiClient from '../../../utils/api.js';
 import useLookup from '../../../hooks/useLookup.js';
 import { useUrlState } from '../../../hooks/useUrlState.js';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import { UploadCloud, Loader2, CheckCircle2, AlertTriangle, FilePlus2, FileX2, Trash2, Link2, ChevronRight, ChevronDown } from 'lucide-react';
 import usePagerKeys from '../../../hooks/usePagerKeys.js';
 
@@ -50,8 +51,12 @@ const TABS = [
 
 export default function Gst2B() {
   const { options: companyOptions } = useLookup('/api/companies/', { labelField: 'legal_name', valueField: 'id' });
-  // Company + 2A/2B tab live in the URL so Back / refresh / sharing restore them.
-  const [company, setCompany] = useUrlState('company', '');
+  // Company follows the GLOBAL header filter (upload + reconciliation re-scope
+  // with the rest of the app). On this upload page we still show the company so
+  // it's clear which company's 2B is being uploaded, but it's driven by global.
+  const { company: globalCompany } = useGlobalCompany();
+  const [company, setCompany] = useState(globalCompany || '');
+  useEffect(() => { setCompany(globalCompany || ''); }, [globalCompany]);
   const [kind, setKind] = useUrlState('kind', '2B');          // '2B' | '2A' — top tab
   const [uploads, setUploads] = useState([]);
   const [active, setActive] = useState(null);      // { summary, rows }
@@ -146,10 +151,11 @@ export default function Gst2B() {
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4 grid gap-3 md:grid-cols-[260px_1fr] items-end">
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Company</label>
-          <CustomSelect value={company} onChange={(e) => setCompany(e.target.value)} title="Company">
-            <option value="">Select company…</option>
-            {companyOptions.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </CustomSelect>
+          <div className="h-[38px] flex items-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700">
+            {company
+              ? (companyOptions.find((c) => String(c.value) === String(company))?.label || 'Selected company')
+              : <span className="text-amber-600">Pick a company in the header first</span>}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <label className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium cursor-pointer ${uploading ? 'bg-gray-200 text-gray-500' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>

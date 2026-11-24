@@ -44,7 +44,8 @@ from purchase.freight_overview_views import FreightOverviewView
 from purchase.category_views import (
     PurchaseByCategoryView, PurchaseByCategoryItemsView, ExpenseVouchersView,
 )
-from purchase.report_views import ConsolidatedReportView
+from purchase.report_views import ConsolidatedReportView, PurchaseReportView
+from purchase.item_rate_trend_views import PurchaseItemRateTrendView
 from purchase.tds_summary_views import TdsSummaryView
 from purchase.tds_bill_views import TdsBillsView
 from purchase.stock_views import StockView, StockProductView
@@ -168,6 +169,8 @@ urlpatterns = [
     path('api/purchase/by-category/items/', PurchaseByCategoryItemsView.as_view(), name='purchase-by-category-items'),
     path('api/purchase/expense-vouchers/', ExpenseVouchersView.as_view(), name='purchase-expense-vouchers'),
     path('api/purchase/consolidated-report/', ConsolidatedReportView.as_view(), name='purchase-consolidated-report'),
+    path('api/purchase/purchase-report/', PurchaseReportView.as_view(), name='purchase-report'),
+    path('api/purchase/item-rate-trend/', PurchaseItemRateTrendView.as_view(), name='purchase-item-rate-trend'),
     path('api/purchase/tds-summary/', TdsSummaryView.as_view(), name='tds-summary'),
     path('api/purchase/tds-bills/', TdsBillsView.as_view(), name='tds-bills'),
     # Stock on-hand (derived from purchase receipts)

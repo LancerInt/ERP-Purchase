@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import useApiData from '../../../hooks/useApiData.js';
@@ -62,7 +63,9 @@ export default function PayablesOverview() {
   // Company + period live in the URL so opening a drill and pressing Back (or a
   // refresh / shared link) restores the same filtered view.
   const [sp, setSp] = useSearchParams();
-  const [company, setCompany] = useState(sp.get('company') || '');
+  const { company: globalCompany } = useGlobalCompany();
+  const [company, setCompany] = useState(globalCompany || sp.get('company') || '');
+  useEffect(() => { setCompany(globalCompany || ''); }, [globalCompany]);
   useEffect(() => { if (!company && companies.length) setCompany(companies[0].code); }, [companies, company]);
 
   const period = usePeriodFilter(sp.get('period') || 'month', {

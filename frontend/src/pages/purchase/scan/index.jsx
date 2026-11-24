@@ -18,6 +18,7 @@ import CustomSelect from '../../../components/ui/CustomSelect';
 import toast from 'react-hot-toast';
 import apiClient from '../../../utils/api.js';
 import useLookup from '../../../hooks/useLookup.js';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import usePermissions from '../../../hooks/usePermissions.js';
 import {
   UploadCloud, ScanLine, CheckCircle2, AlertTriangle, FilePlus2,
@@ -130,7 +131,12 @@ export default function ScanInbox() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlBatchId = searchParams.get('batch') || '';
   const { options: companyOptions } = useLookup('/api/companies/', { labelField: 'legal_name', valueField: 'id' });
-  const [company, setCompany] = useState('');
+  // Default the upload-batch company to the GLOBAL header company (so a new scan
+  // pre-selects the active company). It stays editable — the batch itself can
+  // override it, and a loaded batch sets it from its own record.
+  const { company: globalCompany } = useGlobalCompany();
+  const [company, setCompany] = useState(globalCompany || '');
+  useEffect(() => { setCompany((c) => c || globalCompany || ''); }, [globalCompany]);
   const [files, setFiles] = useState([]);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);

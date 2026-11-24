@@ -1,7 +1,7 @@
-import CustomDatePicker from "@/components/ui/CustomDatePicker";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PeriodNavigator, usePeriodFilter } from '@/components/common/PeriodNavigator';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import DataTable from '../../../components/common/DataTable';
@@ -30,8 +30,8 @@ export default function WageEntryList() {
 
   // Domain filters live in the URL so Back / refresh / sharing restore them.
   const [statusFilter, setStatusFilter] = useUrlState('status', '');
-  const [dateFrom, setDateFrom] = useUrlState('from', '');
-  const [dateTo, setDateTo] = useUrlState('to', '');
+  // Standard period navigator (All / Today / Week / Month / FY / Custom).
+  const period = usePeriodFilter('all');
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -40,8 +40,7 @@ export default function WageEntryList() {
   const filtered = useMemo(() => {
     let result = entries;
     if (statusFilter) result = result.filter(e => e.status === statusFilter);
-    if (dateFrom) result = result.filter(e => e.date >= dateFrom);
-    if (dateTo) result = result.filter(e => e.date <= dateTo);
+    result = result.filter(e => period.match(e.date));
     if (search) {
       const s = search.toLowerCase();
       result = result.filter(e =>
@@ -52,7 +51,7 @@ export default function WageEntryList() {
       );
     }
     return result;
-  }, [entries, statusFilter, dateFrom, dateTo, search]);
+  }, [entries, statusFilter, period, search]);
 
   const summary = useMemo(() => {
     const totalAmt = filtered.reduce((s, e) => s + (Number(e.total_amount) || 0), 0);
@@ -145,10 +144,10 @@ export default function WageEntryList() {
         </div>
       </div>
 
-      {/* Search bar — always visible. */}
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3 sm:mb-4">
-        <label className="block text-xs font-medium text-slate-500 mb-1">Search</label>
-        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Entry no, receipt, vendor..." className={inputClass + ' w-full'} />
+      {/* Period + search — always visible. */}
+      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3 sm:mb-4 flex flex-wrap items-center gap-3">
+        <PeriodNavigator allowAll {...period.navProps} />
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Entry no, receipt, vendor..." className={`${inputClass} flex-1 min-w-[180px]`} />
       </div>
 
       {/* Filters — toggled by header Filters button. */}
@@ -164,14 +163,6 @@ export default function WageEntryList() {
                 <option value="CLOSED">Closed</option>
                 <option value="CANCELLED">Cancelled</option>
               </CustomSelect>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">From Date</label>
-              <CustomDatePicker value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={inputClass + ' w-full'} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">To Date</label>
-              <CustomDatePicker value={dateTo} onChange={e => setDateTo(e.target.value)} className={inputClass + ' w-full'} />
             </div>
           </div>
         </div>

@@ -11,18 +11,18 @@ import CustomSelect from '../../../components/ui/CustomSelect';
 import toast from 'react-hot-toast';
 import apiClient from '../../../utils/api.js';
 import useLookup from '../../../hooks/useLookup.js';
-import { useUrlState } from '../../../hooks/useUrlState.js';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import { Trash2, Search, X, Check } from 'lucide-react';
 
 export default function Mappings() {
-  const { options: companyOptions } = useLookup('/api/companies/', { labelField: 'legal_name', valueField: 'id' });
   // ?slim=1 -> id + vendor_name only. This is a dropdown; the full vendor
   // record is ~1.2 MB and the page uses the name. Opt-in, so every other
   // caller of /api/vendors/ is untouched, and useLookup caches per endpoint
   // string so this cannot contaminate their cache.
   const { options: vendorOptions } = useLookup('/api/vendors/?slim=1', { labelField: 'vendor_name', valueField: 'id' });
-  // Company filter lives in the URL so Back / refresh / sharing restore it.
-  const [company, setCompany] = useUrlState('company', '');
+  // Company comes from the GLOBAL header filter (SS default; '' = All).
+  const { company: globalCompany } = useGlobalCompany();
+  const company = globalCompany || '';
   const [q, setQ] = useState('');
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -70,14 +70,7 @@ export default function Mappings() {
         breadcrumbs={[{ label: 'Purchase' }, { label: 'Mappings' }]}
       />
 
-      <div className="bg-white rounded-xl border border-gray-200 p-3 mb-4 grid gap-3 md:grid-cols-[260px_1fr] items-end">
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Company</label>
-          <CustomSelect value={company} onChange={(e) => setCompany(e.target.value)} title="Company">
-            <option value="">All Companies</option>
-            {companyOptions.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </CustomSelect>
-        </div>
+      <div className="bg-white rounded-xl border border-gray-200 p-3 mb-4 grid gap-3 items-end">
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Search name</label>
           <div className="relative">

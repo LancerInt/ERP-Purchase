@@ -1,7 +1,7 @@
-import CustomDatePicker from "@/components/ui/CustomDatePicker";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PeriodNavigator, usePeriodFilter } from '@/components/common/PeriodNavigator';
 import { Eye, Trash2, IndianRupee, CheckCircle2, Clock, Users, RefreshCw } from 'lucide-react';
 import MainLayout from '../../../../components/layout/MainLayout';
 import PageHeader from '../../../../components/common/PageHeader';
@@ -33,8 +33,8 @@ export default function WagePaymentList() {
   // Domain filters live in the URL so Back / refresh / sharing restore them.
   const [statusFilter, setStatusFilter] = useUrlState('status', '');
   const [cycleFilter, setCycleFilter] = useUrlState('cycle', '');
-  const [dateFrom, setDateFrom] = useUrlState('from', '');
-  const [dateTo, setDateTo] = useUrlState('to', '');
+  // Standard period navigator (All / Today / Week / Month / FY / Custom).
+  const period = usePeriodFilter('all');
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -44,8 +44,7 @@ export default function WagePaymentList() {
     let r = payments;
     if (statusFilter) r = r.filter(p => p.status === statusFilter);
     if (cycleFilter)  r = r.filter(p => p.cycle_type === cycleFilter);
-    if (dateFrom)     r = r.filter(p => p.payment_date >= dateFrom);
-    if (dateTo)       r = r.filter(p => p.payment_date <= dateTo);
+    r = r.filter(p => period.match(p.payment_date));
     if (search) {
       const s = search.toLowerCase();
       r = r.filter(p =>
@@ -55,7 +54,7 @@ export default function WagePaymentList() {
       );
     }
     return r;
-  }, [payments, statusFilter, cycleFilter, dateFrom, dateTo, search]);
+  }, [payments, statusFilter, cycleFilter, period, search]);
 
   const summary = useMemo(() => {
     const live = filtered.filter(p => p.status !== 'CANCELLED');
@@ -151,16 +150,16 @@ export default function WagePaymentList() {
         </div>
       </div>
 
-      {/* Search bar — always visible. */}
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3 sm:mb-4">
-        <label className="block text-xs font-medium text-slate-500 mb-1">Search</label>
-        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Payment no, contractor, ref..." className={inputClass + ' w-full'} />
+      {/* Period + search — always visible. */}
+      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3 sm:mb-4 flex flex-wrap items-center gap-3">
+        <PeriodNavigator allowAll {...period.navProps} />
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Payment no, contractor, ref..." className={`${inputClass} flex-1 min-w-[180px]`} />
       </div>
 
       {/* Filters — toggled by header Filters button. */}
       {showFilters && (
       <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3 sm:mb-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Status</label>
             <CustomSelect value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={inputClass + ' w-full'}>
@@ -178,14 +177,6 @@ export default function WagePaymentList() {
               <option value="FOURTEEN_DAYS">14 Days</option>
               <option value="CUSTOM">Custom</option>
             </CustomSelect>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">From Date</label>
-            <CustomDatePicker value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={inputClass + ' w-full'} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">To Date</label>
-            <CustomDatePicker value={dateTo} onChange={e => setDateTo(e.target.value)} className={inputClass + ' w-full'} />
           </div>
         </div>
       </div>

@@ -9,6 +9,7 @@ import MobileListCards from '../components/MobileListCards';
 import toast from 'react-hot-toast';
 import apiClient from '../../../utils/api.js';
 import useApiData from '../../../hooks/useApiData.js';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import usePermissions from '../../../hooks/usePermissions.js';
 import useFieldPermissions from '../../../hooks/useFieldPermissions.js';
 import UnifiedFilterPanel, { useUnifiedFilter } from '../components/UnifiedFilterPanel';
@@ -32,7 +33,11 @@ const FILTER_FIELDS = [
 
 export default function VendorCreditList() {
   const navigate = useNavigate();
-  const { data, isLoading, error, refetch } = useApiData('/api/purchase/vendor-credits/');
+  // Scope to the global company filter (SS default; '' = All).
+  const { company: globalCompany } = useGlobalCompany();
+  const { data, isLoading, error, refetch } = useApiData(
+    `/api/purchase/vendor-credits/${globalCompany ? `?company=${globalCompany}` : ''}`,
+  );
   const { canCreate, canEdit, canDelete, canExport } = usePermissions();
   const { isHidden } = useFieldPermissions('Vendor Credit');
   const [showFilters, setShowFilters] = useState(false);

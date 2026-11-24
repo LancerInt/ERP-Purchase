@@ -361,3 +361,25 @@ export const SUCCESS_MESSAGES = {
   REJECTED: 'Record rejected successfully.',
   SUBMITTED: 'Record submitted successfully.',
 };
+
+// ── Purchase category chip (RM / PM) — ONE theme-aligned colour everywhere ──
+// Every page that shows a Raw-Material / Packing-Material tag must use this, so
+// RM and PM read the same across Bills, Stock, Payment Entries, Analytics,
+// Reports, etc. RM = emerald (green); PM/Packing = sky (blue, the app accent);
+// other known buckets get their own stable hue; anything else is neutral grey.
+export const CATEGORY_CHIP = {
+  RM:          'bg-emerald-50 text-emerald-700 border-emerald-200',
+  PM:          'bg-sky-50 text-sky-700 border-sky-200',
+  PACKING:     'bg-sky-50 text-sky-700 border-sky-200',
+  MAIZE:       'bg-amber-50 text-amber-700 border-amber-200',
+  BOUGHT_NOTE: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  FRUIT:       'bg-rose-50 text-rose-700 border-rose-200',
+  FREIGHT:     'bg-teal-50 text-teal-700 border-teal-200',
+  EXPENSES:    'bg-orange-50 text-orange-700 border-orange-200',
+  EXPENSE:     'bg-orange-50 text-orange-700 border-orange-200',
+  MACHINERY:   'bg-slate-100 text-slate-600 border-slate-200',
+};
+
+// Tailwind classes for a category tag; falls back to neutral grey.
+export const categoryChipCls = (cat) =>
+  CATEGORY_CHIP[String(cat || '').toUpperCase()] || 'bg-slate-50 text-slate-600 border-slate-200';

@@ -23,6 +23,7 @@ import {
   Check, Undo2, Redo2, Search, PieChart, ArrowLeftRight, Info,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { PeriodNavigator } from '@/components/common/PeriodNavigator';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import TallyImportButton from '../../../components/common/TallyImportButton';
@@ -145,11 +146,13 @@ const BILL_STATUS_BADGE = {
   DRAFT:         { cls: 'bg-slate-100 text-slate-600',  label: 'Draft' },
   CANCELLED:     { cls: 'bg-red-100 text-red-700',      label: 'Cancelled' },
 };
+// RM / PM use the shared app-wide palette (RM green, PM sky); the others keep
+// their own stable hue.
 const BILL_CAT_BADGE = {
-  RM:          { cls: 'bg-sky-100 text-sky-700',         label: 'RM' },
-  MAIZE:       { cls: 'bg-yellow-100 text-yellow-700',   label: 'Maize' },
-  BOUGHT_NOTE: { cls: 'bg-purple-100 text-purple-700',   label: 'Bought Note' },
-  PACKING:     { cls: 'bg-emerald-100 text-emerald-700', label: 'PM' },
+  RM:          { cls: 'bg-emerald-50 text-emerald-700', label: 'RM' },
+  MAIZE:       { cls: 'bg-amber-50 text-amber-700',     label: 'Maize' },
+  BOUGHT_NOTE: { cls: 'bg-indigo-50 text-indigo-700',   label: 'Bought Note' },
+  PACKING:     { cls: 'bg-sky-50 text-sky-700',         label: 'PM' },
 };
 
 const BILL_CATS = [
@@ -1550,50 +1553,6 @@ function BucketsModal({ companyId, vendorId: vendorId0, productId: productId0, i
   );
 }
 
-// Compact period bar for the ledger drill-down (Today/Week/Month/FY/Custom +
-// the matching picker), reusing the dashboard's own range helpers. The "All
-// time" toggle lives beside it in the modal header.
-function LedgerPeriodBar({ period, setPeriod, anchor, setAnchor, from, to, setFrom, setTo }) {
-  const P = [{ v: 'today', l: 'Today' }, { v: 'week', l: 'Week' }, { v: 'month', l: 'Month' }, { v: 'fy', l: 'FY' }, { v: 'custom', l: 'Custom' }];
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <div className="flex rounded-lg border border-slate-200 overflow-hidden">
-        {P.map((p, i) => (
-          <button key={p.v} type="button"
-            onClick={() => { setPeriod(p.v); setAnchor(p.v === 'fy' ? fyTokenFor(new Date()) : todayISO()); }}
-            title={p.v === 'fy' ? 'Financial year (1 Apr – 31 Mar)' : undefined}
-            className={`px-2.5 py-1.5 text-xs ${i > 0 ? 'border-l border-slate-200' : ''} ${period === p.v ? 'bg-indigo-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>{p.l}</button>
-        ))}
-      </div>
-      {period === 'week' && (
-        <CustomSelect value={weekRangeOf(anchor).from} onChange={(e) => setAnchor(e.target.value)} title="Select week"
-          className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white min-w-[170px]">
-          {weekOptions().map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
-        </CustomSelect>
-      )}
-      {period === 'month' && (
-        <CustomSelect value={monthRangeOf(anchor).from} onChange={(e) => setAnchor(e.target.value)} title="Select month"
-          className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white min-w-[130px]">
-          {monthOptions().map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-        </CustomSelect>
-      )}
-      {period === 'fy' && (
-        <CustomSelect value={anchor} onChange={(e) => setAnchor(e.target.value)} title="Select financial year / half"
-          className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white min-w-[180px]">
-          {fyOptions().map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-        </CustomSelect>
-      )}
-      {period === 'custom' && (
-        <div className="flex items-center gap-1.5 text-xs">
-          <CustomDatePicker value={from} onChange={(e) => setFrom(e.target.value)} max={to} className="border border-slate-300 rounded px-2 py-1.5" />
-          <span className="text-slate-400">to</span>
-          <CustomDatePicker value={to} onChange={(e) => setTo(e.target.value)} min={from} max={todayISO()} className="border border-slate-300 rounded px-2 py-1.5" />
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Vendor transactions popup — full running ledger for one vendor (opening
 // balance + every bill / payment / debit-credit note in date order with a
 // running balance). Opened by clicking a Vendor-details row. Balance is
@@ -1688,7 +1647,6 @@ function VendorLedgerModal({ vendorId, vendorName, period0, anchor0, from0, to0,
         onClick={inline ? undefined : (e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3 px-4 sm:px-5 py-3 border-b border-slate-100 flex-wrap">
           <div className="flex items-center gap-2 min-w-0 shrink-0">
-            <Wallet size={18} className="text-indigo-600 shrink-0" />
             <div className="min-w-0 flex items-center gap-1.5">
               <h2 className="text-base sm:text-lg font-semibold text-slate-800 truncate">{data?.vendor_name || vendorName || 'Vendor'}</h2>
               {/* Company (SS / UAI) + MSME badges, like the Vendor Details table. */}
@@ -1705,10 +1663,9 @@ function VendorLedgerModal({ vendorId, vendorName, period0, anchor0, from0, to0,
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <button type="button" onClick={() => setPeriod('all')}
-              className={`px-2.5 py-1.5 rounded-lg text-xs border shrink-0 ${period === 'all' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>All Time</button>
-            <LedgerPeriodBar period={period === 'all' ? '' : period} setPeriod={setPeriod} anchor={anchor} setAnchor={setAnchor}
-              from={from} to={to} setFrom={setFrom} setTo={setTo} />
+            <PeriodNavigator allowAll period={period} setPeriod={setPeriod}
+              anchor={anchor} setAnchor={setAnchor}
+              customFrom={from} customTo={to} setCustomFrom={setFrom} setCustomTo={setTo} />
           </div>
           <div className="flex items-center gap-2 shrink-0 ml-auto">
             {/* Settled — small animated progress bar at the right end before Excel. */}
@@ -3311,7 +3268,9 @@ export default function PurchaseDashboard() {
   // Effective window: a picked past month/week (anchor ≠ today) is sent as a
   // custom range so the backend honours it; otherwise the granularity is sent
   // and the backend computes the current window.
-  const effRange = effWindow(period, anchor, customFrom, customTo);
+  // 'all' = no window at all (every record), so child screens and queries get
+  // an empty range instead of a default today/today.
+  const effRange = period === 'all' ? {} : effWindow(period, anchor, customFrom, customTo);
 
   // Carry the current company + period (+ vendor) filter to the Bills page, so a
   // tile opened from a filtered dashboard lands on the SAME slice instead of the
@@ -3374,8 +3333,12 @@ export default function PurchaseDashboard() {
     // so the period picker silently did nothing. Keep `period` for the label,
     // but the explicit window is what actually scopes the whole page.
     p.set('period', period === 'custom' ? 'custom' : period);
-    if (effRange.from) p.set('from', effRange.from);
-    if (effRange.to) p.set('to', effRange.to);
+    // 'all' = no window (every record). For every other period send the resolved
+    // from/to so a past week/month/FY is honoured.
+    if (period !== 'all') {
+      if (effRange.from) p.set('from', effRange.from);
+      if (effRange.to) p.set('to', effRange.to);
+    }
     if (companyId) p.set('company', companyId);
     if (warehouseId) p.set('warehouse', warehouseId);
     if (vendorId) p.set('vendor', vendorId);
@@ -3537,12 +3500,12 @@ export default function PurchaseDashboard() {
   const filterBar = (
     <div className="flex flex-wrap items-center gap-1.5">
       <div className="flex rounded-lg border border-slate-200 overflow-hidden shrink-0">
-        {[{ v: 'today', l: 'Today' }, { v: 'week', l: 'Week' }, { v: 'month', l: 'Month' }, { v: 'fy', l: 'FY' }, { v: 'custom', l: 'Custom' }].map((p, i) => (
+        {[{ v: 'all', l: 'All' }, { v: 'today', l: 'Today' }, { v: 'week', l: 'Week' }, { v: 'month', l: 'Month' }, { v: 'fy', l: 'FY' }, { v: 'custom', l: 'Custom' }].map((p, i) => (
           // setPeriod re-seeds the anchor itself, in the SAME params update —
           // FY stores a "FROM..TO" token while the others store a plain date,
           // and splitting that across two updates loses one of the keys.
           <button key={p.v} onClick={() => setPeriod(p.v)}
-            title={p.v === 'fy' ? 'Financial year (1 Apr – 31 Mar)' : undefined}
+            title={p.v === 'fy' ? 'Financial year (1 Apr – 31 Mar)' : (p.v === 'all' ? 'All time' : undefined)}
             className={`px-2 py-1.5 text-xs whitespace-nowrap ${i > 0 ? 'border-l border-slate-200' : ''} ${period === p.v ? 'bg-indigo-600 text-white' : 'text-slate-700 hover:bg-slate-50'}`}>
             {p.l}
           </button>

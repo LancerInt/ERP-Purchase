@@ -174,7 +174,13 @@ class Command(BaseCommand):
             # ₹50L 194Q threshold and the TDS Summary page shows a real figure.
             bill_count = 6 if v == tds_vendor else random.randint(2, 4)
             for k in range(bill_count):
-                bdate = today - datetime.timedelta(days=random.randint(5, 120))
+                # Spread across the year, but make the FIRST bill of each vendor
+                # land in the CURRENT month so the report's default (and the
+                # Month view) always has data to show.
+                if k == 0:
+                    bdate = today - datetime.timedelta(days=random.randint(0, min(today.day - 1, 20)))
+                else:
+                    bdate = today - datetime.timedelta(days=random.randint(5, 240))
                 if v == tds_vendor:
                     sub = Decimal(random.randint(900000, 1500000))   # ₹9–15L each
                 else:
@@ -198,11 +204,13 @@ class Command(BaseCommand):
                 # Pick a product whose kind matches the bill's category, so an RM
                 # bill shows RM items and a Packing bill shows packing items.
                 pool = prods_by_cat.get(category) or prods_by_cat['RM']
+                # UOM matched to the category: packing counted (PCS), RM weighed (KG).
+                luom = 'PCS' if category in ('PACKING', 'PM') else 'KG'
                 VendorBillLine.objects.create(
                     bill=bill, product=random.choice(pool),
                     quantity=Decimal(random.randint(10, 500)),
                     rate=Decimal(random.randint(50, 2000)),
-                    amount=sub,
+                    amount=sub, uom=luom,
                 )
                 bills.append(bill)
                 n += 1
@@ -306,20 +314,27 @@ class Command(BaseCommand):
                 receipt_date=datetime.datetime.combine(rdate, datetime.time(9, 0)))
             rc += 1
             for ln_i, prod in enumerate(random.sample(pool, min(2, len(pool))), start=1):
+                # ONE consistent UOM per product (never mix MT + KG on the same
+                # item), matched to its category: packing items are counted
+                # (PCS), raw materials are weighed (KG).
+                puom = 'PCS' if category in ('PACKING', 'PM') else 'KG'
                 ReceiptLine.objects.create(
                     receipt=ra, product=prod, line_no=ln_i,
                     quantity_received=Decimal(random.randint(50, 800)),
-                    uom=random.choice(['KG', 'MT', 'BAG']),
+                    uom=puom,
                 )
                 rl_n += 1
         w(f'  receipts: {rc} ({rl_n} lines)')
 
         # ---- Local freight ----
         lf = 0
-        for i in range(4):
+        for i in range(6):
             amt = Decimal(random.randint(3000, 25000))
+            # Split across both companies so the global company filter has
+            # something to show for SS Biochem AND United Agro.
+            lco = companies[i % len(companies)]
             LocalFreight.objects.create(
-                company=company,
+                company=lco,
                 freight_no=f'LF-DEMO-{i+1:04d}',
                 date=today - datetime.timedelta(days=random.randint(5, 80)),
                 lorry_no=f'TN-{random.randint(10,99)}-L-{random.randint(1000,9999)}',

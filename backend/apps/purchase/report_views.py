@@ -177,3 +177,75 @@ class ConsolidatedReportView(APIView):
                  'settled': str(r['settled']), 'outstanding': str(r['outstanding'])}
                 for r in totals],
         })
+
+
+class PurchaseReportView(APIView):
+    """GET /api/purchase/purchase-report/?company=&period=&from=&to=
+
+    A PURCHASE-ONLY report (no Sales / Expense / Freight, no P&L). Four headline
+    figures + a spend-by-category table + a per-vendor table, all over the same
+    company + date window the rest of the app uses. It reads the SAME purchase
+    aggregations the Analytics page does, so every bill — scanned, from a
+    receipt/PO, or entered by hand — flows in identically (no source filter).
+    Reporting-only.
+    """
+    permission_classes = [IsAuthenticated]
+    module_name = 'Consolidated Report'
+
+    def get(self, request):
+        company = request.query_params.get('company') or None
+        period = (request.query_params.get('period') or 'fy').lower()
+        frm = request.query_params.get('from')
+        to = request.query_params.get('to')
+
+        start, end, label = PurchaseDashboardView._resolve_range(period, frm, to)
+        win = {'company': company or '', 'period': period,
+               'from': start.isoformat(), 'to': end.isoformat()}
+
+        # Headline purchase figures — straight from the Analytics dashboard, so
+        # the report ties to the tiles to the rupee (all bill sources included).
+        pur = _call(PurchaseDashboardView, request.user, win).get('stats', {}) or {}
+        tp = pur.get('total_purchase') or {}
+        summary = {
+            'total_purchase_exgst': str(_d(tp.get('taxable'))),
+            'total_purchase_inclgst': str(_d(tp.get('total'))),
+            'gst': str(_d(tp.get('gst'))),
+            'bills_count': (pur.get('bills') or {}).get('count', 0),
+            'amount_billed': str(_d((pur.get('bills') or {}).get('amount'))),
+            'amount_paid': str(_d((pur.get('amount_paid') or {}).get('total'))),
+            'outstanding': str(_d((pur.get('outstanding_payables') or {}).get('total'))),
+        }
+
+        # Spend by category — reuse the By-Category endpoint's rows verbatim.
+        bycat = _call(PurchaseByCategoryView, request.user,
+                      {'company': company or '', 'from': start.isoformat(), 'to': end.isoformat()})
+        categories = [
+            {'key': c.get('key', ''), 'label': c.get('label') or c.get('key') or 'Unclassified',
+             'count': c.get('count', 0),
+             'value_exgst': str(c.get('value', '0')),
+             'value_inclgst': str(c.get('value_incl', c.get('value', '0')))}
+            for c in (bycat.get('categories') or [])
+        ]
+
+        # Per-vendor — billed / paid / outstanding, from the dashboard's own
+        # vendor breakdown (incl-GST ledger basis, same as Vendor details).
+        vendors = PurchaseDashboardView._vendor_breakdown(
+            company, None, None, start, end, include_transfers=False)
+        vendor_rows = [
+            {'vendor_id': str(v.get('vendor_id') or ''),
+             'vendor_name': v.get('vendor_name') or '—',
+             'company_name': v.get('company_name') or '',
+             'is_msme': bool(v.get('is_msme')),
+             'billed': str(_d(v.get('billed'))),
+             'paid': str(_d(v.get('paid'))),
+             'outstanding': str(_d(v.get('outstanding')))}
+            for v in (vendors or [])
+        ]
+
+        return Response({
+            'period': {'label': label, 'from': start.isoformat(), 'to': end.isoformat()},
+            'company_id': company or '',
+            'summary': summary,
+            'categories': categories,
+            'vendors': vendor_rows,
+        })

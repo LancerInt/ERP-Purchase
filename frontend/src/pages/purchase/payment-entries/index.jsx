@@ -7,7 +7,6 @@ import PageHeader from '../../../components/common/PageHeader';
 import DataTable from '../../../components/common/DataTable';
 import ListState from '@/components/common/ListState.jsx';
 import useApiData from '../../../hooks/useApiData.js';
-import useLookup from '../../../hooks/useLookup.js';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { PeriodNavigator, usePeriodFilter } from '@/components/common/PeriodNavigator';
 import { CTRL_ROW, CTRL_FIELD } from '@/components/common/controls';
@@ -75,7 +74,6 @@ function paymentCat(row) {
 // /api/purchase/payments-made/ list the Payments Made page uses.
 export default function PaymentEntries() {
   const navigate = useNavigate();
-  const { options: companyOptions } = useLookup('/api/companies/', { labelField: 'company_code' });
   // Filters live in the URL so opening a payment and pressing Back restores the
   // same filtered view instead of resetting to "All".
   const [sp, setSp] = useSearchParams();
@@ -245,9 +243,9 @@ export default function PaymentEntries() {
           return <span className="inline-block text-[10px] font-semibold rounded border px-1.5 py-0.5 bg-indigo-50 text-indigo-700 border-indigo-200">Contra</span>;
         }
         const fine = {
-          RM: { label: 'RM', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-          PACKING: { label: 'Packing', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
-          BOUGHT_NOTE: { label: 'Bought Note', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+          RM: { label: 'RM', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+          PACKING: { label: 'Packing', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
+          BOUGHT_NOTE: { label: 'Bought Note', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
           FRUIT: { label: 'Fruit', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
           MAIZE: { label: 'Maize', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
           FREIGHT: { label: 'Freight', cls: 'bg-teal-50 text-teal-700 border-teal-200' },
@@ -264,9 +262,9 @@ export default function PaymentEntries() {
         // MASTER's category (vendor_type) so the row still reads RM / Packing /
         // Expense etc. — shown lighter to signal it's from the master, not a bill.
         const vmeta = {
-          RAW_MATERIAL: { label: 'RM', cls: 'bg-blue-50/60 text-blue-600 border-blue-100' },
-          MATERIAL: { label: 'RM', cls: 'bg-blue-50/60 text-blue-600 border-blue-100' },
-          PACKING_MATERIAL: { label: 'Packing', cls: 'bg-violet-50/60 text-violet-600 border-violet-100' },
+          RAW_MATERIAL: { label: 'RM', cls: 'bg-emerald-50/60 text-emerald-600 border-emerald-100' },
+          MATERIAL: { label: 'RM', cls: 'bg-emerald-50/60 text-emerald-600 border-emerald-100' },
+          PACKING_MATERIAL: { label: 'Packing', cls: 'bg-sky-50/60 text-sky-600 border-sky-100' },
           EXPENSE: { label: 'Expense', cls: 'bg-amber-50/60 text-amber-600 border-amber-100' },
           // Transporter vendors (vendor_type=['TRANSPORTER']) — show Freight, so
           // on-account transporter payments don't read as a blank category.
@@ -281,14 +279,25 @@ export default function PaymentEntries() {
           : <span className="text-slate-300 text-[11px]">—</span>;
       } },
     { key: 'bank_account_name', label: 'Account', sortable: true, render: (v) => v || '—' },
-    // Two references: the Tally/bank voucher (reference_no — BK-xxxx / UTR, set by
-    // bank & Tally import) and the ERP's own payment voucher (payment_no —
-    // PAY-xxxxx, always present). An ERP-entered payment has no Tally ref (—) but
-    // always its ERP ref; a bank/Tally one has both.
-    { key: 'reference_no', label: 'Tally Ref', sortable: true,
-      render: (v) => v
-        ? <span className="font-mono text-[11px] text-slate-600">{v}</span>
-        : <span className="text-slate-300 text-[11px]">—</span> },
+    // How the money moved — Cash / Bank / UPI / Cheque / NEFT / RTGS.
+    { key: 'payment_mode', label: 'Mode', sortable: true,
+      render: (v, row) => {
+        const raw = (v || '').toUpperCase();
+        if (!raw) return <span className="text-slate-300">—</span>;
+        const MODE = {
+          CASH: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+          BANK: 'bg-sky-50 text-sky-700 border-sky-200',
+          BANK_TRANSFER: 'bg-sky-50 text-sky-700 border-sky-200',
+          UPI: 'bg-violet-50 text-violet-700 border-violet-200',
+          CHEQUE: 'bg-amber-50 text-amber-700 border-amber-200',
+          NEFT: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+          RTGS: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+        };
+        const label = (row.payment_mode_display || raw).replace(/_/g, ' ');
+        return <span className={`inline-block text-[10px] font-semibold rounded border px-1.5 py-0.5 ${MODE[raw] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>{label}</span>;
+      } },
+    // ERP payment voucher (payment_no — PAY-xxxxx, always present). The Tally
+    // reference column is dropped: this standalone has no Tally integration.
     { key: 'payment_no', label: 'ERP Ref', sortable: true,
       render: (v) => v
         ? <span className="font-mono text-[11px] text-indigo-600">{v}</span>
@@ -308,25 +317,33 @@ export default function PaymentEntries() {
 
   const hasFilter = period.range || company || kind || cats.size > 0 || src || q.trim();
 
+  // Metric strip — same design as the Bills page summary band (.metric-band
+  // cells), rendered AFTER the filter row so the page reads filter → tiles.
+  const metricStrip = (
+    <div className="metric-band mb-3">
+      <div className="px-3 py-2">
+        <p className="text-[11px] text-slate-500">Entries</p>
+        <p className="text-sm font-bold text-slate-900 tabular-nums">{rows.length.toLocaleString('en-IN')}</p>
+      </div>
+      <div className="px-3 py-2">
+        <p className="text-[11px] text-slate-500">Total</p>
+        <p className="text-sm font-bold text-slate-900 money">{formatCurrency(total)}</p>
+      </div>
+      <div className="px-3 py-2">
+        <p className="text-[11px] text-slate-500">On account</p>
+        <p className={`text-sm font-bold money ${onAcct ? 'text-amber-600' : 'text-slate-900'}`}>{formatCurrency(onAcct)}</p>
+      </div>
+      <div className="px-3 py-2">
+        <p className="text-[11px] text-slate-500">Contra</p>
+        <p className={`text-sm font-bold money ${transferTotal ? 'text-indigo-600' : 'text-slate-900'}`}>{formatCurrency(transferTotal)}</p>
+      </div>
+    </div>
+  );
+
   return (
     <MainLayout>
       <PageHeader compact title="Payment Entries"
         breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Payment Entries' }]} />
-
-      {/* Metric strip — like the Bills page summary band. */}
-      <div className="mb-3 flex items-stretch gap-2 rounded-lg border border-slate-200 bg-white py-2">
-        {[
-          { label: 'Entries', value: rows.length.toLocaleString('en-IN'), cls: 'text-slate-700' },
-          { label: 'Total', value: formatCurrency(total), cls: 'text-slate-900' },
-          { label: 'On account', value: formatCurrency(onAcct), cls: onAcct ? 'text-amber-600' : 'text-slate-400' },
-          { label: 'Contra', value: formatCurrency(transferTotal), cls: transferTotal ? 'text-indigo-600' : 'text-slate-400' },
-        ].map((s, i) => (
-          <div key={s.label} className={`flex-1 text-center ${i ? 'border-l border-slate-100' : ''}`}>
-            <div className={`text-base font-semibold tabular-nums ${s.cls}`}>{s.value}</div>
-            <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">{s.label}</div>
-          </div>
-        ))}
-      </div>
 
       {/* Tabs: the plain entries list, and a By-Category reconciliation that
           sums to the Amount Paid total. */}
@@ -344,26 +361,23 @@ export default function PaymentEntries() {
       {tab === 'bycat' && (
         <div className={`${CTRL_ROW} mb-3`}>
           <PeriodNavigator allowAll {...period.navProps} />
-          <CustomSelect value={company} onChange={(e) => setCompany(e.target.value)}
-            title="Company" className={`${CTRL_FIELD} max-w-[200px]`}>
-            <option value="">All Companies</option>
-            {companyOptions.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </CustomSelect>
+          {/* Company comes from the global header filter — no local dropdown. */}
         </div>
       )}
+      {tab === 'bycat' && metricStrip}
 
       {/* ── By-Category reconciliation: every payment in one bucket, summing to
           the Amount Paid total. Click a row to see its payments in a popup. ── */}
       {tab === 'bycat' && (() => {
         const DOT = {
-          RM: 'bg-blue-500', MAIZE: 'bg-amber-500', BOUGHT_NOTE: 'bg-sky-500',
-          PACKING: 'bg-violet-500', FRUIT: 'bg-rose-500', FREIGHT: 'bg-teal-500',
+          RM: 'bg-emerald-500', MAIZE: 'bg-amber-500', BOUGHT_NOTE: 'bg-indigo-500',
+          PACKING: 'bg-sky-500', FRUIT: 'bg-rose-500', FREIGHT: 'bg-teal-500',
           EXPENSE: 'bg-orange-500', MACHINERY: 'bg-slate-500',
           TRANSFER: 'bg-indigo-500', REFUND: 'bg-rose-400',
         };
         const BAR = {
-          RM: 'bg-blue-400', MAIZE: 'bg-amber-400', BOUGHT_NOTE: 'bg-sky-400',
-          PACKING: 'bg-violet-400', FRUIT: 'bg-rose-400', FREIGHT: 'bg-teal-400',
+          RM: 'bg-emerald-400', MAIZE: 'bg-amber-400', BOUGHT_NOTE: 'bg-indigo-400',
+          PACKING: 'bg-sky-400', FRUIT: 'bg-rose-400', FREIGHT: 'bg-teal-400',
           EXPENSE: 'bg-orange-400', MACHINERY: 'bg-slate-400',
           TRANSFER: 'bg-indigo-400', REFUND: 'bg-rose-300',
         };
@@ -429,11 +443,7 @@ export default function PaymentEntries() {
       {tab === 'list' && (<>
       <div className={`${CTRL_ROW} mb-3`}>
         <PeriodNavigator allowAll {...period.navProps} />
-        <CustomSelect value={company} onChange={(e) => setCompany(e.target.value)}
-          title="Company" className={`${CTRL_FIELD} max-w-[200px]`}>
-          <option value="">All Companies</option>
-          {companyOptions.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-        </CustomSelect>
+        {/* Company comes from the global header filter — no local dropdown. */}
         {/* Category — MULTI-select. Pick any combination; a row matches if its
             resolved category is among the chosen. */}
         <div ref={catFilterRef} className="relative">
@@ -498,6 +508,8 @@ export default function PaymentEntries() {
             className="text-xs text-slate-500 hover:text-slate-800 underline">Clear</button>
         )}
       </div>
+
+      {metricStrip}
 
       <ListState error={error} onRetry={refetch} errorMessage="Failed to load payments.">
         <DataTable

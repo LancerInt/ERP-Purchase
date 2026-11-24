@@ -6895,6 +6895,15 @@ class VendorCreditViewSet(viewsets.ModelViewSet):
     # they come back in instead of leaving it to chance.
     ordering = ['-credit_date', '-id']
 
+    def get_queryset(self):
+        """Scope to the global company filter (?company=<id>) via the vendor's
+        company, so Vendor Notes re-scope with the rest of the app."""
+        qs = super().get_queryset()
+        company = self.request.query_params.get('company')
+        if company:
+            qs = qs.filter(vendor__company_id=company)
+        return qs
+
     @action(detail=True, methods=['post'], url_path='apply-to-bill')
     def apply_to_bill(self, request, pk=None):
         """Apply credit to a vendor bill."""

@@ -13,6 +13,7 @@ import ListState from '@/components/common/ListState.jsx';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { CTRL_ROW, CTRL_FIELD } from '@/components/common/controls';
 import apiClient from '../../../utils/api.js';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 
 const fmtMoney0 = (v) => `₹${Math.round(Number(v) || 0).toLocaleString('en-IN')}`;
@@ -65,15 +66,22 @@ export default function FreightBills() {
   const [sp, setSp] = useSearchParams();
   const [dir, setDir] = useState(sp.get('dir') || '');       // '' | Inward | Outward
   const [pay, setPay] = useState(sp.get('pay') || '');       // '' | Paid | Partial | Unpaid
-  const [company, setCompany] = useState(sp.get('company') || '');
+  // Company comes from the GLOBAL header filter. This list filters by company
+  // NAME, so translate the global company id → its legal name. '' = All.
+  const { company: globalCompany, companies: globalCompanies } = useGlobalCompany();
+  const company = globalCompany
+    ? ((globalCompanies || []).find((c) => String(c.id) === String(globalCompany))?.legal_name
+       || (globalCompanies || []).find((c) => String(c.id) === String(globalCompany))?.trade_name
+       || '')
+    : '';
   const [search, setSearch] = useState(sp.get('q') || '');
   useEffect(() => {
     const p = new URLSearchParams(sp);
     const put = (k, v, keep) => { if (keep) p.set(k, v); else p.delete(k); };
     put('dir', dir, !!dir); put('pay', pay, !!pay);
-    put('company', company, !!company); put('q', search, !!search.trim());
+    put('q', search, !!search.trim());
     if (p.toString() !== sp.toString()) setSp(p, { replace: true });
-  }, [dir, pay, company, search, sp, setSp]);
+  }, [dir, pay, search, sp, setSp]);
 
   const load = () => {
     setLoading(true); setError(null);
@@ -86,8 +94,6 @@ export default function FreightBills() {
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
-
-  const companies = useMemo(() => [...new Set(rows.map((r) => r.company).filter(Boolean))].sort(), [rows]);
 
   const filtered = useMemo(() => rows.filter((r) => {
     if (dir && r.direction !== dir) return false;
@@ -133,14 +139,8 @@ export default function FreightBills() {
           <CustomSelect value={pay} onChange={(e) => setPay(e.target.value)} title="Payment status" className={`${CTRL_FIELD} max-w-[150px]`}>
             <option value="">All Payments</option><option value="Paid">Paid</option><option value="Partial">Partial</option><option value="Unpaid">Unpaid</option>
           </CustomSelect>
-          {companies.length > 1 && (
-            <CustomSelect value={company} onChange={(e) => setCompany(e.target.value)} title="Company" className={`${CTRL_FIELD} max-w-[230px]`}>
-              <option value="">All Companies</option>
-              {companies.map((c) => <option key={c} value={c}>{c}</option>)}
-            </CustomSelect>
-          )}
-          {(dir || pay || company || search) && (
-            <button type="button" onClick={() => { setDir(''); setPay(''); setCompany(''); setSearch(''); }}
+          {(dir || pay || search) && (
+            <button type="button" onClick={() => { setDir(''); setPay(''); setSearch(''); }}
               className="text-xs text-slate-500 hover:text-slate-800 underline">Clear</button>
           )}
         </div>

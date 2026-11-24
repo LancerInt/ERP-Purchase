@@ -27,8 +27,10 @@ import PageHeader from '../../../components/common/PageHeader';
 import ListState from '@/components/common/ListState.jsx';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { PeriodNavigator, usePeriodFilter } from '@/components/common/PeriodNavigator';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import { CTRL_ROW, CTRL_FIELD } from '@/components/common/controls';
 import apiClient from '../../../utils/api.js';
+import { categoryChipCls } from '../../../utils/constants.js';
 import { formatCurrency } from '@/utils/formatters';
 import exportToExcel from '../../../utils/exportExcel.js';
 
@@ -48,6 +50,9 @@ const isExpenseBill = (r) => r.is_expense === true
 const isExpenseLike = (r) =>
   isExpenseBill(r) || EXPENSE_CATS.includes((r.purchase_category || '').toUpperCase());
 const isPurchaseBill = (r) => !isExpenseLike(r);
+
+// Category chip colour — the ONE shared RM/PM palette used app-wide.
+const catChipCls = categoryChipCls;
 
 // Month bucket + label for the "by month" block. '2026-11-03' → '2026-11' → 'Nov 2026'.
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -99,21 +104,13 @@ const CAT_LABEL = {
   FREIGHT: 'Freight', EXPENSES: 'Expense', MACHINERY: 'Machinery', LAB_EXPENSE: 'Lab',
   BRANCH: 'Branch',
 };
-const CAT_TONE = {
-  RM: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-  PACKING: 'text-amber-700 bg-amber-50 border-amber-200',
-  MAIZE: 'text-yellow-700 bg-yellow-50 border-yellow-200',
-  FRUIT: 'text-rose-700 bg-rose-50 border-rose-200',
-  BOUGHT_NOTE: 'text-indigo-700 bg-indigo-50 border-indigo-200',
-  FREIGHT: 'text-sky-700 bg-sky-50 border-sky-200',
-};
 function catLabel(code) {
   const c = (code || '').toUpperCase();
   if (!c) return '';
   return CAT_LABEL[c] || code;
 }
 function catTone(code) {
-  return CAT_TONE[(code || '').toUpperCase()] || 'text-slate-600 bg-slate-50 border-slate-200';
+  return categoryChipCls(code);   // shared app-wide RM/PM palette
 }
 
 // Where a record was CREATED (mirrors purchase/source_classify.py):
@@ -268,7 +265,7 @@ const pageSlice = (arr, page, size = PAGE_SIZE) => {
 // extra reports are layered on. report.kind:
 //   'summary' (the original paginated table + by-month graph)
 //   'aged' | 'bars' | 'ratetrend' | 'moneytrend'
-const TABS = [
+const ALL_TABS = [
   {
     key: 'sales', label: 'Sales', party: 'Customer',
     load: (win) => fetchAll('/api/sales/invoices/', win, 'invoice_date'),
@@ -312,9 +309,10 @@ const TABS = [
       { k: 'paid', label: 'Paid', money: true, agg: (r) => num(r.amount_paid) },
       { k: 'outstanding', label: 'Outstanding', money: true, agg: (r) => num(r.balance_due), tone: 'rose' },
     ],
+    // 'Payables ageing' dropped here — the dedicated Payables tab covers ageing
+    // + the payment calendar, so it'd be redundant on the Purchase tab.
     reports: [
       { id: 'summary', name: 'Top vendors', kind: 'summary', top10: true},
-      { id: 'p_ageing', name: 'Payables ageing', kind: 'aged', ageField: 'balance_due', useDue: true },
       { id: 'p_topitems', name: 'Top purchased items', kind: 'topitems', side: 'purchase', valueLabel: 'Spend'},
       { id: 'p_category', name: 'By category', kind: 'bars', catOf: (r) => r.purchase_category || 'Unclassified'},
       { id: 'p_items', name: 'Item qty & rate trend', kind: 'ratetrend', side: 'purchase'},
@@ -413,10 +411,17 @@ const TABS = [
   },
 ];
 
+// Standalone build = PURCHASE + PAYABLES only. The full multi-module config
+// above is kept intact, but only the Purchase and Payables top-tabs are exposed
+// (no Sales / Receivables / Expense / Freight). Payables carries the Payment
+// calendar (Overdue / Today / Next 7-15-30 / Later buckets) + Vendor ageing.
+const STANDALONE_REPORT_TABS = ['purchase', 'payables'];
+const TABS = ALL_TABS.filter((t) => STANDALONE_REPORT_TABS.includes(t.key));
+
 export default function ReportsSummary() {
   const navigate = useNavigate();
   const [sp, setSp] = useSearchParams();
-  const [tabKey, setTabKey] = useState(() => (TABS.some((t) => t.key === sp.get('tab')) ? sp.get('tab') : 'sales'));
+  const [tabKey, setTabKey] = useState(() => (TABS.some((t) => t.key === sp.get('tab')) ? sp.get('tab') : 'purchase'));
   const [reportId, setReportId] = useState(sp.get('report') || 'summary');
   const [page, setPage] = useState(1);
   const [hoverYm, setHoverYm] = useState(null);
@@ -438,6 +443,7 @@ export default function ReportsSummary() {
   const [catItems, setCatItems] = useState({});        // category -> {loading, items, vendors, error}
   const [catTab, setCatTab] = useState('items');       // 'items' | 'vendors' in the expanded panel
   const [openCmp, setOpenCmp] = useState(null);        // Vendor-comparison: which item is expanded
+  const [openTrend, setOpenTrend] = useState(null);    // Item rate-trend: which item's Qty row is expanded
   const [openAged, setOpenAged] = useState(null);      // Ageing: which party row is expanded to its bills
   const [closedPay, setClosedPay] = useState({});      // Payment calendar: bucket keys the user collapsed
   const [payPage, setPayPage] = useState({});          // Payment calendar: current page per bucket key
@@ -445,10 +451,14 @@ export default function ReportsSummary() {
   const [payRowDetail, setPayRowDetail] = useState({}); // record id -> {loading, lines, error, bill}
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [company, setCompany] = useState(sp.get('company') || '');
-  // Default to the current MONTH so the page opens on a small, fast query.
-  // FY / All fetch more and are opt-in (they show a loading state when picked).
-  const period = usePeriodFilter(sp.get('period') || 'month', {
+  // Company comes from the GLOBAL header filter (SS default; '' = All), like
+  // every other standalone page — no local dropdown.
+  const { company: globalCompany } = useGlobalCompany();
+  const company = globalCompany || '';
+  // Default to the current FINANCIAL YEAR, so the report opens WITH data (bills
+  // are spread across the year; a single month is often near-empty). Month /
+  // Week / All stay one click away.
+  const period = usePeriodFilter(sp.get('period') || 'fy', {
     anchor: sp.get('anchor'), customFrom: sp.get('cfrom'), customTo: sp.get('cto'),
   });
 
@@ -506,7 +516,7 @@ export default function ReportsSummary() {
     if (p.toString() !== sp.toString()) setSp(p, { replace: true });
   }, [tabKey, report.id, company, period.navProps, sp, setSp]);
 
-  useEffect(() => { setExpanded(false); setDueWithin(0); setUpcomingWithin(0); setPage(1); setOpenCat(null); setOpenCmp(null); setOpenAged(null); setClosedPay({}); setPayPage({}); setOpenPayRow(null); setItemPick(''); setPartyPick(''); setCatPick(''); setSourcePick(''); }, [tabKey, report.id]);
+  useEffect(() => { setExpanded(false); setDueWithin(0); setUpcomingWithin(0); setPage(1); setOpenCat(null); setOpenCmp(null); setOpenTrend(null); setOpenAged(null); setClosedPay({}); setPayPage({}); setOpenPayRow(null); setItemPick(''); setPartyPick(''); setCatPick(''); setSourcePick(''); }, [tabKey, report.id]);
   // Payables is an "all open bills as of today" view — a bill due last month is
   // still payable. So entering the Payables tab defaults the period to All
   // (the user can still narrow it). Only nudges on tab entry, not every render.
@@ -532,8 +542,11 @@ export default function ReportsSummary() {
   // item-rate endpoint, loaded for the ratetrend AND topitems reports (both
   // read invoice/bill line rates the list payloads don't carry).
   useEffect(() => {
+    // Clear any stale error from a previously-viewed report FIRST, so switching
+    // to a report that needs no fetch (e.g. By category) never inherits it.
+    setError(null);
     if (report.kind !== 'ratetrend' && report.kind !== 'topitems') { setTrendData(null); return; }
-    let alive = true; setTrendData(null); setError(null);
+    let alive = true; setTrendData(null);
     const params = new URLSearchParams({ side: report.side });
     // A rate/qty trend needs several months to be meaningful. For a single-month
     // tab window we widen to the last 6 months; a wider tab window is used as-is.
@@ -542,14 +555,15 @@ export default function ReportsSummary() {
     const tw = trendWindow();
     if (tw.from) params.set('from', tw.from);
     if (tw.to) params.set('to', tw.to);
-    apiClient.get(`/api/sales/item-rate-trend/?${params.toString()}`)
+    if (company) params.set('company', company);
+    apiClient.get(`/api/purchase/item-rate-trend/?${params.toString()}`)
       .then(({ data }) => { if (alive) setTrendData(data); })
       .catch(() => { if (alive) setError('Could not load the item data.'); });
     return () => { alive = false; };
     // Depend on the STABLE winKey string, not period.navProps (a fresh object
     // each render that re-fired this effect in a loop — the repeated calls).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [report.id, winKey]);
+  }, [report.id, winKey, company]);
 
   // Vendor comparison, loaded for its report (purchase side, mode flag).
   useEffect(() => {
@@ -559,12 +573,13 @@ export default function ReportsSummary() {
     const tw = trendWindow();
     if (tw.from) params.set('from', tw.from);
     if (tw.to) params.set('to', tw.to);
-    apiClient.get(`/api/sales/item-rate-trend/?${params.toString()}`)
+    if (company) params.set('company', company);
+    apiClient.get(`/api/purchase/item-rate-trend/?${params.toString()}`)
       .then(({ data }) => { if (alive) setCmpData(data); })
       .catch(() => { if (alive) setError('Could not load the vendor comparison.'); });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [report.id, winKey]);
+  }, [report.id, winKey, company]);
 
   // Payables payment calendar — LEDGER-TIED. Fetches the authoritative per-bill
   // balances (vendor outstanding allocated oldest-first) instead of summing the
@@ -575,7 +590,9 @@ export default function ReportsSummary() {
     if (!(tabKey === 'payables' && report.kind === 'paycal')) { setCalData(null); return; }
     let alive = true; setCalData(null); setError(null);
     const params = new URLSearchParams();
-    if (company) { const row = (raw || []).find((r) => r.company_name === company); if (row && row.company) params.set('company', row.company); }
+    // `company` is the GLOBAL company ID (header filter), which is exactly what
+    // the endpoint wants — pass it straight through.
+    if (company) params.set('company', company);
     if (msmePick === 'msme') params.set('msme', 'true');
     else if (msmePick === 'non') params.set('msme', 'false');
     apiClient.get(`/api/purchase/payables-calendar/?${params.toString()}`)
@@ -647,7 +664,7 @@ export default function ReportsSummary() {
       .catch(() => { if (alive) setVarianceBills([]); });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [report.id, winKey]);
+  }, [report.id, winKey, company]);
 
   const companies = useMemo(() => {
     if (tab.noCompanyGroup || !raw || !Array.isArray(raw)) return [];
@@ -709,7 +726,11 @@ export default function ReportsSummary() {
     let src = tab.filter ? raw.filter(tab.filter) : raw;
     if (tab.excludeBranch && tab.isBranch) src = src.filter((r) => !tab.isBranch(r));
     return src.filter((r) => {
-      if (company && tab.companyOf(r) !== company) return false;
+      // Company filter: the GLOBAL header filter gives a company ID, but a row
+      // carries both its id (r.company) and name (company_name). Match on the
+      // id, falling back to the name so either shape works.
+      if (company && String(r.company || '') !== String(company)
+          && tab.companyOf(r) !== company) return false;
       if (partyPick && tab.keyOf(r) !== partyPick) return false;
       if (catPick && (r.purchase_category || '').toUpperCase() !== catPick) return false;
       if (sourcePick && !matchesSource(r, sourcePick)) return false;
@@ -1116,14 +1137,15 @@ export default function ReportsSummary() {
 
   // Data-health — bills needing attention, from the slim list fields.
   const healthRows = () => {
-    const unmatched = filtered.filter((r) => !r.tally_guid && r.scan_tally_matched !== true);
+    // No Tally in this standalone, so the "not matched to Tally" check is dropped.
     const noInv = filtered.filter((r) => !(r.vendor_invoice_no || '').trim());
     const unclassified = filtered.filter((r) => !(r.purchase_category || '').trim() || r.purchase_category === 'Unclassified');
+    const noDue = filtered.filter((r) => !(r.due_date || '').trim());
     const sum = (arr) => arr.reduce((s, r) => s + num(r.total_amount), 0);
     return [
-      { issue: 'Bills not matched to Tally', count: unmatched.length, value: sum(unmatched), sev: unmatched.length ? 'bad' : 'ok' },
       { issue: 'Bills missing an invoice number', count: noInv.length, value: sum(noInv), sev: noInv.length ? 'warn' : 'ok' },
       { issue: 'Unclassified category', count: unclassified.length, value: sum(unclassified), sev: unclassified.length ? 'warn' : 'ok' },
+      { issue: 'Bills missing a due date', count: noDue.length, value: sum(noDue), sev: noDue.length ? 'warn' : 'ok' },
     ];
   };
 
@@ -1288,10 +1310,28 @@ export default function ReportsSummary() {
   return (
     <MainLayout>
       <div className="space-y-3 sm:space-y-4">
-        <PageHeader compact title="Reports" subtitle="Sales, Purchase, Expense, Freight and Trend — grouped, aged and exportable"
-          breadcrumbs={[{ label: 'Reports' }, { label: tab.label }]} icon={BarChart3} />
+        <PageHeader compact title={tabKey === 'payables' ? 'Payables Report' : 'Purchase Report'}
+          subtitle={tabKey === 'payables'
+            ? 'What to pay and when — payment calendar + vendor ageing'
+            : 'Purchase spend — top vendors, payables ageing, by category and bill data-health'}
+          breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: tab.label }]} icon={BarChart3}
+          actions={{ right: (
+            <div className="flex gap-1.5">
+              <button type="button" onClick={doExcel} title="Download Excel"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
+                <Download size={14} /> Excel
+              </button>
+              <button type="button" onClick={doPdf} title="Download PDF"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">
+                <Download size={14} /> PDF
+              </button>
+            </div>
+          ) }} />
 
-        {/* Tabs */}
+        {/* Top-tab bar — only when there's more than one module tab. The
+            standalone is purchase-only (single tab), so it's hidden and the page
+            opens straight on the Purchase sub-reports. */}
+        {TABS.length > 1 && (
         <div className="flex gap-1 border-b border-slate-200 flex-wrap">
           {TABS.map((t) => (
             <button key={t.key} type="button" onClick={() => { setTabKey(t.key); setReportId((t.reports && t.reports[0] && t.reports[0].id) || 'summary'); }}
@@ -1300,20 +1340,11 @@ export default function ReportsSummary() {
             </button>
           ))}
         </div>
-
-        {/* Report chips */}
-        {tab.reports.length > 1 && (
-          <div className="flex flex-wrap gap-1.5">
-            {tab.reports.map((r) => (
-              <button key={r.id} type="button" onClick={() => setReportId(r.id)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-full border transition ${report.id === r.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}`}>
-                {r.name}
-              </button>
-            ))}
-          </div>
         )}
 
-        {/* Filters */}
+        {/* Filters FIRST (period + report-specific controls), with export tucked
+            tight on its own right-aligned line just below them. */}
+        <div className="space-y-2">
         <div className={CTRL_ROW}>
           {/* Date filter (All / Today / Week / Month / FY / Custom) — applies to
               every report, ageing included: ageing shows the open bills DATED in
@@ -1338,12 +1369,7 @@ export default function ReportsSummary() {
               <option value="45">Due in next 45 days</option>
             </CustomSelect>
           )}
-          {!tab.noCompanyGroup && companies.length > 1 && (
-            <CustomSelect value={company} onChange={(e) => setCompany(e.target.value)} title="Company" className={`${CTRL_FIELD} max-w-[230px]`}>
-              <option value="">All Companies</option>
-              {companies.map((c) => <option key={c} value={c}>{c}</option>)}
-            </CustomSelect>
-          )}
+          {/* Company comes from the global header filter — no local dropdown. */}
           {showItemFilter && itemOptions.length > 0 && (
             <CustomSelect value={itemPick} onChange={(e) => setItemPick(e.target.value)} title="Item" className={`${CTRL_FIELD} max-w-[230px]`}>
               <option value="">All items</option>
@@ -1369,24 +1395,23 @@ export default function ReportsSummary() {
               <option value="non">Non-MSME</option>
             </CustomSelect>
           )}
-          {!tab.noCompanyGroup && (
-            <CustomSelect value={sourcePick} onChange={(e) => setSourcePick(e.target.value)} title="Source" className={`${CTRL_FIELD} max-w-[150px]`}>
-              <option value="">Tally + ERP</option>
-              <option value="tally">Only Tally</option>
-              <option value="erp">Only ERP</option>
-            </CustomSelect>
-          )}
-          <div className="ml-auto flex gap-1.5">
-            <button type="button" onClick={doExcel}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700">
-              <Download size={14} /> Excel
-            </button>
-            <button type="button" onClick={doPdf}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800">
-              <Download size={14} /> PDF
-            </button>
-          </div>
+          {/* No Tally source filter — this standalone has no Tally integration. */}
+          {/* Excel / PDF live in the page header actions (top-right) — see
+              PageHeader actions.right — so they never crowd the filter row. */}
         </div>
+        </div>
+
+        {/* Report chips — AFTER the filter row, so the page reads filter → tabs. */}
+        {tab.reports.length > 1 && (
+          <div className="flex flex-wrap gap-1.5">
+            {tab.reports.map((r) => (
+              <button key={r.id} type="button" onClick={() => setReportId(r.id)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full border transition ${report.id === r.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'}`}>
+                {r.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         <ListState error={error} onRetry={() => setCache((c) => ({ ...c, [tabKey]: undefined }))}>
           {/* ── SUMMARY (original table + by-month graph) ── */}
@@ -1399,10 +1424,10 @@ export default function ReportsSummary() {
               <div className="block overflow-x-auto border border-slate-200 rounded-xl shadow-sm bg-white">
                 <table className="w-full min-w-[640px] text-[13px]">
                   <thead>
-                    <tr className="bg-gradient-to-r from-sky-50 to-blue-50 text-[11px] uppercase tracking-wide text-blue-700/80 border-b border-blue-100">
-                      <th className="px-3 py-2 text-left font-semibold">{tab.party}</th>
-                      {tab.cols.map((c) => <th key={c.k} className="px-3 py-2 text-right font-semibold">{c.label}</th>)}
-                      <th className="px-3 py-2 text-right font-semibold">Share %</th>
+                    <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b border-primary-100">
+                      <th className="px-3 py-2 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{tab.party}</th>
+                      {tab.cols.map((c) => <th key={c.k} className="px-3 py-2 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{c.label}</th>)}
+                      <th className="px-3 py-2 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Share %</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1524,7 +1549,7 @@ export default function ReportsSummary() {
             return (
               <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-sm bg-white">
                 <table className="w-full text-[13px]">
-                  <thead><tr className="bg-gradient-to-r from-sky-50 to-blue-50 text-[11px] uppercase tracking-wide text-blue-700/80 border-b border-blue-100">
+                  <thead><tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 text-[11px] uppercase tracking-wider text-slate-500 border-b border-primary-100">
                     <th className="px-3 py-2 text-left font-semibold">{tab.party}</th>
                     <th className="px-3 py-2 text-right font-semibold">Oldest</th>
                     <th className="px-3 py-2 text-right font-semibold">Outstanding</th>
@@ -1640,7 +1665,11 @@ export default function ReportsSummary() {
                 )}
 
                 {sections.map((s) => {
-                  const closed = !!closedPay[s.k];
+                  // Collapsed by DEFAULT — a bucket opens only once the user
+                  // clicks it (its key is toggled into `closedPay`, which now
+                  // means "opened"). So the page shows just the bucket summary
+                  // rows and expands the bills on demand.
+                  const closed = !closedPay[s.k];
                   const secPage = payPage[s.k] || 1;
                   const pageItems = pageSlice(s.items, secPage);  // 10 per page (PAGE_SIZE)
                   return (
@@ -1822,7 +1851,7 @@ export default function ReportsSummary() {
               : (
                 <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-sm bg-white">
                   <table className="w-full text-[13px]">
-                    <thead><tr className="bg-gradient-to-r from-sky-50 to-blue-50 text-[11px] uppercase tracking-wide text-blue-700/80 border-b border-blue-100">
+                    <thead><tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 text-[11px] uppercase tracking-wider text-slate-500 border-b border-primary-100">
                       <th className="px-3 py-2 text-left font-semibold">Item</th><th />
                       {trendData.months.map((m) => <th key={m} className="px-3 py-2 text-right font-semibold whitespace-nowrap">{monthShort(m)}</th>)}
                       <th className="px-3 py-2 text-right font-semibold">Change</th>
@@ -1831,21 +1860,30 @@ export default function ReportsSummary() {
                       {trendItems.length === 0 && <tr><td colSpan={trendData.months.length + 3} className="px-3 py-10 text-center text-sm text-slate-400">No line items in this window.</td></tr>}
                       {pageSlice(trendItems, page, rpp).map((it) => {
                         const chg = it.change_pct != null ? Number(it.change_pct) : null;
+                        const open = openTrend === it.item;
                         return (
                           <Fragment key={it.item}>
-                            <tr className="hover:bg-blue-50/60">
-                              <td className="px-3 py-2 font-medium text-slate-800" rowSpan={2}>{it.item} <span className="text-slate-400 text-xs">{it.uom}</span>{it.category && <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-indigo-50 text-indigo-700 border border-indigo-100">{it.category}</span>}</td>
+                            {/* Rate row — always shown, click to expand the Qty row. */}
+                            <tr className="hover:bg-blue-50/60 cursor-pointer select-none" onClick={() => setOpenTrend(open ? null : it.item)}>
+                              <td className="px-3 py-2 font-medium text-slate-800">
+                                <span className={`inline-block mr-1.5 text-slate-400 transition-transform ${open ? 'rotate-90 text-blue-600' : ''}`}>▶</span>
+                                {it.item} <span className="text-slate-400 text-xs">{it.uom}</span>{it.category && <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide border ${catChipCls(it.category)}`}>{it.category}</span>}
+                              </td>
                               <td className="px-2 py-2 text-left text-[11px] text-slate-400">Rate</td>
                               {it.points.map((p, i) => <td key={i} className={`px-3 py-2 text-right tabular-nums ${i === it.points.length - 1 && it.dropped ? 'text-rose-600 font-semibold' : 'text-slate-700'}`}>{p.rate != null ? `₹${Number(p.rate).toFixed(2)}` : '—'}</td>)}
                               <td className={`px-3 py-2 text-right tabular-nums font-semibold ${chg == null ? 'text-slate-400' : chg < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
                                 {chg == null ? '—' : <span className="inline-flex items-center gap-1">{chg < 0 ? <><AlertTriangle size={12} /> ▼</> : '▲'} {Math.abs(chg).toFixed(1)}%</span>}
                               </td>
                             </tr>
-                            <tr className="hover:bg-blue-50/60">
-                              <td className="px-2 py-1 text-left text-[11px] text-slate-400">Qty</td>
-                              {it.points.map((p, i) => <td key={i} className="px-3 py-1 text-right tabular-nums text-[11px] text-slate-400">{p.qty != null ? Number(p.qty).toLocaleString('en-IN') : '—'}</td>)}
-                              <td />
-                            </tr>
+                            {/* Qty row — only when the item is expanded. */}
+                            {open && (
+                              <tr className="bg-slate-50/60">
+                                <td className="px-3 py-1" />
+                                <td className="px-2 py-1 text-left text-[11px] text-slate-400">Qty</td>
+                                {it.points.map((p, i) => <td key={i} className="px-3 py-1 text-right tabular-nums text-[11px] text-slate-500">{p.qty != null ? Number(p.qty).toLocaleString('en-IN') : '—'}</td>)}
+                                <td />
+                              </tr>
+                            )}
                           </Fragment>
                         );
                       })}
@@ -1880,7 +1918,7 @@ export default function ReportsSummary() {
                 <div className="h-3" />
                 <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-sm bg-white">
                   <table className="w-full text-[13px]">
-                    <thead><tr className="bg-gradient-to-r from-sky-50 to-blue-50 text-[11px] uppercase tracking-wide text-blue-700/80 border-b border-blue-100">
+                    <thead><tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 text-[11px] uppercase tracking-wider text-slate-500 border-b border-primary-100">
                       <th className="px-3 py-2 text-left font-semibold">Month</th>
                       {['Sales', 'Purchase', 'Expense', 'Freight', 'Net'].map((h) => <th key={h} className="px-3 py-2 text-right font-semibold">{h}</th>)}
                     </tr></thead>
@@ -1918,7 +1956,7 @@ export default function ReportsSummary() {
                   <>
                     <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-sm bg-white">
                       <table className="w-full text-[13px]">
-                        <thead><tr className="bg-gradient-to-r from-sky-50 to-blue-50 text-[11px] uppercase tracking-wide text-blue-700/80 border-b border-blue-100">
+                        <thead><tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 text-[11px] uppercase tracking-wider text-slate-500 border-b border-primary-100">
                           <th className="px-3 py-2 text-left font-semibold">Item</th>
                           <th className="px-3 py-2 text-right font-semibold">Qty</th>
                           <th className="px-3 py-2 text-right font-semibold">{report.valueLabel}</th>
@@ -1928,7 +1966,7 @@ export default function ReportsSummary() {
                           {items.length === 0 && <tr><td colSpan={4} className="px-3 py-10 text-center text-sm text-slate-400">No line items in this window.</td></tr>}
                           {shown.map((it) => { const conc = concByItem.get(it.item) || 0; return (
                             <tr key={it.item} className="hover:bg-blue-50/60">
-                              <td className="px-3 py-2 font-medium text-slate-800">{it.item} <span className="text-slate-400 text-xs">{it.uom}</span>{it.category && <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-indigo-50 text-indigo-700 border border-indigo-100">{it.category}</span>}</td>
+                              <td className="px-3 py-2 font-medium text-slate-800">{it.item} <span className="text-slate-400 text-xs">{it.uom}</span>{it.category && <span className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide border ${catChipCls(it.category)}`}>{it.category}</span>}</td>
                               <td className="px-3 py-2 text-right tabular-nums text-slate-700">{num(it.total_qty).toLocaleString('en-IN')}</td>
                               <td className="px-3 py-2 text-right tabular-nums text-slate-800">{INR(it.total_value)}</td>
                               <td className="px-3 py-2 text-right"><span className="inline-flex items-center gap-1.5"><span className="inline-block h-1.5 w-12 rounded-full bg-indigo-100 overflow-hidden"><span className="block h-full bg-indigo-500" style={{ width: `${Math.min(100, conc)}%` }} /></span><span className="text-slate-500 text-xs">{pctTxt(conc)}</span></span></td>
@@ -1962,7 +2000,7 @@ export default function ReportsSummary() {
             return (
               <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-sm bg-white">
                 <table className="w-full text-[13px]">
-                  <thead><tr className="bg-gradient-to-r from-sky-50 to-blue-50 text-[11px] uppercase tracking-wide text-blue-700/80 border-b border-blue-100">
+                  <thead><tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 text-[11px] uppercase tracking-wider text-slate-500 border-b border-primary-100">
                     <th className="px-3 py-2 text-left font-semibold">{tab.party}</th>
                     <th className="px-3 py-2 text-right font-semibold">Invoiced</th>
                     <th className="px-3 py-2 text-right font-semibold">Received</th>
@@ -2004,7 +2042,7 @@ export default function ReportsSummary() {
             return (
               <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-sm bg-white">
                 <table className="w-full text-[13px]">
-                  <thead><tr className="bg-gradient-to-r from-sky-50 to-blue-50 text-[11px] uppercase tracking-wide text-blue-700/80 border-b border-blue-100">
+                  <thead><tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 text-[11px] uppercase tracking-wider text-slate-500 border-b border-primary-100">
                     <th className="px-3 py-2 text-left font-semibold">{tab.party}</th>
                     <th className="px-3 py-2 text-right font-semibold">Overdue (past terms)</th>
                     <th className="px-3 py-2 text-right font-semibold">Max days past due</th>
@@ -2040,7 +2078,7 @@ export default function ReportsSummary() {
             return (
               <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-sm bg-white">
                 <table className="w-full text-[13px]">
-                  <thead><tr className="bg-gradient-to-r from-sky-50 to-blue-50 text-[11px] uppercase tracking-wide text-blue-700/80 border-b border-blue-100">
+                  <thead><tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 text-[11px] uppercase tracking-wider text-slate-500 border-b border-primary-100">
                     <th className="px-3 py-2 text-left font-semibold">Head</th>
                     <th className="px-3 py-2 text-right font-semibold">This period</th>
                     <th className="px-3 py-2 text-right font-semibold">Last period</th>
@@ -2093,7 +2131,7 @@ export default function ReportsSummary() {
             return (
               <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-sm bg-white">
                 <table className="w-full text-[13px]">
-                  <thead><tr className="bg-gradient-to-r from-sky-50 to-blue-50 text-[11px] uppercase tracking-wide text-blue-700/80 border-b border-blue-100">
+                  <thead><tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 text-[11px] uppercase tracking-wider text-slate-500 border-b border-primary-100">
                     <th className="px-3 py-2 text-left font-semibold">Issue</th>
                     <th className="px-3 py-2 text-right font-semibold">Count</th>
                     <th className="px-3 py-2 text-right font-semibold">Value</th>
@@ -2121,7 +2159,7 @@ export default function ReportsSummary() {
                 {!anyCarried && <p className="text-xs text-amber-600 mb-2">The freight list doesn\'t carry the goods value per slip yet, so the share can\'t be computed. Freight totals are shown; wiring the carried value is a follow-up.</p>}
                 <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-sm bg-white">
                   <table className="w-full text-[13px]">
-                    <thead><tr className="bg-gradient-to-r from-sky-50 to-blue-50 text-[11px] uppercase tracking-wide text-blue-700/80 border-b border-blue-100">
+                    <thead><tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 text-[11px] uppercase tracking-wider text-slate-500 border-b border-primary-100">
                       <th className="px-3 py-2 text-left font-semibold">{tab.party}</th>
                       <th className="px-3 py-2 text-right font-semibold">Freight</th>
                       <th className="px-3 py-2 text-right font-semibold">Value carried</th>
@@ -2162,7 +2200,7 @@ export default function ReportsSummary() {
                           <span className={`text-slate-400 transition-transform ${open ? 'rotate-90 text-blue-600' : ''}`}>▶</span>
                           <span className="font-semibold text-slate-800">{it.item}</span>
                           <span className="text-slate-400 text-xs">{it.uom}</span>
-                          {it.category && <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-indigo-50 text-indigo-700 border border-indigo-100">{it.category}</span>}
+                          {it.category && <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border ${catChipCls(it.category)}`}>{it.category}</span>}
                           <span className="ml-auto text-[12px] text-slate-500">{it.vendors.length} vendors</span>
                           {it.cheapest_vendor && <span className="text-[12px] text-emerald-700 font-medium hidden sm:inline">cheapest: {it.cheapest_vendor}</span>}
                           {spread != null && spread > 0 && <span className={`text-[11px] font-semibold ${spread > 50 ? 'text-rose-600' : 'text-amber-600'}`}>spread {spread.toFixed(0)}%</span>}

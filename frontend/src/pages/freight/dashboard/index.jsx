@@ -12,7 +12,7 @@
  * is no "taxable vs incl-GST" split to toggle the way Purchase bills have. The
  * figures here are the freight spend itself.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BarChart3, Loader2, CheckCircle2, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -22,6 +22,7 @@ import ListState from '@/components/common/ListState.jsx';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { PeriodNavigator, usePeriodFilter, inWindow } from '@/components/common/PeriodNavigator';
 import apiClient from '../../../utils/api.js';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import { formatCurrency } from '@/utils/formatters';
 
 const fmtMoney0 = (v) => `₹${Math.round(Number(v) || 0).toLocaleString('en-IN')}`;
@@ -118,7 +119,15 @@ export default function FreightDashboard() {
   const [error, setError] = useState(null);
 
   const [sp, setSp] = useSearchParams();
-  const [company, setCompany] = useState(sp.get('company') || '');
+  // Company comes from the GLOBAL header filter. This page filters client-side by
+  // company NAME but the paid-by-category API needs the id, so keep both. '' = All.
+  const { company: globalCompany, companies: globalCompanies } = useGlobalCompany();
+  const companyId = globalCompany || '';
+  const company = globalCompany
+    ? ((globalCompanies || []).find((c) => String(c.id) === String(globalCompany))?.legal_name
+       || (globalCompanies || []).find((c) => String(c.id) === String(globalCompany))?.trade_name
+       || '')
+    : '';
   const [warehouse, setWarehouse] = useState(sp.get('warehouse') || '');
   const [transporter, setTransporter] = useState(sp.get('transporter') || '');
   // Analytics page → default to the current month, like Purchase / Sales.
@@ -128,11 +137,10 @@ export default function FreightDashboard() {
   useEffect(() => {
     const p = new URLSearchParams(sp);
     const setOrDel = (k, v) => { if (v) p.set(k, v); else p.delete(k); };
-    setOrDel('company', company);
     setOrDel('warehouse', warehouse);
     setOrDel('transporter', transporter);
     if (p.toString() !== sp.toString()) setSp(p, { replace: true });
-  }, [company, warehouse, transporter, sp, setSp]);
+  }, [warehouse, transporter, sp, setSp]);
 
   const load = () => {
     setLoading(true); setError(null);
@@ -166,12 +174,12 @@ export default function FreightDashboard() {
     const qp = new URLSearchParams({ period: period.period });
     if (r?.from) qp.set('from', iso(r.from));
     if (r?.to) qp.set('to', iso(r.to));
-    if (company) qp.set('company', company);
+    if (companyId) qp.set('company', companyId);
     apiClient.get(`/api/purchase/dashboard/paid-by-category/?${qp.toString()}`)
       .then(({ data }) => { if (!cancelled) setCashPaid(data?.freight != null ? Number(data.freight) : null); })
       .catch(() => { if (!cancelled) setCashPaid(null); });
     return () => { cancelled = true; };
-  }, [period.range?.from, period.range?.to, period.period, company]);
+  }, [period.range?.from, period.range?.to, period.period, companyId]);
 
   // Normalise every source into one shape so filters apply uniformly.
   // `pending` marks a separately-payable freight record that still needs
@@ -207,23 +215,10 @@ export default function FreightDashboard() {
 
   // Option lists come from the full (unfiltered) set so a filter never hides
   // its own remaining choices.
-  const companies   = useMemo(() => [...new Set(records.map((r) => r.company).filter(Boolean))].sort(), [records]);
   const warehouses  = useMemo(() => [...new Set(records.map((r) => r.warehouse).filter(Boolean))].sort(), [records]);
   const transporters = useMemo(() => [...new Set(records.map((r) => r.transporter).filter(Boolean))].sort(), [records]);
 
-  // SS Biochem is the default scope on every analytics page. Once the records
-  // load, pre-select the SS company (unless one is already chosen); the user can
-  // switch to United Agro or clear to see all for the session. Freight filters by
-  // company NAME, so match the SS legal name.
-  const didDefaultCompany = useRef(false);
-  useEffect(() => {
-    if (didDefaultCompany.current) return;
-    if (company) { didDefaultCompany.current = true; return; }
-    const ss = companies.find((c) => /biochem/i.test(c));
-    if (ss) { didDefaultCompany.current = true; setCompany(ss); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companies]);
-
+  // Company scope is the global header filter (SS default). No local default.
   const filtered = useMemo(() => records.filter((r) =>
     (!company || r.company === company)
     && (!warehouse || r.warehouse === warehouse)
@@ -308,10 +303,6 @@ export default function FreightDashboard() {
         {/* Filter bar — period + company + warehouse + transporter. */}
         <div className="bg-white rounded-xl border border-slate-200 p-2.5 flex flex-wrap items-center gap-2">
           <PeriodNavigator {...period.navProps} />
-          <CustomSelect value={company} onChange={(e) => setCompany(e.target.value)} title="Company" className={SEL}>
-            <option value="">All Companies</option>
-            {companies.map((c) => <option key={c} value={c}>{c}</option>)}
-          </CustomSelect>
           <CustomSelect value={warehouse} onChange={(e) => setWarehouse(e.target.value)} title="Warehouse / Factory" className={SEL}>
             <option value="">All Warehouses</option>
             {warehouses.map((w) => <option key={w} value={w}>{w}</option>)}
@@ -320,9 +311,9 @@ export default function FreightDashboard() {
             <option value="">All Transporters</option>
             {transporters.map((t) => <option key={t} value={t}>{t}</option>)}
           </CustomSelect>
-          {(company || warehouse || transporter || period.period !== 'month') && (
+          {(warehouse || transporter || period.period !== 'month') && (
             <button type="button"
-              onClick={() => { setCompany(''); setWarehouse(''); setTransporter(''); period.navProps.setPeriod('month'); }}
+              onClick={() => { setWarehouse(''); setTransporter(''); period.navProps.setPeriod('month'); }}
               className="text-xs font-medium text-slate-500 hover:text-slate-700 px-2 h-9">Reset</button>
           )}
         </div>

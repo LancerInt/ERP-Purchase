@@ -1,13 +1,14 @@
-import CustomDatePicker from "@/components/ui/CustomDatePicker";
 import CustomSelect from "@/components/ui/CustomSelect";
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { PeriodNavigator, usePeriodFilter } from '@/components/common/PeriodNavigator';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import DataTable from '../../../components/common/DataTable';
 import StatusBadge from '../../../components/common/StatusBadge';
 import useApiData from '../../../hooks/useApiData.js';
 import useLookup from '../../../hooks/useLookup.js';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import usePermissions from '../../../hooks/usePermissions.js';
 import { AlertTriangle, TrendingDown, CheckCircle, Clock, IndianRupee, Eye } from 'lucide-react';
 import MobileListCards from '../components/MobileListCards';
@@ -34,7 +35,12 @@ export default function VendorDuesPage() {
   // (tds_amount, rm_category, purchase_category_display, category_source and
   // the audit stamps) are not referenced here. It was pulling the FULL list -
   // 3,168 rows and 3.1 MB on production, the heaviest load on the page.
-  const { data: billsData, isLoading, error, refetch } = useApiData('/api/purchase/bills/?slim=list');
+  // Scope to the global company filter (SS default; '' = All). The bills
+  // endpoint supports ?company=<id>.
+  const { company: globalCompany } = useGlobalCompany();
+  const { data: billsData, isLoading, error, refetch } = useApiData(
+    `/api/purchase/bills/?slim=list${globalCompany ? `&company=${globalCompany}` : ''}`,
+  );
   // ?slim=1 -> id + vendor_name only. This is a dropdown; the full vendor
   // record is ~1.2 MB and the page uses the name. Opt-in, so every other
   // caller of /api/vendors/ is untouched, and useLookup caches per endpoint
@@ -49,8 +55,8 @@ export default function VendorDuesPage() {
   const [sp] = useSearchParams();
   const [vendorFilter, setVendorFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  // Standard period navigator (All / Today / Week / Month / FY / Custom).
+  const period = usePeriodFilter('all');
   const [search, setSearch] = useState(sp.get('vendor_name') || '');
   const [expandedVendor, setExpandedVendor] = useState(null);
 
@@ -70,8 +76,7 @@ export default function VendorDuesPage() {
     let result = bills;
     if (vendorFilter) result = result.filter(b => b.vendor === vendorFilter);
     if (statusFilter) result = result.filter(b => b.due_status === statusFilter);
-    if (dateFrom) result = result.filter(b => b.bill_date >= dateFrom);
-    if (dateTo) result = result.filter(b => b.bill_date <= dateTo);
+    result = result.filter(b => period.match(b.bill_date));
     if (search) {
       const s = search.toLowerCase();
       result = result.filter(b =>
@@ -82,7 +87,7 @@ export default function VendorDuesPage() {
       );
     }
     return result;
-  }, [bills, vendorFilter, statusFilter, dateFrom, dateTo, search]);
+  }, [bills, vendorFilter, statusFilter, period, search]);
 
   // Vendor-wise summary
   const vendorSummary = useMemo(() => {
@@ -209,7 +214,10 @@ export default function VendorDuesPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-lg border border-slate-200 p-4 mb-4">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="mb-3">
+          <PeriodNavigator allowAll {...period.navProps} />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Vendor</label>
             <CustomSelect value={vendorFilter} onChange={e => setVendorFilter(e.target.value)} className={inputClass + ' w-full'}>
@@ -225,14 +233,6 @@ export default function VendorDuesPage() {
               <option value="Partially Paid">Partially Paid</option>
               <option value="Overdue">Overdue</option>
             </CustomSelect>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">From Date</label>
-            <CustomDatePicker value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={inputClass + ' w-full'} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">To Date</label>
-            <CustomDatePicker value={dateTo} onChange={e => setDateTo(e.target.value)} className={inputClass + ' w-full'} />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Search</label>

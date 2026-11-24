@@ -144,7 +144,6 @@ const EvaluationDetail = lazy(() => import('./pages/purchase/evaluations/[id].js
 const PurchaseLifecycleDashboard = lazy(() => import('./pages/purchase/lifecycle/index.jsx'));
 const PurchaseDashboard = lazy(() => import('./pages/purchase/dashboard/index.jsx'));
 const PurchaseDashboardOverview = lazy(() => import('./pages/purchase/overview/index.jsx'));
-const ConsolidatedReport = lazy(() => import('./pages/purchase/reports/index.jsx'));
 const PurchaseStock = lazy(() => import('./pages/purchase/stock/index.jsx'));
 const PurchaseStockDetail = lazy(() => import('./pages/purchase/stock/[id].jsx'));
 const PurchaseTdsSummary = lazy(() => import('./pages/purchase/tds/index.jsx'));
@@ -595,7 +594,6 @@ function App() {
           {/* Original purchase Dashboard/Analytics UI, now fed with Zoho data
               (the pages fetch the /api/purchase/zoho/* endpoints). */}
           <Route path="/purchase/overview" element={<ProtectedRoute module="Purchase Dashboard"><PurchaseDashboardOverview /></ProtectedRoute>} />
-          <Route path="/purchase/reports" element={<ProtectedRoute module="Consolidated Report"><ConsolidatedReport /></ProtectedRoute>} />
           <Route path="/purchase/stock" element={<ProtectedRoute module="Stock"><PurchaseStock /></ProtectedRoute>} />
           <Route path="/purchase/stock/:id" element={<ProtectedRoute module="Stock"><PurchaseStockDetail /></ProtectedRoute>} />
           <Route path="/purchase/tds" element={<ProtectedRoute module="TDS Summary"><PurchaseTdsSummary /></ProtectedRoute>} />

@@ -51,6 +51,26 @@ class OpeningStock(BaseModel):
         return f'{self.product_id} opening {self.quantity} @ {self.as_of_date}'
 
 
+class StockIssue(BaseModel):
+    """A quantity of a product ISSUED / USED / consumed out of stock, entered
+    manually on the Stock page. On-hand = Opening + Received − Σ(StockIssue).
+    One row per issue event (date + qty + optional note)."""
+    product = models.ForeignKey('master.Product', on_delete=models.CASCADE, related_name='stock_issues')
+    warehouse = models.ForeignKey('core.Warehouse', on_delete=models.SET_NULL, null=True, blank=True)
+    issue_date = models.DateField(db_index=True)
+    quantity = models.DecimalField(max_digits=15, decimal_places=3, default=0)
+    uom = models.CharField(max_length=10, blank=True, default='')
+    note = models.CharField(max_length=255, blank=True, default='')
+
+    class Meta:
+        app_label = 'inventory'
+        ordering = ['-issue_date']
+        indexes = [models.Index(fields=['product', 'issue_date'])]
+
+    def __str__(self):
+        return f'{self.product_id} issued {self.quantity} @ {self.issue_date}'
+
+
 class InventoryLedger(BaseModel):
     """Stub: on-hand stock ledger. Empty here (purchase-only build), so the
     Purchase Items page shows blank current_stock rather than crashing.

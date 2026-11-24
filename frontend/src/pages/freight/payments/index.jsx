@@ -1,7 +1,7 @@
-import CustomDatePicker from "@/components/ui/CustomDatePicker";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PeriodNavigator, usePeriodFilter } from '@/components/common/PeriodNavigator';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import DataTable from '../../../components/common/DataTable';
@@ -31,8 +31,8 @@ export default function FreightPaymentList() {
   // Domain filters live in the URL so Back / refresh / sharing restore them.
   const [typeFilter, setTypeFilter] = useUrlState('type', '');
   const [modeFilter, setModeFilter] = useUrlState('mode', '');
-  const [dateFrom, setDateFrom] = useUrlState('from', '');
-  const [dateTo, setDateTo] = useUrlState('to', '');
+  // Standard period navigator (All / Today / Week / Month / FY / Custom).
+  const period = usePeriodFilter('all');
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -165,8 +165,7 @@ export default function FreightPaymentList() {
     let result = unifiedData;
     if (typeFilter) result = result.filter(p => p.direction === typeFilter);
     if (modeFilter) result = result.filter(p => p.payment_mode === modeFilter);
-    if (dateFrom) result = result.filter(p => p.payment_date >= dateFrom);
-    if (dateTo) result = result.filter(p => p.payment_date <= dateTo);
+    result = result.filter(p => period.match(p.payment_date));
     if (search) {
       const s = search.toLowerCase();
       result = result.filter(p =>
@@ -177,7 +176,7 @@ export default function FreightPaymentList() {
       );
     }
     return result;
-  }, [unifiedData, typeFilter, modeFilter, dateFrom, dateTo, search]);
+  }, [unifiedData, typeFilter, modeFilter, period, search]);
 
   // Summary
   const summary = useMemo(() => {
@@ -338,16 +337,16 @@ export default function FreightPaymentList() {
         </div>
       </div>
 
-      {/* Search bar — always visible. */}
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3 sm:mb-4">
-        <label className="block text-xs font-medium text-slate-500 mb-1">Search</label>
-        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Freight no, party, ref..." className={inputClass + ' w-full'} />
+      {/* Period + search — always visible. */}
+      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3 sm:mb-4 flex flex-wrap items-center gap-3">
+        <PeriodNavigator allowAll {...period.navProps} />
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Freight no, party, ref..." className={`${inputClass} flex-1 min-w-[180px]`} />
       </div>
 
       {/* Filters — toggled by header Filters button. */}
       {showFilters && (
       <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3 sm:mb-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Freight Type</label>
             <CustomSelect value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className={inputClass + ' w-full'}>
@@ -368,14 +367,6 @@ export default function FreightPaymentList() {
               <option value="RTGS">RTGS</option>
               <option value="OTHER">Other</option>
             </CustomSelect>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">From Date</label>
-            <CustomDatePicker value={dateFrom} onChange={e => setDateFrom(e.target.value)} className={inputClass + ' w-full'} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">To Date</label>
-            <CustomDatePicker value={dateTo} onChange={e => setDateTo(e.target.value)} className={inputClass + ' w-full'} />
           </div>
         </div>
       </div>

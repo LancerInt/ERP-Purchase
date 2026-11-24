@@ -136,6 +136,27 @@ const GST_LEGEND = (
   </div>
 );
 
+// Key for the "Appears in" column's letter chips — spells out which pages each
+// bill reaches (A C P L S O), so the single-letter chips aren't cryptic.
+const APPEARS_LEGEND = (
+  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+    <span className="font-medium text-slate-400">Appears in</span>
+    <span><b className="text-slate-600">A</b> Analytics</span>
+    <span><b className="text-slate-600">C</b> By Category</span>
+    <span><b className="text-slate-600">P</b> Payments</span>
+    <span><b className="text-slate-600">L</b> Ledger</span>
+    <span><b className="text-slate-600">S</b> Stock</span>
+    <span><b className="text-slate-600">O</b> Purchase Order</span>
+  </div>
+);
+
+const BILLS_FOOTER = (
+  <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+    {GST_LEGEND}
+    {APPEARS_LEGEND}
+  </div>
+);
+
 export default function VendorBillList({ expenseOnly = false } = {}) {
   const navigate = useNavigate();
   // ?slim=list -> this table's columns only; drops the fields it never
@@ -541,6 +562,33 @@ export default function VendorBillList({ expenseOnly = false } = {}) {
             {sync && (
               <span title={sync.title}
                 className={`text-[10px] font-medium border rounded px-1 py-0.5 ${sync.cls}`}>{sync.label}</span>
+            )}
+          </div>
+        );
+      },
+    },
+
+    {
+      // "Appears in" — which pages this bill reaches (from the server-computed
+      // `reach`). Every live bill hits the money reports; Stock needs goods
+      // lines, PO needs a linked order. Lets you spot a bill that isn't feeding
+      // Stock (no receipt/lines) or the PO table at a glance.
+      key: 'reach', label: 'Appears in', sortable: false,
+      render: (_v, row) => {
+        const r = row.reach || {};
+        const CHIPS = [
+          ['A', 'analytics', 'Analytics', 'bg-indigo-50 text-indigo-700 border-indigo-200'],
+          ['C', 'by_category', 'By Category', 'bg-violet-50 text-violet-700 border-violet-200'],
+          ['P', 'payments', 'Payments', 'bg-emerald-50 text-emerald-700 border-emerald-200'],
+          ['L', 'ledger', 'Vendor Ledger', 'bg-sky-50 text-sky-700 border-sky-200'],
+          ['S', 'stock', 'Stock', 'bg-amber-50 text-amber-700 border-amber-200'],
+          ['O', 'po', 'Purchase Order', 'bg-teal-50 text-teal-700 border-teal-200'],
+        ];
+        return (
+          <div className="flex items-center gap-0.5 whitespace-nowrap">
+            {CHIPS.map(([ch, key, title, cls]) => r[key]
+              ? <span key={key} title={`${title} ✓`} className={`inline-flex h-4 w-4 items-center justify-center rounded text-[9px] font-bold border ${cls}`}>{ch}</span>
+              : <span key={key} title={`${title} — not shown`} className="inline-flex h-4 w-4 items-center justify-center rounded text-[9px] font-bold border border-slate-100 bg-slate-50 text-slate-300">{ch}</span>
             )}
           </div>
         );
@@ -1111,7 +1159,7 @@ export default function VendorBillList({ expenseOnly = false } = {}) {
         }}
       />
       <div className="hidden sm:block">
-        <DataTable dense persistKey="purchase-bills" exportFileName="vendor-bills" canExport={canExport('Vendor Bill')} columns={tableColumns} data={filteredData} isLoading={isLoading} pageSize={15} footerExtra={GST_LEGEND} onRowClick={(row) => (linkMode ? linkFreightToBill(row) : openQuick(row.id))} />
+        <DataTable dense persistKey="purchase-bills" exportFileName="vendor-bills" canExport={canExport('Vendor Bill')} columns={tableColumns} data={filteredData} isLoading={isLoading} pageSize={15} footerExtra={BILLS_FOOTER} onRowClick={(row) => (linkMode ? linkFreightToBill(row) : openQuick(row.id))} />
       </div>
       </ListState>
       <ManualBillModal isOpen={manualBillOpen} onClose={() => setManualBillOpen(false)} />

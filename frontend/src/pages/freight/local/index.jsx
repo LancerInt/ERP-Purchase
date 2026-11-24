@@ -4,11 +4,12 @@ import { Plus, Truck, IndianRupee, CheckCircle2, Clock, ArrowDownLeft, ArrowUpRi
 import MainLayout from '../../../components/layout/MainLayout';
 import DataTable from '../../../components/common/DataTable';
 import CustomSelect from '@/components/ui/CustomSelect';
+import { PeriodNavigator, usePeriodFilter } from '@/components/common/PeriodNavigator';
 import useApiData from '../../../hooks/useApiData.js';
 import useLookup from '../../../hooks/useLookup.js';
 import usePermissions from '../../../hooks/usePermissions.js';
 import { useUrlState } from '../../../hooks/useUrlState.js';
-import CompanyToggle from '../../../components/common/CompanyToggle.jsx';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import { CTRL_SEG, CTRL_SEG_ITEM, CTRL_FIELD, CTRL_ROW } from '@/components/common/controls';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 
@@ -27,35 +28,20 @@ export default function LocalFreightList() {
   const location = useLocation();
   const { canCreate } = usePermissions();
   const { data, isLoading } = useApiData('/api/purchase/local-freight/');
-  const { options: companyOptions } = useLookup('/api/companies/');
-  // Domain filters live in the URL so Back / refresh / sharing restore them.
-  const [companyName, setCompanyName] = useUrlState('company', '');
-  const companyId = (companyOptions.find((o) => String(o.label) === String(companyName))?.value) || '';
+  // Company comes from the GLOBAL header filter. This list filters by company
+  // NAME, so translate the global company id → its legal name. '' = All.
+  const { company: globalCompany, companies: globalCompanies } = useGlobalCompany();
+  const companyId = globalCompany || '';
+  const companyName = globalCompany
+    ? ((globalCompanies || []).find((c) => String(c.id) === String(globalCompany))?.legal_name
+       || (globalCompanies || []).find((c) => String(c.id) === String(globalCompany))?.trade_name
+       || '')
+    : '';
   const [warehouse, setWarehouse] = useUrlState('warehouse', '');
   const { options: warehouseOptions } = useLookup(companyId ? `/api/warehouses/?company=${companyId}` : '/api/warehouses/');
   const [search, setSearch] = useState('');
-  const [datePreset, setDatePreset] = useState('all');
-  const [dateFrom, setDateFrom] = useUrlState('from', '');
-  const [dateTo, setDateTo] = useUrlState('to', '');
-
-  // Same presets as Inward / Outward Freight, so the three pages behave alike.
-  const applyDatePreset = (k) => {
-    setDatePreset(k);
-    const now = new Date();
-    if (k === 'all') { setDateFrom(''); setDateTo(''); return; }
-    if (k === 'today') { const t = iso(now); setDateFrom(t); setDateTo(t); return; }
-    if (k === 'week') {
-      const m = new Date(now); m.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-      setDateFrom(iso(m)); setDateTo(iso(now)); return;
-    }
-    if (k === 'month') {
-      setDateFrom(iso(new Date(now.getFullYear(), now.getMonth(), 1))); setDateTo(iso(now)); return;
-    }
-    if (k === 'fy') {
-      const y = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-      setDateFrom(iso(new Date(y, 3, 1))); setDateTo(iso(now));
-    }
-  };
+  // Standard period navigator (All / Today / Week / Month / FY / Custom).
+  const period = usePeriodFilter('all');
 
   // Tolerant company match — see Inward/Outward Freight: match on the distinctive
   // token so legal_name / trade_name / casing differences never filter out rows.
@@ -68,15 +54,14 @@ export default function LocalFreightList() {
       if (companyToken ? !rn.includes(companyToken) : !(rn === companyName.toLowerCase() || rn.includes(companyName.toLowerCase()))) return false;
     }
     if (warehouse && String(r.factory) !== String(warehouse)) return false;
-    if (dateFrom && String(r.date || '') < dateFrom) return false;
-    if (dateTo && String(r.date || '') > dateTo) return false;
+    if (!period.match(String(r.date || ''))) return false;
     if (search) {
       const q = search.toLowerCase();
       const hay = `${r.freight_no || ''} ${r.lorry_no || ''} ${r.transporter_name || ''} ${r.bill_no || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
-  }), [all, companyName, warehouse, dateFrom, dateTo, search]);
+  }), [all, companyName, warehouse, period, search]);
 
   const stats = useMemo(() => {
     const value = rows.reduce((s, r) => s + (Number(r.payable_amount ?? r.freight_amount) || 0), 0);
@@ -116,7 +101,6 @@ export default function LocalFreightList() {
             <p className="hidden sm:block text-slate-600 mt-1 text-sm sm:text-base">Standalone freight &amp; charges bills</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <CompanyToggle value={companyName} onChange={setCompanyName} />
             {canCreate('Local Freight') && (
               <button onClick={() => navigate('/freight/local/new')} className="flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shrink-0">
                 <Plus size={18} /> <span className="hidden xs:inline">New </span>Local Freight
@@ -150,11 +134,8 @@ export default function LocalFreightList() {
             toolbar vocabulary so it reflows on phones and keeps touch-sized taps. */}
         <div className="bg-white rounded-lg border border-slate-200 px-2.5 py-2.5">
           <div className={CTRL_ROW}>
-            <div className={`${CTRL_SEG} shrink-0`}>
-              {[{ k: 'today', label: 'Today' }, { k: 'week', label: 'Week' }, { k: 'month', label: 'Month' }, { k: 'fy', label: 'FY' }, { k: 'all', label: 'All' }].map((p, i) => (
-                <button key={p.k} type="button" onClick={() => applyDatePreset(p.k)} className={CTRL_SEG_ITEM(datePreset === p.k, i === 0)}>{p.label}</button>
-              ))}
-            </div>
+            {/* Standard period navigator (All / Today / Week / Month / FY / Custom). */}
+            <PeriodNavigator allowAll {...period.navProps} />
             <CustomSelect value={warehouse} onChange={(e) => setWarehouse(e.target.value)} className={`${CTRL_FIELD} max-w-[180px] shrink-0`}>
               <option value="">All Warehouses</option>
               {warehouseOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
