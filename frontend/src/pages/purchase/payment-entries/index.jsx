@@ -310,7 +310,7 @@ export default function PaymentEntries() {
 
   return (
     <MainLayout>
-      <PageHeader title="Payment Entries" subtitle="Every vendor payment recorded — a plain list of the entries" />
+      <PageHeader compact title="Payment Entries" subtitle="Every vendor payment recorded — a plain list of the entries" />
 
       {/* Metric strip — like the Bills page summary band. */}
       <div className="mb-3 flex items-stretch gap-2 rounded-lg border border-slate-200 bg-white py-2">

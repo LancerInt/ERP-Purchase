@@ -80,7 +80,7 @@ export default function Stock() {
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <PeriodNavigator allowAll {...period.navProps} />
         <select value={cat} onChange={(e) => setCat(e.target.value)}
-          className="h-9 px-3 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200">
+          className="h-9 pl-3 pr-8 rounded-lg border border-slate-300 text-sm bg-white min-w-[130px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
           <option value="">All categories</option>
           <option value="RM">RM</option>
           <option value="PM">PM</option>
