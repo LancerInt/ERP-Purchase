@@ -4036,8 +4036,8 @@ export default function PurchaseDashboard() {
                               <span className="truncate">{v.vendor_name}</span>
                               {/* Company as a coloured pill (SS / UAI) next to the
                                   name, matching Sales — not a line underneath.
-                                  Shown only when both companies are in view. */}
-                              {!companyId && v.company_name && (() => {
+                                  Always shown (SS / UAI). */}
+                              {v.company_name && (() => {
                                 const short = /biochem/i.test(v.company_name) ? 'SS' : /united\s*agro/i.test(v.company_name) ? 'UAI' : '';
                                 if (!short) return null;
                                 const cls = short === 'SS' ? 'text-sky-700 bg-sky-50 border-sky-200' : 'text-violet-700 bg-violet-50 border-violet-200';
