@@ -116,10 +116,10 @@ class Command(BaseCommand):
         # pan (4th item) given to the TDS vendor so the 194Q engine can act.
         vendor_defs = [
             ('Asia Crystal Commodity LLP', 'RM', '33AABCA1234A1Z5', ''),
-            ('Kumaran Refractories', 'RM', '33AAACK5678B1Z2', 'SMALL'),      # MSME
-            ('Intellectual Technocrats', 'PACKING', '33AADCI9012C1Z8', 'MICRO'),  # MSME
-            ('Radha Feeds', 'RM', '', ''),
-            ('Green Packs India', 'PACKING', '33AABCG3456D1Z1', 'MEDIUM'),   # MSME
+            ('Kumaran Refractories', 'RM', '33AAACK5678B1Z2', 'SMALL'),      # MSME (UAI)
+            ('Intellectual Technocrats', 'PACKING', '33AADCI9012C1Z8', 'MICRO'),  # MSME (SS)
+            ('Radha Feeds', 'RM', '', 'SMALL'),                              # MSME (UAI)
+            ('Green Packs India', 'PACKING', '33AABCG3456D1Z1', 'MEDIUM'),   # MSME (SS)
             ('Sri Vinayaga Traders', 'RM', '33AADCS7788E1Z4', ''),
         ]
         vendors = []

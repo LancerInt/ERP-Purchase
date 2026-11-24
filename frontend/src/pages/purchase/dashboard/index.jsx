@@ -3126,11 +3126,10 @@ export default function PurchaseDashboard() {
   const period = searchParams.get('period') || 'month';
   const customFrom = searchParams.get('from') || todayISO();
   const customTo = searchParams.get('to') || todayISO();
-  // Company comes from the GLOBAL sticky filter (chips in the header), so the
-  // dashboard re-scopes whenever you switch company anywhere in the app. A
-  // ?company= URL param (from a drill-through link) still overrides it.
+  // Company comes from the GLOBAL sticky filter (chips in the header). It wins
+  // over any stale ?company= in the URL so switching the chip always re-scopes.
   const { company: globalCompany } = useGlobalCompany();
-  const companyId = searchParams.get('company') || globalCompany || '';
+  const companyId = globalCompany || searchParams.get('company') || '';
   const warehouseId = searchParams.get('warehouse') || '';
   const vendorId = searchParams.get('vendor') || '';
   const productId = searchParams.get('product') || '';
