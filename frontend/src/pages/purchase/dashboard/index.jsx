@@ -3677,11 +3677,8 @@ export default function PurchaseDashboard() {
           title="Purchase Analytics"
           breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Analytics' }]}
           actions={{
-            right: (
-              <div className="flex items-center gap-2">
-                {companyButtons}
-              </div>
-            ),
+            // Company chips now come from the global header filter (CompanyFilter
+            // in PageHeader) — no per-page duplicate here.
             onPrint: () => window.print(),
           }}
         />
