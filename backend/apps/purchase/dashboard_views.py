@@ -1280,6 +1280,7 @@ class PurchaseDashboardView(APIView):
                 'vendor_id': str(vid) if vid else None,
                 'vendor_name': name,
                 'company_name': co_by_vid.get(vid, ''),
+                'is_msme': msme_by_vid.get(vid, False),
                 'bill_count': b['bill_count'] if b else 0,
                 'billed': _money(billed_net),
                 'paid': _money(paid),

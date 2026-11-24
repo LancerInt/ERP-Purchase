@@ -4035,6 +4035,11 @@ export default function PurchaseDashboard() {
                                 const cls = short === 'SS' ? 'text-sky-700 bg-sky-50 border-sky-200' : 'text-violet-700 bg-violet-50 border-violet-200';
                                 return <span className={`shrink-0 text-[9px] font-bold uppercase tracking-wide rounded px-1 py-0.5 border ${cls}`}>{short}</span>;
                               })()}
+                              {/* MSME supplier flag — §43B(h) 15/45-day payment rule. */}
+                              {v.is_msme && (
+                                <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide rounded px-1 py-0.5 border text-amber-700 bg-amber-50 border-amber-200"
+                                  title={`MSME supplier${v.msme_category ? ' · ' + v.msme_category : ''} (§43B(h) 15/45-day payment rule)`}>MSME</span>
+                              )}
                             </span>
                           </td>
                           <td className="px-3 py-2.5 text-right tabular-nums text-slate-800 whitespace-nowrap">{fmtINRfull(v.billed)}</td>

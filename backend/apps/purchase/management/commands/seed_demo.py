@@ -41,8 +41,12 @@ class Command(BaseCommand):
             w(self.style.ERROR('No Company/Warehouse — run setup_admin first.'))
             return
 
-        # Second demo company so the global Company filter has something to
-        # switch between (the first is the setup_admin "Main Company").
+        # Name the first company SS Biochem (setup_admin creates "Main Company").
+        if company.trade_name != 'SS Biochem':
+            company.legal_name = 'SS Biochem'
+            company.trade_name = 'SS Biochem'
+            company.save(update_fields=['legal_name', 'trade_name'])
+        # Second demo company so the global Company filter has something to switch.
         company2, _c2 = Company.objects.get_or_create(
             company_code='COMP02',
             defaults=dict(legal_name='United Agro Industries', trade_name='United Agro'))
