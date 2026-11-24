@@ -1,32 +1,40 @@
 // Stock — on-hand qty per product. Stock = opening balance + receipts up to the
-// chosen "as of" month, so picking a past month recomputes stock dynamically.
+// selected period's end, so picking a past period recomputes stock dynamically.
+// Header + filter bar match the other purchase pages (PageHeader + PeriodNavigator).
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Package, Search, Pencil, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
+import { PeriodNavigator, usePeriodFilter, todayISO } from '@/components/common/PeriodNavigator';
 import apiClient from '../../../utils/api.js';
 
 const fmtQty = (v) => Number(v || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
-// Last day of a YYYY-MM month (the "as of" date for that month).
-const monthEnd = (ym) => { if (!ym) return ''; const [y, m] = ym.split('-').map(Number); return new Date(y, m, 0).toISOString().slice(0, 10); };
-const thisMonth = () => new Date().toISOString().slice(0, 7);
 
 export default function Stock() {
+  const [searchParams] = useSearchParams();
+  const period = usePeriodFilter(searchParams.get('period') || 'all', {
+    anchor: searchParams.get('anchor'),
+    customFrom: searchParams.get('cfrom'),
+    customTo: searchParams.get('cto'),
+  });
+  // Stock is computed AS OF the end of the selected period (null for All = now).
+  const asOf = period.range?.to || null;
+
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState('0');
   const [search, setSearch] = useState('');
-  const [month, setMonth] = useState('');       // '' = current / all-time
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [edit, setEdit] = useState(null);        // product row being given opening stock
+  const [edit, setEdit] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
       const p = new URLSearchParams();
       if (search.trim()) p.set('search', search.trim());
-      if (month) p.set('as_of', monthEnd(month));
+      if (asOf) p.set('as_of', asOf);
       const { data } = await apiClient.get(`/api/purchase/stock/?${p.toString()}`);
       setRows(data.items || []);
       setTotal(data.total_qty || '0');
@@ -35,7 +43,7 @@ export default function Stock() {
     } finally {
       setLoading(false);
     }
-  }, [search, month]);
+  }, [search, asOf]);
 
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
 
@@ -43,10 +51,8 @@ export default function Stock() {
     e.preventDefault();
     try {
       await apiClient.post('/api/purchase/stock/', {
-        product: edit.product_id,
-        quantity: edit.qty,
-        as_of_date: edit.date,
-        uom: edit.uom || '',
+        product: edit.product_id, quantity: edit.qty,
+        as_of_date: edit.date, uom: edit.uom || '',
       });
       toast.success('Opening stock saved.');
       setEdit(null);
@@ -59,26 +65,21 @@ export default function Stock() {
   return (
     <MainLayout>
       <PageHeader
+        compact
         title="Stock"
         subtitle="On-hand quantity per product — opening balance + purchase receipts"
         breadcrumbs={[{ label: 'Purchase' }, { label: 'Stock' }]}
       />
 
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px] max-w-md">
+      {/* Same filter bar as the other pages: period widget + search. */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <PeriodNavigator allowAll {...period.navProps} />
+        <div className="relative flex-1 min-w-[200px] max-w-sm ml-auto">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search product…"
-            className="w-full h-10 pl-9 pr-3 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
+            className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-slate-600 whitespace-nowrap">Stock as of:</label>
-          <input type="month" value={month} max={thisMonth()} onChange={(e) => setMonth(e.target.value)}
-            className="h-10 px-3 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200" />
-          {month && (
-            <button onClick={() => setMonth('')} className="text-xs text-slate-500 hover:text-slate-700 underline">now</button>
-          )}
-        </div>
-        <div className="ml-auto text-sm text-slate-500"><span className="font-semibold text-slate-700">{rows.length}</span> products</div>
+        <span className="text-sm text-slate-500 whitespace-nowrap"><span className="font-semibold text-slate-700">{rows.length}</span> products</span>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -124,7 +125,7 @@ export default function Stock() {
                   <td className="px-4 py-2.5 text-slate-600">{r.uom || '—'}</td>
                   <td className="px-4 py-2.5 text-right">
                     <button title="Set opening stock"
-                      onClick={() => setEdit({ product_id: r.product_id, product: r.product, uom: r.uom, qty: r.opening || '', date: monthEnd(month) || new Date().toISOString().slice(0, 10) })}
+                      onClick={() => setEdit({ product_id: r.product_id, product: r.product, uom: r.uom, qty: r.opening || '', date: asOf || todayISO() })}
                       className="text-slate-400 hover:text-indigo-600"><Pencil size={14} /></button>
                   </td>
                 </tr>
@@ -141,11 +142,9 @@ export default function Stock() {
         )}
       </div>
 
-      {/* Set opening stock dialog */}
       {edit && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4" onClick={() => setEdit(null)}>
-          <form onClick={(e) => e.stopPropagation()} onSubmit={saveOpening}
-            className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
+          <form onClick={(e) => e.stopPropagation()} onSubmit={saveOpening} className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-slate-800">Opening stock</h3>
               <button type="button" onClick={() => setEdit(null)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
