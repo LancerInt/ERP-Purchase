@@ -36,6 +36,24 @@ class StockView(APIView):
                             receipts=Count('receipt_id', distinct=True))
                   .order_by('-on_hand'))
 
+        # Category (RM / PM) per product: take the dominant purchase category of
+        # the bills that product appears on. RM -> RM, PACKING -> PM.
+        from collections import Counter
+        from .models import VendorBillLine
+        cat_map = {}
+        for bl in (VendorBillLine.objects.filter(product__isnull=False)
+                   .exclude(bill__status='CANCELLED')
+                   .values('product_id', 'bill__purchase_category')):
+            cat_map.setdefault(bl['product_id'], Counter())[bl['bill__purchase_category'] or ''] += 1
+
+        def _cat(pid):
+            c = cat_map.get(pid)
+            if not c:
+                return ''
+            top = c.most_common(1)[0][0]
+            return {'RM': 'RM', 'PACKING': 'PM', 'MAIZE': 'RM',
+                    'BOUGHT_NOTE': 'RM'}.get(top, top or '')
+
         out = []
         total_qty = Decimal('0')
         for r in rows:
@@ -45,6 +63,7 @@ class StockView(APIView):
                 'product_id': str(r['product_id']),
                 'product': r['product__product_name'] or '—',
                 'sku': r['product__sku_code'] or '',
+                'category': _cat(r['product_id']),
                 'uom': r['uom'] or '',
                 'on_hand': str(qty),
                 'receipts': r['receipts'] or 0,
