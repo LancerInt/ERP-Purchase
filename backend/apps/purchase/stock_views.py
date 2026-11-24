@@ -162,3 +162,80 @@ class StockView(APIView):
         return Response({'id': str(row.id), 'product': str(row.product_id),
                          'as_of_date': row.as_of_date.isoformat(),
                          'quantity': str(row.quantity)}, status=201)
+
+
+class StockProductView(APIView):
+    """GET /api/purchase/stock/<product_id>/ — the movement history that builds
+    one product's on-hand: opening balance(s) + each receipt (date, GRN no,
+    vendor, qty). Optional company / as_of filters, same as the list."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, product_id):
+        import datetime
+        from .models import ReceiptLine
+        from master.models import Product
+        from inventory.models import OpeningStock
+
+        company_id = (request.query_params.get('company') or '').strip() or None
+        as_of_raw = (request.query_params.get('as_of') or '').strip()
+        as_of = None
+        if as_of_raw:
+            try:
+                as_of = datetime.date.fromisoformat(as_of_raw[:10])
+            except ValueError:
+                as_of = None
+
+        product = Product.objects.filter(id=product_id).first()
+        if not product:
+            return Response({'detail': 'product not found.'}, status=404)
+
+        moves = []
+        # Opening balances (one or more, latest kept as the base).
+        opq = OpeningStock.objects.filter(product_id=product_id)
+        if company_id:
+            opq = opq.filter(warehouse__company_id=company_id)
+        if as_of:
+            opq = opq.filter(as_of_date__lte=as_of)
+        for op in opq.order_by('as_of_date'):
+            moves.append({
+                'date': op.as_of_date.isoformat() if op.as_of_date else None,
+                'type': 'Opening',
+                'reference': 'Opening balance',
+                'vendor': '',
+                'qty_in': str(op.quantity or 0),
+                'uom': op.uom or '',
+            })
+
+        # Receipt lines for this product.
+        rlq = (ReceiptLine.objects.filter(product_id=product_id, is_active=True)
+               .exclude(receipt__approval_status='REJECTED')
+               .select_related('receipt', 'receipt__vendor'))
+        if company_id:
+            rlq = rlq.filter(receipt__warehouse__company_id=company_id)
+        if as_of:
+            rlq = rlq.filter(receipt__receipt_date__date__lte=as_of)
+        for rl in rlq.order_by('receipt__receipt_date'):
+            rc = rl.receipt
+            moves.append({
+                'date': rc.receipt_date.date().isoformat() if rc and rc.receipt_date else None,
+                'type': 'Receipt',
+                'reference': rc.receipt_advice_no if rc else '',
+                'vendor': (rc.vendor.vendor_name if (rc and rc.vendor_id) else ''),
+                'qty_in': str(rl.quantity_received or 0),
+                'uom': rl.uom or '',
+            })
+
+        moves.sort(key=lambda m: (m['date'] or '9999'))
+        # Running balance.
+        running = Decimal('0')
+        for m in moves:
+            running += Decimal(str(m['qty_in'] or 0))
+            m['balance'] = str(running)
+
+        return Response({
+            'product_id': str(product.id),
+            'product': product.product_name,
+            'sku': product.sku_code or '',
+            'on_hand': str(running),
+            'moves': moves,
+        })

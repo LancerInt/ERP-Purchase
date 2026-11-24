@@ -297,9 +297,13 @@ class Command(BaseCommand):
             pool = prods_by_cat.get(category) or prods_by_cat['RM']
             rdate = today - datetime.timedelta(days=random.randint(5, 90))
             ra = ReceiptAdvice.objects.create(
-                warehouse=warehouse, vendor=v, receipt_date=rdate,
+                warehouse=warehouses.get(v.company_id, warehouse), vendor=v,
                 vehicle_number=f'TN-{random.randint(10,99)}-{random.randint(1000,9999)}',
             )
+            # receipt_date is auto_now_add (set to NOW on insert); override it to a
+            # realistic past date via .update() so the Stock drill shows a timeline.
+            ReceiptAdvice.objects.filter(pk=ra.pk).update(
+                receipt_date=datetime.datetime.combine(rdate, datetime.time(9, 0)))
             rc += 1
             for ln_i, prod in enumerate(random.sample(pool, min(2, len(pool))), start=1):
                 ReceiptLine.objects.create(

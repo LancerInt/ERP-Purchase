@@ -3,7 +3,7 @@
 // Uses the shared DataTable (same look as the Bills page) + the standard
 // compact header, period filter and global company filter.
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Pencil, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
@@ -22,6 +22,7 @@ const CAT_CLS = {
 
 export default function Stock() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const period = usePeriodFilter(searchParams.get('period') || 'all', {
     anchor: searchParams.get('anchor'),
     customFrom: searchParams.get('cfrom'),
@@ -121,6 +122,7 @@ export default function Stock() {
         pageSize={15}
         emptyMessage="No stock in this period — record a Receipt or set opening stock."
         footerExtra={<span className="text-sm font-semibold text-slate-700">Total on hand: {fmtQty(total)}</span>}
+        onRowClick={(row) => navigate(`/purchase/stock/${row.product_id}${asOf ? `?as_of=${asOf}` : ''}`)}
       />
 
       {edit && (

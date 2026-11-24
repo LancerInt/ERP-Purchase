@@ -146,6 +146,7 @@ const PurchaseDashboard = lazy(() => import('./pages/purchase/dashboard/index.js
 const PurchaseDashboardOverview = lazy(() => import('./pages/purchase/overview/index.jsx'));
 const ConsolidatedReport = lazy(() => import('./pages/purchase/reports/index.jsx'));
 const PurchaseStock = lazy(() => import('./pages/purchase/stock/index.jsx'));
+const PurchaseStockDetail = lazy(() => import('./pages/purchase/stock/[id].jsx'));
 const PurchaseTdsSummary = lazy(() => import('./pages/purchase/tds/index.jsx'));
 const PurchaseTdsReconcile = lazy(() => import('./pages/purchase/tds-reconcile/index.jsx'));
 const VendorCustomerReport = lazy(() => import('./pages/reports/vendor-customer/index.jsx'));
@@ -596,6 +597,7 @@ function App() {
           <Route path="/purchase/overview" element={<ProtectedRoute module="Purchase Dashboard"><PurchaseDashboardOverview /></ProtectedRoute>} />
           <Route path="/purchase/reports" element={<ProtectedRoute module="Consolidated Report"><ConsolidatedReport /></ProtectedRoute>} />
           <Route path="/purchase/stock" element={<ProtectedRoute module="Stock"><PurchaseStock /></ProtectedRoute>} />
+          <Route path="/purchase/stock/:id" element={<ProtectedRoute module="Stock"><PurchaseStockDetail /></ProtectedRoute>} />
           <Route path="/purchase/tds" element={<ProtectedRoute module="TDS Summary"><PurchaseTdsSummary /></ProtectedRoute>} />
           <Route path="/purchase/tds-reconcile" element={<ProtectedRoute module="TDS Reconciliation"><PurchaseTdsReconcile /></ProtectedRoute>} />
           <Route path="/purchase/dashboard" element={<ProtectedRoute module="Purchase Analytics"><PurchaseDashboard /></ProtectedRoute>} />
