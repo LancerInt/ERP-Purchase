@@ -212,10 +212,11 @@ class Command(BaseCommand):
         # ---- Purchase returns (debit notes) — these make Total Purchase sit
         # BELOW Amount Billed, so the dashboard's "difference" shows. ----
         dn = 0
-        for v in vendors[:3]:
+        for i, v in enumerate(vendors[:3], start=1):
             amt = Decimal(random.randint(10000, 40000))
             PurchaseDebitNote.objects.create(
                 vendor=v, company=company, side='PURCHASE', note_type='DEBIT',
+                note_no=f'DN-{i:04d}',
                 note_date=today - datetime.timedelta(days=random.randint(10, 90)),
                 amount=amt, taxable=(amt / Decimal('1.18')).quantize(Decimal('1.00')),
             )
