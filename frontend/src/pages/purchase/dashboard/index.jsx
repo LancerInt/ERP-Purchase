@@ -3675,7 +3675,7 @@ export default function PurchaseDashboard() {
         <PageHeader
           compact
           title="Purchase Analytics"
-          breadcrumbs={[{ label: 'Purchase', href: '/purchase/requests' }, { label: 'Analytics' }]}
+          breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Analytics' }]}
           actions={{
             right: (
               <div className="flex items-center gap-2">

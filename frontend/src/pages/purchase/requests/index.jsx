@@ -443,7 +443,7 @@ export default function PurchaseRequestList() {
         compact
         title="Purchase Requests"
         subtitle="Manage purchase requests and approvals"
-        breadcrumbs={[{ label: 'Requests' }]}
+        breadcrumbs={[{ label: 'Sourcing' }, { label: 'Requests (PR)' }]}
         actions={{
           onFilter: () => setShowFilters(!showFilters),
           ...(canCreate('Purchase Request') ? { createLink: '/purchase/requests/new', createLabel: 'New PR' } : {}),

@@ -99,9 +99,10 @@ export default function ConsolidatedReport() {
   return (
     <MainLayout>
       <PageHeader
+        compact
         title="Consolidated Report"
         subtitle="Sales, purchase, expense, freight & payments — one financial view."
-        breadcrumbs={[{ label: 'Purchase' }, { label: 'Consolidated Report' }]}
+        breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Reports' }]}
       />
       <div className="mb-4">{filterBar}</div>
 

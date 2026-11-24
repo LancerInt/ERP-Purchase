@@ -852,7 +852,7 @@ export default function VendorBillList({ expenseOnly = false } = {}) {
         subtitle={expenseOnly
           ? 'Direct & indirect expense bookings (journals / GST journals)'
           : 'Manage vendor invoices and bills'}
-        breadcrumbs={[{ label: expenseOnly ? 'Expense Bills' : 'Bills' }]}
+        breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: expenseOnly ? 'Expense Bills' : 'Bills' }]}
         actions={expenseOnly ? {
           right: (
             <div className="flex items-center gap-1.5">

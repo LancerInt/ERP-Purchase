@@ -310,7 +310,8 @@ export default function PaymentEntries() {
 
   return (
     <MainLayout>
-      <PageHeader compact title="Payment Entries" subtitle="Every vendor payment recorded — a plain list of the entries" />
+      <PageHeader compact title="Payment Entries"
+        breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Payment Entries' }]} />
 
       {/* Metric strip — like the Bills page summary band. */}
       <div className="mb-3 flex items-stretch gap-2 rounded-lg border border-slate-200 bg-white py-2">

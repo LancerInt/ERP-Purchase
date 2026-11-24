@@ -198,7 +198,7 @@ export default function PurchaseOrderList() {
         compact
         title="Purchase Orders"
         subtitle="Manage all purchase orders"
-        breadcrumbs={[{ label: 'Purchase' }, { label: 'Orders' }]}
+        breadcrumbs={[{ label: 'Sourcing' }, { label: 'Orders (PO)' }]}
         actions={{
           ...(canCreate('Purchase Order') ? { createLink: '/purchase/orders/new', createLabel: 'New PO' } : {}),
           onFilter: () => setShowFilters(!showFilters),

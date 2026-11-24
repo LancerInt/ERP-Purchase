@@ -137,7 +137,7 @@ export default function VendorCreditList() {
         compact
         title="Vendor Notes & Advances"
         subtitle="Manage vendor credit notes, debit notes and advance payments"
-        breadcrumbs={[{ label: 'Vendor Notes & Advances' }]}
+        breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Vendor Notes & Advances' }]}
         actions={{
           onFilter: () => setShowFilters(!showFilters),
           ...(canCreate('Vendor Credit') ? { createLink: '/purchase/vendor-credits/new', createLabel: 'New Credit Note' } : {}),

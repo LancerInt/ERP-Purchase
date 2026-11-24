@@ -73,7 +73,7 @@ export default function Stock() {
         compact
         title="Stock"
         subtitle="On-hand quantity per product — opening balance + purchase receipts"
-        breadcrumbs={[{ label: 'Purchase' }, { label: 'Stock' }]}
+        breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Stock' }]}
       />
 
       {/* Same filter bar as the other pages: period widget + search. */}

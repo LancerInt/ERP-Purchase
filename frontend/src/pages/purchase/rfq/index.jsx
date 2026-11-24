@@ -160,7 +160,7 @@ export default function RFQList() {
         compact
         title="Request for Quotation"
         subtitle="Manage RFQs sent to vendors"
-        breadcrumbs={[{ label: 'Masters', href: '/masters' }, { label: 'RFQ' }]}
+        breadcrumbs={[{ label: 'Sourcing' }, { label: 'RFQ' }]}
         actions={{
           onFilter: () => setShowFilters(!showFilters),
           ...(canCreate('RFQ') ? { createLink: '/purchase/rfq/new', createLabel: 'New RFQ' } : {}),

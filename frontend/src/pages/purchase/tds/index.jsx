@@ -72,9 +72,10 @@ export default function TdsSummary() {
   return (
     <MainLayout>
       <PageHeader
+        compact
         title="TDS Summary"
         subtitle="Per-vendor ERP-expected vs Tally-deducted TDS — Purchase / Expense / Freight."
-        breadcrumbs={[{ label: 'Purchase' }, { label: 'TDS Summary' }]}
+        breadcrumbs={[{ label: 'Tax / Compliance' }, { label: 'TDS Summary' }]}
       />
 
       <div className="flex flex-wrap items-center gap-2 mb-4">

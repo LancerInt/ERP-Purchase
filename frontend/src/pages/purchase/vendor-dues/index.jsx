@@ -154,7 +154,7 @@ export default function VendorDuesPage() {
         compact
         title="Vendor Dues"
         subtitle="Track pending payments and outstanding balances"
-        breadcrumbs={[{ label: 'Vendor Dues' }]}
+        breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Vendor Dues' }]}
       />
 
       {/* Summary Cards */}
