@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import DataTable from '../../../components/common/DataTable';
@@ -301,7 +302,10 @@ export default function VendorBillList({ expenseOnly = false } = {}) {
   const [catPick, setCatPick] = useState(() => (searchParams.get('cat') || '').split(',').filter(Boolean));
   const [whPick, setWhPick] = useState(searchParams.get('wh') || '');
   const [statusPick, setStatusPick] = useState(searchParams.get('st') || '');
-  const [companyPick, setCompanyPick] = useState(searchParams.get('company') || '');
+  const { company: globalCompany } = useGlobalCompany();
+  const [companyPick, setCompanyPick] = useState(searchParams.get('company') || globalCompany || '');
+  // Follow the global sticky company filter (header chips) when it changes.
+  useEffect(() => { setCompanyPick(globalCompany || ''); }, [globalCompany]);
   const [manualBillOpen, setManualBillOpen] = useState(false);
   // Deep-link from Analytics: /purchase/bills?vendor=<name> pre-filters the list.
   // Kept on `vendor` (a free-text search seed) while the row's own dropdown uses

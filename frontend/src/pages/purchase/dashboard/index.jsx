@@ -14,6 +14,7 @@ import { CTRL_H, CTRL_FIELD } from '@/components/common/controls';
  * vendors by PO amount, and a per-company rollup.
  */
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   TrendingUp, TrendingDown, Minus, Calendar,
@@ -3114,7 +3115,11 @@ export default function PurchaseDashboard() {
   const period = searchParams.get('period') || 'month';
   const customFrom = searchParams.get('from') || todayISO();
   const customTo = searchParams.get('to') || todayISO();
-  const companyId = searchParams.get('company') || '';
+  // Company comes from the GLOBAL sticky filter (chips in the header), so the
+  // dashboard re-scopes whenever you switch company anywhere in the app. A
+  // ?company= URL param (from a drill-through link) still overrides it.
+  const { company: globalCompany } = useGlobalCompany();
+  const companyId = searchParams.get('company') || globalCompany || '';
   const warehouseId = searchParams.get('warehouse') || '';
   const vendorId = searchParams.get('vendor') || '';
   const productId = searchParams.get('product') || '';
