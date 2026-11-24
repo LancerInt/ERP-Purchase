@@ -31,6 +31,26 @@ class WarehouseShifting(BaseModel):
         return self.reference_no or f'WHS-{self.pk}'
 
 
+class OpeningStock(BaseModel):
+    """Opening on-hand quantity for a product as of a date — the starting point
+    the Stock page adds received quantities onto. One row per (product,
+    warehouse, as_of_date); the latest as_of_date on/before the viewed period
+    is the opening used."""
+    product = models.ForeignKey('master.Product', on_delete=models.CASCADE, related_name='opening_stocks')
+    warehouse = models.ForeignKey('core.Warehouse', on_delete=models.SET_NULL, null=True, blank=True)
+    as_of_date = models.DateField(db_index=True)
+    quantity = models.DecimalField(max_digits=15, decimal_places=3, default=0)
+    uom = models.CharField(max_length=10, blank=True, default='')
+
+    class Meta:
+        app_label = 'inventory'
+        ordering = ['-as_of_date']
+        indexes = [models.Index(fields=['product', 'as_of_date'])]
+
+    def __str__(self):
+        return f'{self.product_id} opening {self.quantity} @ {self.as_of_date}'
+
+
 class InventoryLedger(BaseModel):
     """Stub: on-hand stock ledger. Empty here (purchase-only build), so the
     Purchase Items page shows blank current_stock rather than crashing.
