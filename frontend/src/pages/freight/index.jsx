@@ -673,8 +673,8 @@ export default function UnifiedFreightList() {
           it. Active tab is read from the URL. */}
       <div className="flex items-center gap-1 mb-3 border-b border-slate-200">
         {[
+          // Outward (Sales) tab removed — this is a purchase-only standalone.
           { key: 'inward',  label: 'Inward',  to: '/freight/inward',  Icon: ArrowDownLeft },
-          { key: 'outward', label: 'Outward', to: '/freight/outward', Icon: ArrowUpRight },
           { key: 'local',   label: 'Local',   to: '/freight/local',   Icon: Truck },
         ].map(({ key, label, to, Icon }) => {
           const active = location.pathname.startsWith(to);

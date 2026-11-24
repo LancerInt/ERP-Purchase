@@ -108,10 +108,10 @@ export const NAV_SECTIONS = [
     tabLabel: 'Freight',
     groupIcon: Truck,
     items: [
-      { name: 'Inward Freight', path: '/freight/inward', module: 'Freight Advice', icon: Truck },
-      { name: 'Local Freight', path: '/freight/local', module: 'Local Freight', icon: Truck },
-      { name: 'Freight Bills', path: '/freight/bills', module: 'Freight Advice', icon: Receipt },
+      // One tabbed Freight page (Inward / Local tabs, like Bills) + Payments + Analytics.
+      { name: 'Freight', path: '/freight/inward', module: 'Freight Advice', icon: Truck },
       { name: 'Freight Payments', path: '/freight/payments', module: 'Freight Payment', icon: CreditCard },
+      { name: 'Analytics', path: '/freight/dashboard', module: 'Freight Analytics', icon: BarChart3 },
     ],
   },
   {
