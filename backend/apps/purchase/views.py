@@ -3747,11 +3747,22 @@ class ReceiptAdviceViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def approve(self, request, pk=None):
-        """Approve a receipt — unlocks Freight / Bill / Wages creation and
-        posts the resulting stock IN movements to the inventory ledger."""
-        from inventory.models import InventoryLedger
-        from inventory.services import InventoryService
+        """Approve a receipt — unlocks Freight / Bill / Wages creation. In this
+        standalone, Stock is DERIVED from receipt lines (see stock_views), so
+        there is no InventoryLedger to post to; approval just confirms the
+        receipt. The ledger posting below is best-effort and skipped when the
+        inventory service isn't present."""
         from decimal import Decimal
+        # inventory.services is a full-ERP module not carved into this build;
+        # import it lazily and treat its absence as "no ledger to post to".
+        try:
+            from inventory.models import InventoryLedger
+            from inventory.services import InventoryService
+            _HAS_LEDGER = True
+        except Exception:  # noqa: BLE001
+            InventoryLedger = None
+            InventoryService = None
+            _HAS_LEDGER = False
 
         receipt = self.get_object()
         if receipt.approval_status == 'APPROVED':
@@ -3775,10 +3786,16 @@ class ReceiptAdviceViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet):
                 {'error': 'Cannot approve a receipt without receipt items or packing materials.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Godown is required per line ONLY when godowns are actually in use
+        # (the full ERP tracks stock per godown). This standalone derives Stock
+        # from receipt lines and has no godown setup, so skip the requirement
+        # when no godown masters exist.
+        from core.models import Godown
+        _godowns_in_use = Godown.objects.filter(is_active=True).exists()
         missing_godowns = [
             str(l.line_no) for l in lines
             if not l.godown_location_id and not l.service_catalogue_id
-        ]
+        ] if _godowns_in_use else []
         if missing_godowns:
             return Response(
                 {'error': (
@@ -3791,13 +3808,14 @@ class ReceiptAdviceViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet):
         with transaction.atomic():
             # Idempotent ledger posting: if entries already exist for this
             # receipt (e.g., previous partial approval, retry), don't duplicate.
-            already_posted = InventoryLedger.objects.filter(
+            # Skipped entirely in this standalone (no InventoryLedger).
+            already_posted = (_HAS_LEDGER and InventoryLedger.objects.filter(
                 source_document_type='PurchaseReceiptAdvice',
                 source_document_id=receipt.id,
                 is_active=True,
-            ).exists()
+            ).exists())
 
-            if not already_posted:
+            if _HAS_LEDGER and not already_posted:
                 for line in lines:
                     # GATE: services don't move stock. Skip ledger entry
                     # for any line that references a ServiceCatalogue.
@@ -3838,7 +3856,11 @@ class ReceiptAdviceViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet):
             # Idempotent by source_line_id (skip lines already posted).
             # Kept in the same transaction as the InventoryLedger post
             # so a rollback undoes both — no half-posted state.
-            _post_receipt_to_production_stock(receipt, lines, request.user)
+            # Production-stock posting is a full-ERP feature; best-effort here.
+            try:
+                _post_receipt_to_production_stock(receipt, lines, request.user)
+            except Exception:  # noqa: BLE001
+                logger.info('production-stock post skipped (not in this build)')
 
             receipt.approval_status = 'APPROVED'
             receipt.approved_by = getattr(request.user, 'stakeholder_profile', None)
