@@ -23,6 +23,8 @@ class StockView(APIView):
         from inventory.models import OpeningStock
 
         warehouse_id = (request.query_params.get('warehouse') or '').strip() or None
+        company_id = (request.query_params.get('company') or '').strip() or None
+        category = (request.query_params.get('category') or '').strip().upper() or None
         search = (request.query_params.get('search') or '').strip()
         # As-of date: stock is computed as opening + receipts UP TO this date.
         # Blank = today (current stock).
@@ -38,6 +40,8 @@ class StockView(APIView):
         qs = qs.exclude(receipt__approval_status='REJECTED')
         if warehouse_id:
             qs = qs.filter(receipt__warehouse_id=warehouse_id)
+        if company_id:
+            qs = qs.filter(receipt__warehouse__company_id=company_id)
         if search:
             qs = qs.filter(product__product_name__icontains=search)
         if as_of:
@@ -85,6 +89,9 @@ class StockView(APIView):
         for r in rows:
             pid = r['product_id']
             seen.add(pid)
+            pcat = _cat(pid)
+            if category and pcat != category:
+                continue
             opening = opening_map.get(pid, Decimal('0'))
             received = r['on_hand'] or Decimal('0')
             qty = opening + received

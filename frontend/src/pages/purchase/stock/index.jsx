@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import { PeriodNavigator, usePeriodFilter, todayISO } from '@/components/common/PeriodNavigator';
+import { useGlobalCompany } from '../../../hooks/useGlobalCompany.js';
 import apiClient from '../../../utils/api.js';
 
 const fmtQty = (v) => Number(v || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
@@ -22,9 +23,11 @@ export default function Stock() {
   // Stock is computed AS OF the end of the selected period (null for All = now).
   const asOf = period.range?.to || null;
 
+  const { company } = useGlobalCompany();
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState('0');
   const [search, setSearch] = useState('');
+  const [cat, setCat] = useState('');          // '' | RM | PM
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [edit, setEdit] = useState(null);
@@ -35,6 +38,8 @@ export default function Stock() {
       const p = new URLSearchParams();
       if (search.trim()) p.set('search', search.trim());
       if (asOf) p.set('as_of', asOf);
+      if (company) p.set('company', company);
+      if (cat) p.set('category', cat);
       const { data } = await apiClient.get(`/api/purchase/stock/?${p.toString()}`);
       setRows(data.items || []);
       setTotal(data.total_qty || '0');
@@ -43,7 +48,7 @@ export default function Stock() {
     } finally {
       setLoading(false);
     }
-  }, [search, asOf]);
+  }, [search, asOf, company, cat]);
 
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
 
@@ -74,6 +79,12 @@ export default function Stock() {
       {/* Same filter bar as the other pages: period widget + search. */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <PeriodNavigator allowAll {...period.navProps} />
+        <select value={cat} onChange={(e) => setCat(e.target.value)}
+          className="h-9 px-3 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200">
+          <option value="">All categories</option>
+          <option value="RM">RM</option>
+          <option value="PM">PM</option>
+        </select>
         <div className="relative flex-1 min-w-[200px] max-w-sm ml-auto">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search product…"

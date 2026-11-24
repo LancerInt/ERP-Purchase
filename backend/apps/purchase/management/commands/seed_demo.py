@@ -41,6 +41,17 @@ class Command(BaseCommand):
             w(self.style.ERROR('No Company/Warehouse — run setup_admin first.'))
             return
 
+        # Second demo company so the global Company filter has something to
+        # switch between (the first is the setup_admin "Main Company").
+        company2, _c2 = Company.objects.get_or_create(
+            company_code='COMP02',
+            defaults=dict(legal_name='United Agro Industries', trade_name='United Agro'))
+        wh2, _w2 = Warehouse.objects.get_or_create(
+            warehouse_code='WH02',
+            defaults=dict(name='United Agro Warehouse', company=company2))
+        companies = [company, company2]
+        warehouses = {company.id: warehouse, company2.id: wh2}
+
         if o['wipe']:
             w('Wiping demo transactions…')
             VendorBillLine.objects.all().delete()
@@ -109,7 +120,9 @@ class Command(BaseCommand):
         ]
         vendors = []
         for i, (name, vtype, gstin, msme) in enumerate(vendor_defs, start=1):
-            d = dict(company=company, vendor_type=[vtype],
+            # Alternate vendors between the two companies so each company has data.
+            vco = companies[i % len(companies)]
+            d = dict(company=vco, vendor_type=[vtype],
                      vendor_code=f'VEN-DEMO-{i:03d}',
                      gstin=gstin,
                      gst_treatment='REGULAR' if gstin else 'UNREGISTERED')
@@ -167,7 +180,7 @@ class Command(BaseCommand):
                 # 194Q TDS @ 0.1% of taxable, deducted for the TDS vendor only.
                 tds_amt = (sub * Decimal('0.001')).quantize(Decimal('1.00')) if v == tds_vendor else Decimal('0')
                 bill = VendorBill.objects.create(
-                    vendor=v, warehouse=warehouse,
+                    vendor=v, warehouse=warehouses.get(v.company_id, warehouse),
                     vendor_invoice_no=f'INV-{random.randint(1000,9999)}',
                     bill_date=bdate, due_date=bdate + datetime.timedelta(days=30),
                     subtotal=sub, tax_amount=tax, total_amount=total,
