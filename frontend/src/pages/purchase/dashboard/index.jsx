@@ -1595,6 +1595,7 @@ function VendorLedgerModal({ vendorId, vendorName, period0, anchor0, from0, to0,
   const typeCls = (t) => ({
     'Bill': 'bg-sky-50 text-sky-700', 'Payment': 'bg-emerald-50 text-emerald-700',
     'Debit Note': 'bg-amber-50 text-amber-700', 'Credit Note': 'bg-blue-50 text-blue-700',
+    'Advance': 'bg-emerald-50 text-emerald-700 font-semibold',
   }[t] || 'bg-slate-100 text-slate-600');
 
   // Proper in-drawer filters: a type filter + free-text search over every
@@ -1802,7 +1803,7 @@ function VendorLedgerModal({ vendorId, vendorName, period0, anchor0, from0, to0,
                                 // Every ledger row links to its own document: a
                                 // Bill → bill detail, a Payment → the payment
                                 // entry, a Debit/Credit Note → the note detail.
-                                const base = { 'Bill': '/purchase/bills', 'Payment': '/purchase/payments-made', 'Debit Note': '/sales/debit-notes', 'Credit Note': '/sales/debit-notes' }[r.type];
+                                const base = { 'Bill': '/purchase/bills', 'Payment': '/purchase/payments-made', 'Debit Note': '/sales/debit-notes', 'Credit Note': '/sales/debit-notes', 'Advance': '/purchase/vendor-credits' }[r.type];
                                 const link = base && r.ref_id
                                   ? <button onClick={() => navigate(`${base}/${r.ref_id}`, { state: { backTo: backHere() } })} className="text-blue-700 hover:underline font-medium">{r.doc_no || '—'}</button>
                                   : <span className="text-slate-700">{r.doc_no || '—'}</span>;
@@ -4011,6 +4012,15 @@ export default function PurchaseDashboard() {
                               {v.is_msme && (
                                 <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide rounded px-1 py-0.5 border text-amber-700 bg-amber-50 border-amber-200"
                                   title={`MSME supplier${v.msme_category ? ' · ' + v.msme_category : ''} (§43B(h) 15/45-day payment rule)`}>MSME</span>
+                              )}
+                              {/* Advance paid to this vendor (VendorCredit type
+                                  ADVANCE) — green "adv ₹X" chip so advances are
+                                  visible at a glance in Analytics. */}
+                              {Number(v.advance) > 0 && (
+                                <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide rounded px-1 py-0.5 border text-emerald-700 bg-emerald-50 border-emerald-200"
+                                  title={`Advance paid to this vendor: ${fmtINRfull(Number(v.advance))}`}>
+                                  Adv {fmtINRfull(Number(v.advance))}
+                                </span>
                               )}
                             </span>
                           </td>

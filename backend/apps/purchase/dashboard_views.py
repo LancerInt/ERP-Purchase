@@ -1134,6 +1134,22 @@ class PurchaseDashboardView(APIView):
         pays = {r['vendor_id']: (r['t'] or _ZERO)
                 for r in pqs.values('vendor_id').annotate(t=Sum('amount'))}
 
+        # ── advances per vendor (VendorCredit, type ADVANCE) ──────────────────
+        # Surfaced as a green "adv ₹X" chip on the vendor row — ALL advances
+        # recorded for the vendor (any balance), so an advance paid shows at a
+        # glance even when the net ledger isn't in debit. Reporting-only; it does
+        # not change the billed/paid/outstanding arithmetic above.
+        from .models import VendorCredit
+        aqs = VendorCredit.objects.filter(is_active=True, credit_type='ADVANCE').exclude(status='CANCELLED')
+        if company_id:
+            aqs = aqs.filter(vendor__company_id=company_id)
+        if vendor_id:
+            aqs = aqs.filter(vendor_id=vendor_id)
+        if asof:
+            aqs = aqs.filter(credit_date__lte=asof)
+        adv_by_vid = {r['vendor_id']: (r['t'] or _ZERO)
+                      for r in aqs.values('vendor_id').annotate(t=Sum('total_amount'))}
+
         # ── purchase debit (reduce payable) / credit (raise payable) notes ────
         nqs = DebitNote.objects.filter(side='PURCHASE', is_active=True, vendor__isnull=False)
         if company_id:
@@ -1295,6 +1311,7 @@ class PurchaseDashboardView(APIView):
                 'overdue_days': ((today - b['oldest_overdue']).days
                                  if (b and b.get('oldest_overdue')) else 0),
                 'paid_pct': round(float(pct), 1),
+                'advance': _money(adv_by_vid.get(vid, _ZERO)),
                 'is_expense': is_exp,
                 '_sort': abs(float(balance)),
             })

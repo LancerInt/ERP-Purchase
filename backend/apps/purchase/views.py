@@ -6163,6 +6163,19 @@ class VendorBillViewSet(BulkImportMixin, viewsets.ModelViewSet):
                                'doc_no': dn.note_no, 'ref_id': str(dn.id), 'vendor': _vn,
                                'debit': Decimal('0'), 'credit': amt, 'tds': Decimal('0')})
 
+        # Advances (VendorCredit type ADVANCE) — money paid to the vendor ahead
+        # of a bill, so a DEBIT (reduces payable / sits as a prepaid balance),
+        # like a payment. Shown as its own "Advance" row so the ledger reflects
+        # what the Vendor Notes & Advances list records.
+        from .models import VendorCredit
+        for ac in (scope(VendorCredit.objects.filter(is_active=True, credit_type='ADVANCE'))
+                   .exclude(status='CANCELLED').select_related('vendor')):
+            events.append({'date': str(ac.credit_date or ''), 'type': 'Advance',
+                           'doc_no': (ac.credit_no or 'Advance'), 'ref_id': str(ac.id),
+                           'vendor': ac.vendor.vendor_name if ac.vendor_id else '',
+                           'debit': Decimal(str(ac.total_amount or 0)), 'credit': Decimal('0'),
+                           'tds': Decimal('0')})
+
         # PURCHASE-ONLY (sales-twin merge removed). This drawer USED to pull the
         # linked customer's sales invoices/receipts/notes in when a vendor was
         # "Also a customer", on the assumption Tally nets both on one combined
