@@ -2915,14 +2915,16 @@ export default function CreateReceiptAdvice() {
                   </span>
                 )}
               </div>
-              <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.weighment ? '' : '-rotate-90'}`} />
+              <div className="flex items-center gap-2">
+                {openSections.weighment && (
+                  <button type="button" onClick={(e) => { e.stopPropagation(); addWeighment(); }} className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary-50 text-primary-700 rounded-lg text-xs font-medium hover:bg-primary-100">
+                    <Plus size={14} /> Add Weighment
+                  </button>
+                )}
+                <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.weighment ? '' : '-rotate-90'}`} />
+              </div>
             </div>
             {openSections.weighment && (<>
-            <div className="flex justify-end mb-2">
-              <button type="button" onClick={(e) => { e.stopPropagation(); addWeighment(); }} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
-                <Plus size={16} /> Add Weighment
-              </button>
-            </div>
             {weighmentDetails.length === 0 ? (
               <p className="text-sm text-slate-400 italic">No weighment details added. Click "Add Weighment" to record weighbridge readings.</p>
             ) : (
@@ -3183,20 +3185,23 @@ export default function CreateReceiptAdvice() {
             })()}
             <div className={`flex items-center justify-between cursor-pointer ${openSections.lines ? 'mb-2 pb-1.5 border-b' : ''}`} onClick={() => toggleSection('lines')}>
               <h3 className="text-sm sm:text-base font-semibold text-slate-800">Receipt Line Items{!openSections.lines && receiptLines.length > 0 ? ` (${receiptLines.length})` : ''}</h3>
-              <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.lines ? '' : '-rotate-90'}`} />
+              <div className="flex items-center gap-2">
+                {openSections.lines && (
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    {receiptLines.some(l => l._unresolved) && (
+                      <button type="button" onClick={reopenMismatchModal} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-700 border border-red-300 bg-red-50 rounded-lg hover:bg-red-100">
+                        Resolve {receiptLines.filter(l => l._unresolved).length}
+                      </button>
+                    )}
+                    <button type="button" onClick={addReceiptLine} className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary-50 text-primary-700 rounded-lg text-xs font-medium hover:bg-primary-100">
+                      <Plus size={14} /> Add Line
+                    </button>
+                  </div>
+                )}
+                <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.lines ? '' : '-rotate-90'}`} />
+              </div>
             </div>
             {openSections.lines && (<>
-            {/* Add / Resolve controls live inside the section (expand to use). */}
-            <div className="flex items-center justify-end gap-2 mb-2">
-              {receiptLines.some(l => l._unresolved) && (
-                <button type="button" onClick={reopenMismatchModal} className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-red-700 border border-red-300 bg-red-50 rounded-lg hover:bg-red-100">
-                  Resolve {receiptLines.filter(l => l._unresolved).length} mismatch{receiptLines.filter(l => l._unresolved).length > 1 ? 'es' : ''}
-                </button>
-              )}
-              <button type="button" onClick={addReceiptLine} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
-                <Plus size={16} /> Add Line
-              </button>
-            </div>
             {/* collapsible body */}
             {poLines.length > 0 && (
               <div className="mb-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
@@ -3626,14 +3631,16 @@ export default function CreateReceiptAdvice() {
                 <h3 className="text-sm sm:text-base font-semibold text-slate-800">Packing Materials</h3>
                 {packingLines.length > 0 && <span className="text-[11px] text-slate-400">({packingLines.length})</span>}
               </div>
-              <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.packing ? '' : '-rotate-90'}`} />
+              <div className="flex items-center gap-2">
+                {openSections.packing && (
+                  <button type="button" onClick={(e) => { e.stopPropagation(); addPackingLine(); }} className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary-50 text-primary-700 rounded-lg text-xs font-medium hover:bg-primary-100">
+                    <Plus size={14} /> Add Packing
+                  </button>
+                )}
+                <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.packing ? '' : '-rotate-90'}`} />
+              </div>
             </div>
             {openSections.packing && (<>
-            <div className="flex justify-end mb-2">
-              <button type="button" onClick={(e) => { e.stopPropagation(); addPackingLine(); }} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
-                <Plus size={16} /> Add Packing Material
-              </button>
-            </div>
             {packingLines.length === 0 ? (
               <p className="text-sm text-slate-400 italic">No packing materials added. Click "Add Packing Material" to add.</p>
             ) : (
