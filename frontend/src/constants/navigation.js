@@ -409,6 +409,21 @@ const normaliseRole = (role) =>
  * (canView(module)) in the Sidebar, so RBAC stays the source of truth.
  */
 export const ROLE_ITEM_WHITELIST = {
+  // Purchase Coordinator — the pre-bill procurement owner. Curated to show
+  // ONLY the Sourcing cycle (PR -> RFQ -> Quotes -> Evaluations -> PO ->
+  // Receipts). Permission filtering still applies on top, so only the items
+  // the role can view appear. Bills/Payments access (if granted) stays
+  // reachable by URL — this trims the sidebar, not the permissions.
+  'purchase coordinator': [
+    { section: 'sourcing', items: [
+      '/purchase/requests',      // Requests (PR)
+      '/purchase/rfq',           // RFQ
+      '/purchase/quotes',        // Quotes
+      '/purchase/evaluations',   // Evaluations
+      '/purchase/orders',        // Orders (PO)
+      '/purchase/receipts',      // Receipts
+    ] },
+  ],
   'office management': [
     { section: 'reports', items: [
       '/import/ledgers',        // Ledger

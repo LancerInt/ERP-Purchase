@@ -49,17 +49,21 @@ FULL = perm(can_view=True, can_create=True, can_edit=True, can_delete=True,
 # Per-role module → permission grid. Module names match setup_admin's MODULES.
 ROLE_GRID = {
     'Warehouse Coordinator': {
-        # Raises PRs and submits them (stage 1). Enters goods receipts.
+        # Raises PRs and submits them (stage 1). Enters goods receipts, so it
+        # needs to SEE the Purchase Orders it receives against (view-only).
         'Purchase Request': perm(can_view=True, can_create=True, can_edit=True, can_submit=True),
+        'Purchase Order':   VIEW,
         'Receipt Advice':   perm(can_view=True, can_create=True, can_edit=True),
         'Inventory Ledger': VIEW,
         'Dashboard':        VIEW,
     },
     'Warehouse Manager': {
         # Can also raise a PR; advances a submitted PR to the final approver
-        # (stage 2 → "Factory Approved"). Oversees receipts + stock.
+        # (stage 2 → "Factory Approved"). Oversees receipts + stock, and sees
+        # the Purchase Orders the receipts are entered against (view-only).
         'Purchase Request': perm(can_view=True, can_create=True, can_edit=True,
                                  can_proceed_approval=True),
+        'Purchase Order':   VIEW,
         'Receipt Advice':   perm(can_view=True, can_create=True, can_edit=True,
                                  can_approve=True),
         'Inventory Ledger': VIEW,
