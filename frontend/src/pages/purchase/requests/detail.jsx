@@ -987,7 +987,7 @@ export default function PurchaseRequestDetailPage() {
             <div className="flex items-center gap-2 sm:gap-4 ml-7 sm:ml-8 flex-wrap">
               <StatusBadge
                 status={approvalStatus}
-                label={approvalStatus.replace('_', ' ')}
+                label={approvalStatus === 'PENDING_APPROVAL' ? 'Factory Approved' : approvalStatus.replace('_', ' ')}
               />
               <p className="text-slate-600 text-xs sm:text-sm">
                 Created on {formatDate(pr.createdDate || pr.created_at || pr.created_date)}

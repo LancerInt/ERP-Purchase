@@ -101,7 +101,11 @@ class PurchaseRequest(BaseModel):
         ('DRAFT', _('Draft')),
         ('EDITED', _('Edited')),
         ('PENDING', _('Pending Approval')),
-        ('PENDING_APPROVAL', _('Pending Approval Review')),
+        # After the Warehouse Manager advances a submitted PR it sits here
+        # awaiting the Purchase Coordinator's final decision. Labelled
+        # "Factory Approved" because the factory (warehouse) side has signed
+        # off and only the purchase side's approval remains.
+        ('PENDING_APPROVAL', _('Factory Approved')),
         ('APPROVED', _('Approved')),
         ('REJECTED', _('Rejected')),
         ('PARTIALLY_APPROVED', _('Partially Approved')),

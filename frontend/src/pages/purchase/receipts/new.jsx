@@ -690,7 +690,11 @@ export default function CreateReceiptAdvice() {
   const packMicRef = useRef(null);
   const [listeningLineIdx, setListeningLineIdx] = useState(null);
   const lineMicRef = useRef(null);
-  const [weighmentDetails, setWeighmentDetails] = useState([]);
+  // Weighing is the DEFAULT on a new receipt — start with one blank weighment
+  // row so it's the primary (expected) capture. All other sections (QC, freight,
+  // wages, extra charges) stay empty/optional. When editing, the load effect
+  // replaces this with the saved weighments.
+  const [weighmentDetails, setWeighmentDetails] = useState([{ ...emptyWeighmentDetail }]);
   const [freightDetails, setFreightDetails] = useState([]);
   const [wageLines, setWageLines] = useState([]);
   const [poLines, setPoLines] = useState([]);

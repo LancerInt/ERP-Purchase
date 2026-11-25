@@ -2737,6 +2737,28 @@ class ReceiptAdviceSerializer(FieldPermissionMixin, serializers.ModelSerializer)
 
         receipt_lines_data = data.get('receipt_lines', [])
 
+        # HARD RULE: a receipt with goods lines must be entered against a
+        # Purchase Order.
+        #   • No PO  → no receipt is allowed (nothing to receive against).
+        #   • PO set → receipt is entered against it.
+        # The only exception is a DIRECT receipt (stock IN with no PO), which is
+        # its own privileged, permission-gated path checked just above. For every
+        # ordinary (AGAINST_PO) receipt that actually has lines we require a real
+        # PO link — either the header linked_pos (set on create via the PO's
+        # "Create Receipt" action) or at least one line carrying a po_line. An
+        # empty / header-only save (a draft still being built) is left alone.
+        if source != 'DIRECT' and receipt_lines_data:
+            has_header_po = bool(data.get('linked_pos'))
+            if not has_header_po and self.instance is not None:
+                has_header_po = self.instance.linked_pos.exists()
+            has_line_po = any(ld.get('po_line') for ld in receipt_lines_data)
+            if not has_header_po and not has_line_po:
+                raise serializers.ValidationError(
+                    "A receipt must be entered against a Purchase Order. "
+                    "Open the PO and use 'Create Receipt', or (if authorised) "
+                    "record a Direct Receipt instead."
+                )
+
         if not receipt_lines_data:
             return data
 

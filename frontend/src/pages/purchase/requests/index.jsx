@@ -58,7 +58,9 @@ const STATUS_COLORS_FLOW = {
   APPROVED: 'bg-emerald-100 text-emerald-800 border-emerald-300',
   DRAFT: 'bg-slate-100 text-slate-700 border-slate-300',
   PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-  PENDING_APPROVAL: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  // Warehouse Manager has signed off (stage 2); awaiting the Purchase
+  // Coordinator's final call. Its own indigo pill + "Factory Approved" label.
+  PENDING_APPROVAL: 'bg-indigo-100 text-indigo-800 border-indigo-300',
   // Some lines routed, some held pending price — matches the blue used
   // for the "Held — awaiting price" section on the PR detail page.
   PARTIALLY_APPROVED: 'bg-blue-100 text-blue-800 border-blue-300',
@@ -79,9 +81,17 @@ const STATUS_COLORS_FLOW = {
 const fmtCurrency = (v) => v ? `\u20B9${Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '\u20B90.00';
 const fmtDate = (d) => d ? formatDate(d) : '-';
 
+// Display labels for status codes whose human name isn't just the code with
+// underscores swapped for spaces. PENDING_APPROVAL = the Warehouse-Manager-
+// approved stage, shown to everyone as "Factory Approved".
+const STATUS_LABELS_FLOW = {
+  PENDING_APPROVAL: 'Factory Approved',
+};
+
 function FlowStatusBadge({ status }) {
   const cls = STATUS_COLORS_FLOW[status] || 'bg-slate-100 text-slate-600 border-slate-200';
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cls}`}>{(status || '').replace(/_/g, ' ')}</span>;
+  const label = STATUS_LABELS_FLOW[status] || (status || '').replace(/_/g, ' ');
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cls}`}>{label}</span>;
 }
 
 /* ================================================================
@@ -100,7 +110,7 @@ const FILTER_FIELDS = [
   // StatusBadge), so that's the label that must match it here.
   { value: 'approval_status', label: 'Status', type: 'select', options: [
     { value: 'DRAFT', label: 'Draft' }, { value: 'EDITED', label: 'Edited' },
-    { value: 'PENDING', label: 'Pending' }, { value: 'PENDING_APPROVAL', label: 'Pending Approval' },
+    { value: 'PENDING', label: 'Pending' }, { value: 'PENDING_APPROVAL', label: 'Factory Approved' },
     { value: 'APPROVED', label: 'Approved' }, { value: 'PARTIALLY_APPROVED', label: 'Partially Approved' },
     { value: 'REJECTED', label: 'Rejected' },
   ]},
