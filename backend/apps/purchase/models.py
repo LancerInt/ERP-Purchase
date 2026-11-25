@@ -3858,6 +3858,9 @@ class PurchaseAttachment(BaseModel):
         ('DAMAGE_PROOF', _('Damage Proof')),
         # A recorded audio clip — e.g. the spoken "reason for change" on a PR.
         ('VOICE_NOTE', _('Voice Note')),
+        # Invoice / quote / document justifying a line's unit price when the
+        # Purchase Coordinator routes a product straight to PO (Skip RFQ).
+        ('RATE_PROOF', _('Rate Proof')),
     )
 
     module = models.CharField(max_length=20, choices=MODULE_CHOICES, db_index=True)

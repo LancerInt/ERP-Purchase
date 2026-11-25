@@ -17,6 +17,7 @@ import {
   Link as LinkIcon,
   Trash2,
   SkipForward,
+  Paperclip,
 } from 'lucide-react';
 import MainLayout from '../../../components/layout/MainLayout';
 import StatusBadge from '../../../components/common/StatusBadge';
@@ -500,6 +501,15 @@ export default function PurchaseRequestDetailPage() {
       });
       const res = await apiClient.post(`/api/purchase/requests/${id}/approve/`, { line_routes });
       toast.success(res.data.message || 'Approved successfully!');
+      // Upload any rate-proof files attached to the Skip-RFQ lines, onto the PR
+      // (RATE_PROOF) — the invoice/quote that justifies each product's price.
+      const proofFiles = lines
+        .map((l) => lineRoutes[l.id]?.rateProofFile)
+        .filter(Boolean);
+      if (proofFiles.length) {
+        try { await uploadPendingFiles('PR', id, proofFiles, 'RATE_PROOF'); }
+        catch (e) { toast.error('Approved, but a rate-proof file failed to upload.'); }
+      }
       const poCount = res.data.po_count || 0;
       const holdCount = res.data.hold_count || 0;
       if (poCount) toast.success(`${poCount} PO(s) created via RFQ skip`);
@@ -1922,7 +1932,7 @@ export default function PurchaseRequestDetailPage() {
             <div className="px-4 sm:px-6 py-4 overflow-y-auto">
               <p className="text-sm text-slate-500 mb-3">
                 Choose per product: <span className="font-medium text-slate-700">RFQ</span> for competitive quotes, or
-                <span className="font-medium text-amber-700"> Skip&nbsp;→&nbsp;PO</span> for a known single vendor. Skip
+                <span className="font-medium text-amber-700"> Skip RFQ</span> for a known single vendor. Skip-RFQ
                 products create a DRAFT PO (one per vendor); RFQ products create one RFQ.
               </p>
               {/* Bulk toggle — checking flips every product to RFQ; unchecking
@@ -1962,7 +1972,7 @@ export default function PurchaseRequestDetailPage() {
                         <div className="sm:w-44 shrink-0">
                           <CustomSelect value={r.route} onChange={(e) => setRoute(l.id, 'route', e.target.value)} className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                             <option value="RFQ">RFQ (get quotes)</option>
-                            <option value="SKIP">Skip → PO</option>
+                            <option value="SKIP">Skip RFQ</option>
                             <option value="HOLD">Hold — awaiting price</option>
                           </CustomSelect>
                         </div>
@@ -2026,6 +2036,29 @@ export default function PurchaseRequestDetailPage() {
                             <label className="block text-[11px] text-slate-500 mb-0.5">GST %</label>
                             <input type="number" step="0.01" min="0" max="100" value={r.gst ?? ''} onChange={(e) => setRoute(l.id, 'gst', e.target.value)} placeholder="0" className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-right" />
                           </div>
+                          {/* Rate proof — attach the invoice / quote that justifies
+                              this product's unit price when skipping RFQ straight to
+                              a PO. Stored on the PR as a RATE_PROOF attachment after
+                              approve. Optional. */}
+                          {isSkip && (
+                            <div className="sm:col-span-3">
+                              <label className="block text-[11px] text-slate-500 mb-0.5">Rate proof (invoice / quote)</label>
+                              <div className="flex items-center gap-2">
+                                <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium border border-dashed border-amber-300 text-amber-700 rounded-lg cursor-pointer hover:bg-amber-50">
+                                  <Paperclip size={13} />
+                                  {r.rateProofFile ? 'Change file' : 'Attach file'}
+                                  <input type="file" accept="image/*,.pdf" className="hidden"
+                                    onChange={(e) => { const f = e.target.files?.[0] || null; e.target.value = ''; setRoute(l.id, 'rateProofFile', f); }} />
+                                </label>
+                                {r.rateProofFile && (
+                                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 min-w-0">
+                                    <span className="truncate max-w-[220px]">{r.rateProofFile.name}</span>
+                                    <button type="button" onClick={() => setRoute(l.id, 'rateProofFile', null)} className="text-slate-400 hover:text-red-500" title="Remove"><XCircle size={13} /></button>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
                           {isHold && (
                             <p className="sm:col-span-3 text-[11px] text-blue-700">
                               This line will be held on the PR until you set the unit price and convert it to a DRAFT PO.
@@ -2141,7 +2174,7 @@ export default function PurchaseRequestDetailPage() {
                   const hold = lines.filter((l) => lineRoutes[l.id]?.route === 'HOLD').length;
                   const rfq = lines.length - skip - hold;
                   const parts = [];
-                  if (skip) parts.push(`${skip} to Skip → PO`);
+                  if (skip) parts.push(`${skip} to Skip RFQ`);
                   if (rfq) parts.push(`${rfq} to RFQ`);
                   if (hold) parts.push(`${hold} on Hold`);
                   return parts.join(' · ') || '—';
