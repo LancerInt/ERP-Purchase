@@ -310,13 +310,14 @@ export default function FreightPaymentList() {
           onRowClick={(row) => navigate(`/freight/purchase/${row.freight_id}`)}
         />
         <div className="hidden sm:block">
-          <DataTable
+          <DataTable dense
             persistKey="freight-payments"
             exportFileName="freight-payments"
             canExport={canExport('Freight Payment')}
             columns={visibleColumns}
             data={filteredData}
             isLoading={isLoading}
+            pageSize={15}
             onRowClick={(row) => navigate(`/freight/purchase/${row.freight_id}`)}
           />
         </div>
