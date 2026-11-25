@@ -201,14 +201,24 @@ export default function PurchaseRequestList() {
   useEffect(() => {
     if (!rawData || rawData.length === 0) return;
     const ids = rawData.map(pr => pr.id).filter(Boolean);
-    const map = {};
-    Promise.all(ids.map(async (pid) => {
-      try {
-        const res = await apiClient.get(`/api/purchase/attachments/?module=PR&record_id=${pid}`);
-        const list = res.data?.results || res.data || [];
-        if (list.length > 0) map[pid] = list;
-      } catch { /* ignore */ }
-    })).then(() => setAttachmentsByPr(map));
+    if (ids.length === 0) return;
+    let alive = true;
+    // ONE request for every PR on the page (record_ids=...), not one per row —
+    // then group the rows by record_id. Avoids the old N+1 (N requests for N PRs).
+    apiClient.get('/api/purchase/attachments/', {
+      params: { module: 'PR', record_ids: ids.join(',') },
+    }).then((res) => {
+      if (!alive) return;
+      const list = res.data?.results || res.data || [];
+      const map = {};
+      for (const a of list) {
+        const pid = a.record_id;
+        if (!pid) continue;
+        (map[pid] ||= []).push(a);
+      }
+      setAttachmentsByPr(map);
+    }).catch(() => { /* ignore */ });
+    return () => { alive = false; };
   }, [rawData]);
 
   const openLineItems = useCallback(async (row) => {

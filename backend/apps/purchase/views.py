@@ -8207,15 +8207,23 @@ class PurchaseAttachmentViewSet(viewsets.ModelViewSet):
         qs = PurchaseAttachment.objects.filter(is_active=True)
         module = self.request.query_params.get('module')
         record_id = self.request.query_params.get('record_id')
+        # `record_ids` (comma-separated) fetches attachments for MANY records in
+        # one request — a list page showing an attachment marker per row uses it
+        # to avoid one call per row (N+1). Same enumeration guard: a specific
+        # module plus at least one id.
+        record_ids = self.request.query_params.get('record_ids')
+        id_list = [r for r in (record_ids or '').split(',') if r.strip()]
         # The LIST action must never return the whole attachment table —
-        # require a specific (module, record_id) so attachments can't be
+        # require a specific (module, record_id[s]) so attachments can't be
         # enumerated across documents. Detail actions (retrieve/delete by
         # UUID pk) stay reachable and are covered by the module gate above.
-        if getattr(self, 'action', None) == 'list' and (not module or not record_id):
+        if getattr(self, 'action', None) == 'list' and (not module or not (record_id or id_list)):
             return qs.none()
         if module:
             qs = qs.filter(module=module)
-        if record_id:
+        if id_list:
+            qs = qs.filter(record_id__in=id_list)
+        elif record_id:
             qs = qs.filter(record_id=record_id)
         category = self.request.query_params.get('category')
         if category:
