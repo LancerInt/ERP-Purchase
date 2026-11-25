@@ -1337,9 +1337,14 @@ class PurchaseRequestViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet
         def _po_for(vendor, specs_for_terms):
             pay = next((s.get('payment_terms') for s in specs_for_terms if s.get('payment_terms')), '')
             frt = next((s.get('freight_terms') for s in specs_for_terms if s.get('freight_terms')), '')
+            # Born APPROVED: a Skip-RFQ PO is created by the Purchase Coordinator
+            # as part of approving the PR (vendor + price already decided there,
+            # with the mandatory rate proof). Requiring a second PO approval
+            # would just be the same person clicking Approve again. POs created
+            # directly (outside this flow) still start DRAFT and need approving.
             po = PurchaseOrder(
                 company=company, warehouse=pr.warehouse, vendor=vendor,
-                currency='INR', status='DRAFT', terms_and_conditions='',
+                currency='INR', status='APPROVED', terms_and_conditions='',
                 payment_terms=pay, freight_terms=frt,
             )
             po.save()
@@ -1369,8 +1374,8 @@ class PurchaseRequestViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet
             AuditLog.objects.create(
                 user=user, role_name=get_user_role_name(user),
                 module_name='Purchase Order', action='CREATE',
-                details=(f'PO {po.po_no} created via per-line RFQ Skip from '
-                         f'PR {pr.pr_no} for {vendor.vendor_name}'),
+                details=(f'PO {po.po_no} created and auto-approved via per-line '
+                         f'RFQ Skip from PR {pr.pr_no} for {vendor.vendor_name}'),
             )
 
         # Split lines — one PO per slice.
