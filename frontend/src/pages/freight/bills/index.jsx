@@ -1,8 +1,10 @@
 /**
  * Freight Bills — every freight record as a payable bill, modelled on the
  * Purchase Bills list: the same filter row, metric band, dense table and
- * Export. Inward (purchase) and outward (sales) freight are pulled from their
- * own endpoints and shown together, each row a bill to the transporter.
+ * Export. Inbound transporter slips (/api/purchase/freight/) and standalone
+ * local freight (/api/purchase/local-freight/) are shown together, each row a
+ * bill to the transporter. (Outward/sales freight has no backend in this
+ * standalone, so only inbound + local freight appear.)
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -43,12 +45,12 @@ const PAY_CLS = {
 };
 
 const normalize = (f, direction) => {
-  const amt = Number(f.total_freight_cost) || Number(f.payable_amount) || 0;
+  const amt = Number(f.total_freight_cost) || Number(f.payable_amount) || Number(f.freight_amount) || 0;
   const paid = Number(f.total_paid) || 0;
   return {
     id: `${direction}-${f.id}`, _id: f.id, direction,
-    freight_no: f.advice_no || '—',
-    date: f.freight_date || f.created_date || '',
+    freight_no: f.advice_no || f.freight_no || '—',
+    date: f.freight_date || f.date || f.created_date || '',
     transporter: f.transporter_name || '—',
     party: f.vendor_name || f.customer_name || '—',
     company: f.company_name || '',
@@ -64,7 +66,7 @@ export default function FreightBills() {
   // Filters in the URL so opening a freight record and pressing Back restores
   // the same filtered view.
   const [sp, setSp] = useSearchParams();
-  const [dir, setDir] = useState(sp.get('dir') || '');       // '' | Inward | Outward
+  const [dir, setDir] = useState(sp.get('dir') || '');       // '' | Inward | Local
   const [pay, setPay] = useState(sp.get('pay') || '');       // '' | Paid | Partial | Unpaid
   // Company comes from the GLOBAL header filter. This list filters by company
   // NAME, so translate the global company id → its legal name. '' = All.
@@ -85,10 +87,10 @@ export default function FreightBills() {
 
   const load = () => {
     setLoading(true); setError(null);
-    Promise.all([fetchAll('/api/purchase/freight/'), fetchAll('/api/sales/freight/')])
-      .then(([p, s]) => setRows([
-        ...p.map((f) => normalize(f, 'Inward')),
-        ...s.map((f) => normalize(f, 'Outward')),
+    Promise.all([fetchAll('/api/purchase/freight/'), fetchAll('/api/purchase/local-freight/')])
+      .then(([inbound, local]) => setRows([
+        ...inbound.map((f) => normalize(f, 'Inward')),
+        ...local.map((f) => normalize(f, 'Local')),
       ]))
       .catch(() => setError('Could not load freight.'))
       .finally(() => setLoading(false));
@@ -113,9 +115,9 @@ export default function FreightBills() {
   const columns = [
     { field: 'date', header: 'Date', sortable: true, width: '100px', render: (v) => v ? formatDate(v, 'dd-MMM-yy') : '-' },
     { field: 'freight_no', header: 'Freight No', sortable: true, width: '130px',
-      render: (v, row) => <button onClick={(e) => { e.stopPropagation(); navigate(`/freight/${row.direction === 'Inward' ? 'purchase' : 'sales'}/${row._id}`); }} className="text-blue-700 hover:underline font-medium text-xs">{v}</button> },
+      render: (v, row) => <button onClick={(e) => { e.stopPropagation(); navigate(row.direction === 'Local' ? `/freight/local/${row._id}` : `/freight/purchase/${row._id}`); }} className="text-blue-700 hover:underline font-medium text-xs">{v}</button> },
     { field: 'direction', header: 'Type', sortable: true, width: '90px',
-      render: (v) => <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded border ${v === 'Inward' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-violet-50 text-violet-700 border-violet-200'}`}>{v}</span> },
+      render: (v) => <span className={`text-[11px] font-medium px-1.5 py-0.5 rounded border ${v === 'Inward' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>{v}</span> },
     { field: 'transporter', header: 'Transporter', sortable: true, width: '200px' },
     { field: 'party', header: 'Party', sortable: true, width: '180px' },
     { field: 'amount', header: 'Amount', sortable: true, width: '110px', render: (v) => formatCurrency(v) },
@@ -129,12 +131,12 @@ export default function FreightBills() {
   return (
     <MainLayout>
       <div className="space-y-3 sm:space-y-4">
-        <PageHeader compact title="Freight Bills" subtitle="Freight as payable bills — inward and outward"
+        <PageHeader compact title="Freight Bills" subtitle="Freight as payable bills — inward and local"
           breadcrumbs={[{ label: 'Freight' }, { label: 'Freight Bills' }]} />
 
         <div className={CTRL_ROW}>
           <CustomSelect value={dir} onChange={(e) => setDir(e.target.value)} title="Direction" className={`${CTRL_FIELD} max-w-[150px]`}>
-            <option value="">All Types</option><option value="Inward">Inward</option><option value="Outward">Outward</option>
+            <option value="">All Types</option><option value="Inward">Inward</option><option value="Local">Local</option>
           </CustomSelect>
           <CustomSelect value={pay} onChange={(e) => setPay(e.target.value)} title="Payment status" className={`${CTRL_FIELD} max-w-[150px]`}>
             <option value="">All Payments</option><option value="Paid">Paid</option><option value="Partial">Partial</option><option value="Unpaid">Unpaid</option>

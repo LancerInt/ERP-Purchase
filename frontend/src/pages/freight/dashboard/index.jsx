@@ -1,10 +1,11 @@
 /**
  * Freight Analytics — a freight-spend overview modelled on the Purchase / Sales
  * analytics pages: a full filter bar (period / company / warehouse / transporter),
- * headline tiles with on-hover breakdown popovers, an inward / outward / local
- * split, and a top-transporters table. Computed client-side from the three
- * freight endpoints (inward = purchase advice, outward = sales advice, local =
- * standalone local-freight), so no new backend is needed.
+ * headline tiles with on-hover breakdown popovers, an inward / local split,
+ * and a top-transporters table. Computed client-side from the two inbound
+ * freight endpoints (inward = purchase advice, local = standalone
+ * local-freight), so no new backend is needed. (Outward/sales freight has no
+ * backend in this purchase-only standalone, so it is not shown.)
  *
  * Note on GST: a freight advice exposes a single net PAYABLE figure (the amount
  * owed to the transporter). GST on GTA freight is reverse-charge — paid to the
@@ -63,7 +64,6 @@ const HEAD_CHROME = { dot: 'bg-indigo-500', head: 'from-indigo-500 to-indigo-700
 const TONE = {
   total:       { ...HEAD_CHROME, val: 'text-slate-900' },
   inward:      { ...HEAD_CHROME, val: 'text-blue-600' },
-  outward:     { ...HEAD_CHROME, val: 'text-violet-600' },
   local:       { ...HEAD_CHROME, val: 'text-teal-600' },
   outstanding: { ...HEAD_CHROME, val: 'text-rose-600' },
 };
@@ -113,7 +113,6 @@ function FreightTile({ label, value, words, tone = 'total', onClick, popTitle, p
 export default function FreightDashboard() {
   const navigate = useNavigate();
   const [inward, setInward] = useState([]);
-  const [outward, setOutward] = useState([]);
   const [local, setLocal] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -150,12 +149,11 @@ export default function FreightDashboard() {
     const safe = (url) => fetchAll(url).catch(() => null);
     Promise.all([
       safe('/api/purchase/freight/'),
-      safe('/api/sales/freight/'),
       safe('/api/purchase/local-freight/'),
     ])
-      .then(([p, s, l]) => {
-        setInward(p || []); setOutward(s || []); setLocal(l || []);
-        if (p === null && s === null && l === null) setError('Could not load freight.');
+      .then(([p, l]) => {
+        setInward(p || []); setLocal(l || []);
+        if (p === null && l === null) setError('Could not load freight.');
       })
       .finally(() => setLoading(false));
   };
@@ -164,7 +162,7 @@ export default function FreightDashboard() {
   // Actual cash paid to transporters in the window, from PaymentMade (the
   // payment hub) — the same money the Payment Entries 'Freight' category shows.
   // Kept SEPARATE from the freight-record paid/outstanding above (which splits
-  // inward/outward/local); this is the real cash-out figure that ties the
+  // inward/local); this is the real cash-out figure that ties the
   // Purchase/Expense split.
   const [cashPaid, setCashPaid] = useState(null);
   useEffect(() => {
@@ -208,10 +206,9 @@ export default function FreightDashboard() {
     });
     return [
       ...map(inward, 'in'),
-      ...map(outward, 'out'),
       ...map(local, 'local'),
     ];
-  }, [inward, outward, local]);
+  }, [inward, local]);
 
   // Option lists come from the full (unfiltered) set so a filter never hides
   // its own remaining choices.
@@ -238,16 +235,16 @@ export default function FreightDashboard() {
 
   const stats = useMemo(() => {
     const seed = () => ({ amt: 0, paid: 0, count: 0 });
-    const by = { in: seed(), out: seed(), local: seed() };
+    const by = { in: seed(), local: seed() };
     for (const r of live) {
       const b = by[r.side]; if (!b) continue;
       b.amt += r.amt; b.paid += r.paid; b.count += 1;
     }
-    const total = by.in.amt + by.out.amt + by.local.amt;
-    const paid = by.in.paid + by.out.paid + by.local.paid;
+    const total = by.in.amt + by.local.amt;
+    const paid = by.in.paid + by.local.paid;
     const pend = (b) => Math.max(0, b.amt - b.paid);
     return { by, total, paid, pending: Math.max(0, total - paid),
-             inPend: pend(by.in), outPend: pend(by.out), localPend: pend(by.local),
+             inPend: pend(by.in), localPend: pend(by.local),
              count: live.length };
   }, [live]);
 
@@ -278,26 +275,25 @@ export default function FreightDashboard() {
     for (const r of live) {
       const name = r.transporter || '—';
       if (name === '—') continue;
-      const e = m.get(name) || { name, inAmt: 0, outAmt: 0, localAmt: 0, count: 0 };
+      const e = m.get(name) || { name, inAmt: 0, localAmt: 0, count: 0 };
       if (r.side === 'in') e.inAmt += r.amt;
-      else if (r.side === 'out') e.outAmt += r.amt;
       else e.localAmt += r.amt;
       e.count += 1; m.set(name, e);
     }
-    return [...m.values()].map((e) => ({ ...e, total: e.inAmt + e.outAmt + e.localAmt }))
+    return [...m.values()].map((e) => ({ ...e, total: e.inAmt + e.localAmt }))
       .sort((a, b) => b.total - a.total).slice(0, 12);
   }, [filtered]);
 
-  // Split bar segments (inward / outward / local as a share of total).
+  // Split bar segments (inward / local as a share of total).
   const share = (v) => (stats.total ? Math.round((v / stats.total) * 100) : 0);
-  const inPct = share(stats.by.in.amt), outPct = share(stats.by.out.amt), localPct = share(stats.by.local.amt);
+  const inPct = share(stats.by.in.amt), localPct = share(stats.by.local.amt);
 
   const SEL = 'border border-slate-300 rounded-lg px-2 text-sm bg-white h-9 min-w-[150px]';
 
   return (
     <MainLayout>
       <div className="space-y-4">
-        <PageHeader compact title="Freight Analytics" subtitle="Freight spend across inward, outward and local"
+        <PageHeader compact title="Freight Analytics" subtitle="Freight spend across inward and local"
           breadcrumbs={[{ label: 'Freight' }, { label: 'Analytics' }]} icon={BarChart3} />
 
         {/* Filter bar — period + company + warehouse + transporter. */}
@@ -324,11 +320,10 @@ export default function FreightDashboard() {
         <ListState error={error} onRetry={load}>
           {/* KEY METRICS — five tiles on an indigo backdrop, each with a hover
               breakdown popover. */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 bg-indigo-100 border border-indigo-200 rounded-xl p-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 bg-indigo-100 border border-indigo-200 rounded-xl p-2.5">
             <FreightTile label="Total freight" tone="total" value={fmtMoney0(stats.total)} words={`${stats.count} records · ${fmtCrore(stats.total)}`}
               popTitle="Split by direction" popRows={[
                 { label: `Inward (${stats.by.in.count})`, value: fmtMoney0(stats.by.in.amt), tone: 'text-blue-600' },
-                { label: `Outward (${stats.by.out.count})`, value: fmtMoney0(stats.by.out.amt), tone: 'text-violet-600' },
                 { label: `Local (${stats.by.local.count})`, value: fmtMoney0(stats.by.local.amt), tone: 'text-teal-600' },
                 { label: 'Paid', value: fmtMoney0(stats.paid), tone: 'text-emerald-600' },
                 { label: 'Outstanding', value: fmtMoney0(stats.pending), tone: 'text-rose-600' },
@@ -340,13 +335,6 @@ export default function FreightDashboard() {
                 { label: 'Outstanding', value: fmtMoney0(stats.inPend), tone: 'text-rose-600' },
                 { label: 'Share of total', value: `${inPct}%` },
               ]} />
-            <FreightTile label="Outward (sales)" tone="outward" value={fmtMoney0(stats.by.out.amt)} words={`${stats.by.out.count} records · ${outPct}% of total`}
-              popTitle="Outward freight" popRows={[
-                { label: 'Records', value: String(stats.by.out.count) },
-                { label: 'Paid', value: fmtMoney0(stats.by.out.paid), tone: 'text-emerald-600' },
-                { label: 'Outstanding', value: fmtMoney0(stats.outPend), tone: 'text-rose-600' },
-                { label: 'Share of total', value: `${outPct}%` },
-              ]} />
             <FreightTile label="Local freight" tone="local" value={fmtMoney0(stats.by.local.amt)} words={`${stats.by.local.count} records · ${localPct}% of total`}
               popTitle="Local / charges freight" popRows={[
                 { label: 'Records', value: String(stats.by.local.count) },
@@ -357,7 +345,6 @@ export default function FreightDashboard() {
             <FreightTile label="Outstanding" tone="outstanding" value={fmtMoney0(stats.pending)} words={`${fmtMoney0(stats.paid)} paid`}
               popTitle="Outstanding by direction" popRows={[
                 { label: 'Inward', value: fmtMoney0(stats.inPend), tone: 'text-blue-600' },
-                { label: 'Outward', value: fmtMoney0(stats.outPend), tone: 'text-violet-600' },
                 { label: 'Local', value: fmtMoney0(stats.localPend), tone: 'text-teal-600' },
                 { label: 'Total paid', value: fmtMoney0(stats.paid), tone: 'text-emerald-600' },
               ]} />
@@ -412,17 +399,15 @@ export default function FreightDashboard() {
             </div>
           )}
 
-          {/* Inward / Outward / Local split */}
+          {/* Inward / Local split */}
           <div className="bg-white rounded-xl border border-slate-200 p-4">
-            <p className="text-sm font-semibold text-slate-700 mb-2">Inward · Outward · Local</p>
+            <p className="text-sm font-semibold text-slate-700 mb-2">Inward · Local</p>
             <div className="h-3 w-full rounded-full overflow-hidden bg-slate-100 flex">
               <div className="bg-blue-500 h-full" style={{ width: `${inPct}%` }} title={`Inward ${inPct}%`} />
-              <div className="bg-violet-500 h-full" style={{ width: `${outPct}%` }} title={`Outward ${outPct}%`} />
               <div className="bg-teal-500 h-full" style={{ width: `${localPct}%` }} title={`Local ${localPct}%`} />
             </div>
             <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-[11px] text-slate-500 mt-1.5">
               <span><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1 align-middle" />Inward {fmtMoney0(stats.by.in.amt)} ({inPct}%)</span>
-              <span><span className="inline-block w-2 h-2 rounded-full bg-violet-500 mr-1 align-middle" />Outward {fmtMoney0(stats.by.out.amt)} ({outPct}%)</span>
               <span><span className="inline-block w-2 h-2 rounded-full bg-teal-500 mr-1 align-middle" />Local {fmtMoney0(stats.by.local.amt)} ({localPct}%)</span>
             </div>
           </div>
@@ -436,20 +421,18 @@ export default function FreightDashboard() {
                   <th className="px-4 py-2 text-left font-semibold">Transporter</th>
                   <th className="px-3 py-2 text-right font-semibold">Records</th>
                   <th className="px-3 py-2 text-right font-semibold">Inward</th>
-                  <th className="px-3 py-2 text-right font-semibold">Outward</th>
                   <th className="px-3 py-2 text-right font-semibold">Local</th>
                   <th className="px-3 py-2 text-right font-semibold">Total</th>
                 </tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {topTransporters.length === 0 && (
-                    <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-400">No freight for the selected filters.</td></tr>
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-400">No freight for the selected filters.</td></tr>
                   )}
                   {topTransporters.map((t) => (
                     <tr key={t.name} className="hover:bg-slate-50 cursor-pointer" onClick={() => navigate('/freight/bills')}>
                       <td className="px-4 py-2 font-medium text-slate-800">{t.name}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-slate-500">{t.count}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-blue-600">{formatCurrency(t.inAmt)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-violet-600">{formatCurrency(t.outAmt)}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-teal-600">{formatCurrency(t.localAmt)}</td>
                       <td className="px-3 py-2 text-right tabular-nums font-bold text-slate-800">{formatCurrency(t.total)}</td>
                     </tr>

@@ -29,6 +29,7 @@ class Command(BaseCommand):
             VendorBill, VendorBillLine, PaymentMade, VendorCredit,
             PurchaseRequest, PurchaseOrder,
             ReceiptAdvice, ReceiptLine, LocalFreight,
+            FreightAdviceInbound, FreightPaymentInbound,
         )
         from bank.models import BankAccount
         from hr.models import Staff
@@ -68,6 +69,10 @@ class Command(BaseCommand):
             PurchaseOrder.objects.all().delete()
             PurchaseRequest.objects.all().delete()
             PurchaseDebitNote.objects.all().delete()
+            # Freight payments reference advices (CASCADE), but delete explicitly
+            # so a --wipe without a full advice delete still clears them.
+            FreightPaymentInbound.objects.all().delete()
+            FreightAdviceInbound.objects.all().delete()
             ReceiptLine.objects.all().delete()
             ReceiptAdvice.objects.all().delete()
             LocalFreight.objects.all().delete()
@@ -302,6 +307,7 @@ class Command(BaseCommand):
         # ---- Receipts (build Stock) — one receipt per RM/Packing vendor with a
         # couple of product lines, so the Stock page shows on-hand quantities. ----
         rc = rl_n = 0
+        receipts = []
         for v in vendors[:5]:
             vtype = (v.vendor_type[0] if isinstance(v.vendor_type, list) and v.vendor_type else 'RM')
             category = cat_of.get(vtype, 'RM')
@@ -315,6 +321,8 @@ class Command(BaseCommand):
             # realistic past date via .update() so the Stock drill shows a timeline.
             ReceiptAdvice.objects.filter(pk=ra.pk).update(
                 receipt_date=datetime.datetime.combine(rdate, datetime.time(9, 0)))
+            ra.receipt_date = datetime.datetime.combine(rdate, datetime.time(9, 0))
+            receipts.append(ra)
             rc += 1
             for ln_i, prod in enumerate(random.sample(pool, min(2, len(pool))), start=1):
                 # ONE consistent UOM per product (never mix MT + KG on the same
@@ -345,5 +353,61 @@ class Command(BaseCommand):
             )
             lf += 1
         w(f'  local freight: {lf}')
+
+        # ---- Inbound freight advices (separate transporter slips) + payments ----
+        # These are the SEPARATE_SLIP freight bills the Freight Bills / Freight
+        # Analytics / Freight Payments pages read from /api/purchase/freight/ and
+        # /api/purchase/freight-payments/. Each slip is tied to one of the seeded
+        # receipts (the shipment it carried) and one of the seeded transporters,
+        # so the pages show real inbound freight with a mix of paid / partial /
+        # unpaid status. Without this, those three pages are empty.
+        transporters = list(Transporter.objects.filter(
+            transporter_code__startswith='TPT-DEMO-').order_by('transporter_code'))
+        fa_n = fp_n = 0
+        if receipts and transporters:
+            for i, ra in enumerate(receipts):
+                tpt = transporters[i % len(transporters)]
+                # Linehaul for inter-city (bigger), local drayage for short hops.
+                ftype = 'LINEHAUL' if i % 2 == 0 else 'LOCAL_DRAYAGE'
+                amt = Decimal(random.randint(8000, 60000))
+                fdate = (ra.receipt_date.date()
+                         if ra.receipt_date else today) + datetime.timedelta(days=1)
+                adv = FreightAdviceInbound.objects.create(
+                    freight_source='SEPARATE_SLIP',
+                    source_type='PURCHASE_RECEIPT',
+                    receipt_advice=ra,
+                    transporter=tpt,
+                    freight_type=ftype,
+                    freight_terms='TO_PAY',
+                    base_amount=amt,
+                    payable_amount=amt,
+                    freight_date=fdate,
+                    lorry_no=f'TN-{random.randint(10, 99)}-{random.randint(1000, 9999)}',
+                    driver_name=random.choice(['Murugan', 'Senthil', 'Ravi', 'Karthik']),
+                    status='APPROVED',
+                )
+                fa_n += 1
+                # Payment pattern: full / partial / none — same spread as bills so
+                # the Freight Payments page and the Paid/Partial/Unpaid chips show
+                # all three states.
+                r = random.random()
+                if r < 0.45:
+                    pay_amt = amt                                   # fully paid
+                elif r < 0.75:
+                    pay_amt = (amt * Decimal('0.5')).quantize(Decimal('1.00'))  # partial
+                else:
+                    pay_amt = None                                  # unpaid
+                if pay_amt:
+                    FreightPaymentInbound.objects.create(
+                        freight=adv,
+                        payment_date=fdate + datetime.timedelta(days=random.randint(3, 30)),
+                        amount_paid=pay_amt,
+                        payment_mode=random.choice(['BANK', 'NEFT', 'UPI', 'CASH']),
+                        paid_to=tpt.name,
+                    )
+                    fp_n += 1
+                    # Reflect the payment on the advice status (PAID when settled).
+                    adv.update_payment_status()
+        w(f'  inbound freight advices: {fa_n} ({fp_n} payments)')
 
         w(self.style.SUCCESS('Demo data seeded.'))
