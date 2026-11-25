@@ -361,8 +361,8 @@ export default function UnifiedFreightList() {
 
   const columns = [
     { key: 'direction', label: 'Type', sortable: true, render: (v) => (
-      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium ${v === 'Purchase' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-        {v === 'Purchase' ? <ArrowDownLeft size={11} /> : <ArrowUpRight size={11} />}
+      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium leading-none ${v === 'Purchase' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+        {v === 'Purchase' ? <ArrowDownLeft size={10} /> : <ArrowUpRight size={10} />}
         {v}
       </span>
     )},
@@ -378,7 +378,7 @@ export default function UnifiedFreightList() {
     ) : <span className="text-slate-400 text-xs">{v}</span> },
     { key: 'transporter_name', label: 'Transporter', sortable: true },
     { key: 'freight_source', label: 'Source', sortable: true, render: (v, row) => (
-      <span className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded border ${v === 'INVOICE_INCLUDED' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+      <span className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded border leading-none ${v === 'INVOICE_INCLUDED' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
         {v === 'INVOICE_INCLUDED' ? `In bill${row.vendor_bill_no ? ' · ' + row.vendor_bill_no : ''}` : 'Separate slip'}
       </span>
     )},
@@ -429,8 +429,8 @@ export default function UnifiedFreightList() {
       if (row.status_raw === 'APPROVED' || ['IN_TRANSIT', 'COMPLETED', 'PAID', 'CANCELLED'].includes(row.status_raw)) {
         if (row.status_raw === 'APPROVED') {
           return (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-medium rounded border border-emerald-200 whitespace-nowrap" title="Approved">
-              <CheckCircle2 size={11} /> Approved
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-medium rounded border border-emerald-200 whitespace-nowrap leading-none" title="Approved">
+              <CheckCircle2 size={10} /> Approved
             </span>
           );
         }
@@ -439,10 +439,10 @@ export default function UnifiedFreightList() {
       return (
         <button
           onClick={(e) => handleApprove(e, row)}
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-600 text-white text-[10px] font-medium rounded border border-emerald-600 hover:bg-emerald-700 transition whitespace-nowrap"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-600 text-white text-[10px] font-medium rounded border border-emerald-600 hover:bg-emerald-700 transition whitespace-nowrap leading-none"
           title="Approve Freight"
         >
-          <CheckCircle2 size={11} /> Approve
+          <CheckCircle2 size={10} /> Approve
         </button>
       );
     }},
@@ -476,8 +476,8 @@ export default function UnifiedFreightList() {
       if (row.freight_terms_raw === 'PAID') return null;
       return (
         <button onClick={(e) => { e.stopPropagation(); navigate(`/freight/payments/new?type=${row.direction_key}&freight_id=${row.id}`); }}
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-600 text-white text-[10px] font-medium rounded border border-emerald-600 hover:bg-emerald-700 transition whitespace-nowrap" title="Make Payment">
-          <CreditCard size={11} /> Payment
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-600 text-white text-[10px] font-medium rounded border border-emerald-600 hover:bg-emerald-700 transition whitespace-nowrap leading-none" title="Make Payment">
+          <CreditCard size={10} /> Payment
         </button>
       );
     }},
