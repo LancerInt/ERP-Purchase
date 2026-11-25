@@ -340,7 +340,7 @@ export const NAV_SECTIONS = [
 // Masters, and HR Staff. Hide every other module from the sidebar so the
 // nav matches what actually has a backend here. Mutate in place so the
 // SECTION_BY_ID map and all helpers below see the trimmed list.
-const STANDALONE_SECTION_IDS = ['sourcing', 'purchase', 'freight', 'finance', 'tax', 'import_data', 'masters', 'hr', 'admin'];
+const STANDALONE_SECTION_IDS = ['sourcing', 'purchase', 'inventory', 'freight', 'finance', 'tax', 'import_data', 'masters', 'hr', 'admin'];
 NAV_SECTIONS.splice(
   0,
   NAV_SECTIONS.length,
@@ -384,8 +384,8 @@ const DEFAULT_TAB_ORDER = [
   // Explicit owner-requested order for the top of the list:
   // Reports → Import Data → Sales → Purchase → Expenses → Freight,
   // then the remaining modules in their prior relative order.
-  'reports', 'import_data', 'sales', 'purchase', 'expenses', 'freight_wage',
-  'production', 'quality', 'finance', 'bank', 'inventory', 'masters', 'hr', 'admin',
+  'reports', 'import_data', 'sales', 'purchase', 'inventory', 'expenses', 'freight_wage',
+  'production', 'quality', 'finance', 'bank', 'masters', 'hr', 'admin',
 ];
 
 const normaliseRole = (role) =>
