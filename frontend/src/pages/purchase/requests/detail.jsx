@@ -424,6 +424,13 @@ export default function PurchaseRequestDetailPage() {
       toast.error(`Pick a vendor for the Skip-routed product(s): ${missingSkip.map(lineLabel).join(', ')}`);
       return;
     }
+    // Rate proof is MANDATORY for every Skip-RFQ line — the invoice / quote
+    // that justifies going straight to a PO at the entered price.
+    const missingProof = lines.filter((l) => lineRoutes[l.id]?.route === 'SKIP' && !lineRoutes[l.id]?.rateProofFile);
+    if (missingProof.length) {
+      toast.error(`Attach a rate proof (invoice / quote) for the Skip RFQ product(s): ${missingProof.map(lineLabel).join(', ')}`);
+      return;
+    }
     const missingHold = lines.filter((l) => lineRoutes[l.id]?.route === 'HOLD' && !lineRoutes[l.id]?.vendor);
     if (missingHold.length) {
       toast.error(`A held line needs a vendor even without a price: ${missingHold.map(lineLabel).join(', ')}`);
@@ -2042,7 +2049,7 @@ export default function PurchaseRequestDetailPage() {
                               approve. Optional. */}
                           {isSkip && (
                             <div className="sm:col-span-3">
-                              <label className="block text-[11px] text-slate-500 mb-0.5">Rate proof (invoice / quote)</label>
+                              <label className="block text-[11px] text-slate-500 mb-0.5">Rate proof (invoice / quote) <span className="text-red-500">*</span></label>
                               <div className="flex items-center gap-2">
                                 <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium border border-dashed border-amber-300 text-amber-700 rounded-lg cursor-pointer hover:bg-amber-50">
                                   <Paperclip size={13} />
