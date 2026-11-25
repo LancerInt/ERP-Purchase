@@ -154,6 +154,28 @@ export default function SendPOEmail() {
   };
 
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [waProof, setWaProof] = useState(null);     // screenshot file
+  const [waLogging, setWaLogging] = useState(false);
+
+  // Log a WhatsApp send — upload the chat screenshot as proof. Records a
+  // WhatsApp row in the history and marks the PO sent (like an email send).
+  const handleLogWhatsApp = async () => {
+    if (!waProof) { toast.error('Attach a WhatsApp screenshot first.'); return; }
+    setWaLogging(true);
+    try {
+      const fd = new FormData();
+      fd.append('screenshot', waProof);
+      const res = await apiClient.post(`/api/purchase/orders/${id}/log-whatsapp/`, fd,
+        { headers: { 'Content-Type': 'multipart/form-data' } });
+      toast.success(res.data.message || 'WhatsApp send logged.');
+      setWaProof(null);
+      refreshLogs();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setWaLogging(false);
+    }
+  };
 
   // Share the PO on WhatsApp — opens wa.me with a short PO summary prefilled,
   // addressed to the vendor's contact phone when known. WhatsApp can't carry
@@ -382,6 +404,32 @@ export default function SendPOEmail() {
               WhatsApp opens with the PO text ready — attach the PO&nbsp;PDF before sending.
             </p>
 
+            {/* Proof of a WhatsApp send — upload the chat screenshot. Logs a
+                WhatsApp row in the history below and marks the PO as sent. */}
+            <div className="rounded-lg border border-dashed border-[#25D366]/50 bg-[#25D366]/5 p-2.5 space-y-2">
+              <p className="text-[11px] font-semibold text-slate-600">Sent on WhatsApp? Log it with proof</p>
+              <div className="flex items-center gap-2">
+                <label className="flex-1 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium border border-slate-300 bg-white text-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 min-w-0">
+                  <Paperclip size={13} className="shrink-0" />
+                  <span className="truncate">{waProof ? waProof.name : 'Attach WhatsApp screenshot'}</span>
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={(e) => { setWaProof(e.target.files?.[0] || null); e.target.value = ''; }} />
+                </label>
+                {waProof && (
+                  <button type="button" onClick={() => setWaProof(null)} className="text-slate-400 hover:text-red-500" title="Remove"><X size={14} /></button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleLogWhatsApp}
+                disabled={!waProof || waLogging}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-[#25D366] hover:bg-[#1ebe5a] disabled:opacity-50 transition"
+              >
+                {waLogging ? <Loader2 size={14} className="animate-spin" /> : <MessageCircle size={14} />}
+                Log WhatsApp send
+              </button>
+            </div>
+
             {!canSend && (
               <p className="text-xs text-slate-500">
                 {!selectedTemplate ? 'Please select a template.' : 'No vendor associated with this PO.'}
@@ -587,6 +635,7 @@ export default function SendPOEmail() {
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Vendor</th>
+                  <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Channel</th>
                   <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Status</th>
                   <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Sent At</th>
                   <th className="text-left py-2 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Details</th>
@@ -595,9 +644,17 @@ export default function SendPOEmail() {
               <tbody className="divide-y divide-slate-100">
                 {pagedLogs.map((log, idx) => {
                   const logStatus = log.status || (log.email_sent ? 'Email Sent' : 'Failed');
+                  const isWhatsApp = /whatsapp/i.test(log.status || '') || /whatsapp/i.test(log.subject || '');
                   return (
                     <tr key={log.id || idx} className="hover:bg-primary-50/40 transition-colors">
                       <td className="py-2 px-3 font-medium text-slate-800">{log.vendor_name || log.vendor_email || po?.vendor_name || '-'}</td>
+                      <td className="py-2 px-3">
+                        {isWhatsApp ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded border border-[#25D366]/40 bg-[#25D366]/10 text-[#128C3E]"><MessageCircle size={11} /> WhatsApp</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded border border-primary-200 bg-primary-50 text-primary-700"><Mail size={11} /> Email</span>
+                        )}
+                      </td>
                       <td className="py-2 px-3"><StatusBadge status={logStatus} /></td>
                       <td className="py-2 px-3 text-slate-600">{log.sent_at || log.created_at ? formatDateTime(log.sent_at || log.created_at) : '-'}</td>
                       <td className="py-2 px-3 text-slate-500 text-xs">{log.error || log.error_message || '-'}</td>

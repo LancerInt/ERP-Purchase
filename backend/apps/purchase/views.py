@@ -3324,6 +3324,61 @@ class PurchaseOrderViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet):
         except Exception as e:
             return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=True, methods=['post'], url_path='log-whatsapp')
+    def log_whatsapp(self, request, pk=None):
+        """Record that the PO was shared with the vendor on WhatsApp.
+
+        The operator shares the PO text + PDF from their own WhatsApp, then
+        comes back and uploads a screenshot of the sent chat as proof. This
+        logs it as a WhatsApp entry in the PO's send history (same table as
+        email) and marks the PO as sent — identical downstream effect to an
+        email send. The screenshot is stored as a PO attachment.
+
+        multipart: `screenshot` (image file, required).
+        """
+        from communications.models import EmailLog
+        from .models import PurchaseAttachment
+
+        po = self.get_object()
+        if not po.vendor_id:
+            return Response({'error': 'This PO has no vendor.'}, status=status.HTTP_400_BAD_REQUEST)
+        screenshot = request.FILES.get('screenshot')
+        if not screenshot:
+            return Response({'error': 'A WhatsApp screenshot is required as proof.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # One send-history row, flagged WhatsApp in the subject + status so the
+        # existing history table can show the channel. Marked email_sent=True so
+        # the PO counts as sent (same as an email send).
+        log = EmailLog.objects.create(
+            po=po,
+            vendor=po.vendor,
+            vendor_email=getattr(po.vendor, 'contact_phone', '') or '',
+            subject=f'[{po.po_no}] Shared on WhatsApp',
+            body_preview='PO shared with the vendor on WhatsApp (screenshot attached).',
+            pdf_generated=False,
+            email_sent=True,
+            status='WhatsApp Sent',
+            sent_by=request.user,
+            sent_at=timezone.now(),
+        )
+
+        # Store the screenshot as proof against the PO.
+        PurchaseAttachment.objects.create(
+            module='PO', record_id=po.id, category='GENERAL',
+            file=screenshot,
+            file_name=getattr(screenshot, 'name', 'whatsapp.png'),
+            uploaded_by=request.user,
+        )
+
+        AuditLog.objects.create(
+            user=request.user, role_name=get_user_role_name(request.user),
+            module_name='Purchase Order', action='EDIT',
+            details=f'PO {po.po_no} shared on WhatsApp with {po.vendor.vendor_name} (screenshot logged)',
+        )
+        return Response({'success': True, 'message': f'WhatsApp send logged for {po.vendor.vendor_name}',
+                         'log_id': str(log.id)})
+
     def _po_addr_with_columns(self, entity):
         """Vendor / Warehouse keep a JSON `address` blob PLUS their own
         city/state/pincode columns — join both into one clean line, mirroring
