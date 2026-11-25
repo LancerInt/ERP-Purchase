@@ -4,7 +4,7 @@ import { confirm } from '@/components/common/confirm';
 import { useState, useEffect, useRef, useMemo, useCallback, memo, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, ScanLine, Loader2, Camera, Upload, Paperclip, Mic, MicOff } from 'lucide-react';
+import { Plus, Trash2, ScanLine, Loader2, Camera, Upload, Paperclip, Mic, MicOff, ChevronDown } from 'lucide-react';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import apiClient from '../../../utils/api.js';
@@ -599,6 +599,11 @@ export default function CreateReceiptAdvice() {
   const transportFileRef = useRef(null);
   const generalCameraRef = useRef(null);
   const generalFileRef = useRef(null);
+  // Collapsible sections. Order on screen: Receipt Details (always open) ->
+  // Line Items -> Weighment -> Transport. Only Receipt Details starts open;
+  // the other three begin collapsed and expand on a header click.
+  const [openSections, setOpenSections] = useState({ lines: false, weighment: false, transport: false });
+  const toggleSection = (k) => setOpenSections((p) => ({ ...p, [k]: !p[k] }));
   const [freightExtracting, setFreightExtracting] = useState(false);
 
   const handleTransportFile = async (file) => {
@@ -2542,7 +2547,7 @@ export default function CreateReceiptAdvice() {
       />
       <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
         <form onSubmit={handleSubmit}>
-          <EditGate canEdit={editable} className="space-y-3">
+          <EditGate canEdit={editable} className="flex flex-col gap-3">
           {/* ── Receipt Source + Fill Mode — one combined panel.
               Source pills are coloured (primary / amber) so the active mode
               is visible at a glance; Fill Mode pills sit beside them
@@ -2908,7 +2913,7 @@ export default function CreateReceiptAdvice() {
               down into each receipt line's Net Quantity automatically
               because that mapping is driven by row index, not by render
               order. */}
-          <div>
+          <div className="order-3">
             <input
               ref={weighmentFileInputRef}
               type="file"
@@ -2916,9 +2921,12 @@ export default function CreateReceiptAdvice() {
               className="hidden"
               onChange={handleWeighmentFileChange}
             />
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b flex-wrap gap-2">
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b flex-wrap gap-2 cursor-pointer" onClick={() => toggleSection('weighment')}>
               <div className="flex items-baseline gap-2">
-                <h3 className="text-sm sm:text-base font-semibold text-slate-800">Weighment Details <span className="text-red-500">*</span></h3>
+                <h3 className="text-sm sm:text-base font-semibold text-slate-800 flex items-center gap-1.5 self-center">
+                  <ChevronDown size={16} className={`transition-transform ${openSections.weighment ? '' : '-rotate-90'}`} />
+                  Weighment Details <span className="text-red-500">*</span>
+                </h3>
                 <span className="text-[11px] text-slate-400">required — enter a weight or use AI on a slip photo</span>
                 {pendingWeighmentAttachments.length > 0 && (
                   <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
@@ -2926,10 +2934,11 @@ export default function CreateReceiptAdvice() {
                   </span>
                 )}
               </div>
-              <button type="button" onClick={addWeighment} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
+              <button type="button" onClick={(e) => { e.stopPropagation(); addWeighment(); }} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
                 <Plus size={16} /> Add Weighment
               </button>
             </div>
+            {openSections.weighment && (<>
             {weighmentDetails.length === 0 ? (
               <p className="text-sm text-slate-400 italic">No weighment details added. Click "Add Weighment" to record weighbridge readings.</p>
             ) : (
@@ -3017,14 +3026,21 @@ export default function CreateReceiptAdvice() {
                 </table>
               </div>
             )}
+            </>)}
           </div>
 
           {/* Transport Details — placed AFTER Weighment so the user
               records the weighbridge readings first (those drive the
               line-item Net Quantity), then fills in the truck / driver /
               freight metadata before reviewing line items. */}
-          <div>
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Transport Details</h3>
+          <div className="order-4">
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b cursor-pointer" onClick={() => toggleSection('transport')}>
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 flex items-center gap-1.5">
+                <ChevronDown size={16} className={`transition-transform ${openSections.transport ? '' : '-rotate-90'}`} />
+                Transport Details
+              </h3>
+            </div>
+            {openSections.transport && (<>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
               {!isHidden('driver_name') && (
               <div>
@@ -3148,10 +3164,11 @@ export default function CreateReceiptAdvice() {
                 onPendingChange={(files) => { pendingTransportAttachmentsRef.current = files; setPendingTransportAttachments(files); }}
               />
             </div>
+            </>)}
           </div>
 
           {/* Receipt Line Items */}
-          <div>
+          <div className="order-2">
             {(() => {
               // Live banner as the operator types. Lists lines with
               // (a) Invoice Qty > PO pending (PO over-delivery) or
@@ -3182,9 +3199,12 @@ export default function CreateReceiptAdvice() {
                 </div>
               );
             })()}
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Receipt Line Items</h3>
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b cursor-pointer" onClick={() => toggleSection('lines')}>
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800 flex items-center gap-1.5">
+                <ChevronDown size={16} className={`transition-transform ${openSections.lines ? '' : '-rotate-90'}`} />
+                Receipt Line Items
+              </h3>
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 {receiptLines.some(l => l._unresolved) && (
                   <button
                     type="button"
@@ -3199,6 +3219,8 @@ export default function CreateReceiptAdvice() {
                 </button>
               </div>
             </div>
+            {openSections.lines && (<>
+            {/* collapsible body */}
             {poLines.length > 0 && (
               <div className="mb-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
                 <strong>PO Lines:</strong>{' '}
@@ -3617,10 +3639,11 @@ export default function CreateReceiptAdvice() {
                 </tbody>
               </table>
             </div>
+            </>)}
           </div>
 
           {/* Packing Material Lines */}
-          <div>
+          <div className="order-5">
             <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
               <h3 className="text-sm sm:text-base font-semibold text-slate-800">Packing Materials</h3>
               <button type="button" onClick={addPackingLine} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
@@ -3848,7 +3871,7 @@ export default function CreateReceiptAdvice() {
 
 
           {/* Additional Information */}
-          <div>
+          <div className="order-6">
             <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Additional Information</h3>
             <div className="grid grid-cols-1 gap-3">
               {!isHidden('remarks') && (
@@ -3861,7 +3884,7 @@ export default function CreateReceiptAdvice() {
           </div>
 
           {/* Attachments — combined view with category labels + inline preview */}
-          <div>
+          <div className="order-7">
             <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Attachments</h3>
             <div className="flex items-center gap-2 mb-3">
               <input
@@ -3946,7 +3969,7 @@ export default function CreateReceiptAdvice() {
                 { icon: next ? '🧾' : '✅', duration: 3000 });
             };
             return (
-              <div className="flex justify-end items-center gap-3 pt-4 border-t">
+              <div className="order-8 flex justify-end items-center gap-3 pt-4 border-t">
                 <button type="button" onClick={() => navigate(-1)} className="px-4 sm:px-6 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
                 <button type="submit" disabled={isLoading} className="px-4 sm:px-6 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">{isLoading ? 'Saving...' : 'Save'}</button>
               </div>
