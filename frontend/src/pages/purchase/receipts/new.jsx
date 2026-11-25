@@ -2623,13 +2623,11 @@ export default function CreateReceiptAdvice() {
                   type="button"
                   onClick={() => aiFileInputRef.current?.click()}
                   title="Upload an invoice / DC / GRN — AI fills PO, vendor, company & lines"
-                  className="w-full flex items-center justify-center gap-3 px-4 py-4 rounded-xl border-2 border-dashed border-primary-300 bg-primary-50 text-primary-700 hover:bg-primary-100 hover:border-primary-400 transition"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-primary-300 bg-primary-50 text-primary-700 hover:bg-primary-100 transition text-left"
                 >
-                  <Camera size={22} className="shrink-0" />
-                  <span className="text-left">
-                    <span className="block text-sm font-semibold">Upload Receipt Photo to auto-fill</span>
-                    <span className="block text-[11px] font-normal text-primary-600/80">AI reads the invoice / DC / GRN and fills PO, vendor, company &amp; line items — PDF, JPG, PNG, DOCX, XLSX</span>
-                  </span>
+                  <Camera size={16} className="shrink-0" />
+                  <span className="text-sm font-semibold">Upload Receipt Photo</span>
+                  <span className="text-[11px] font-normal text-primary-600/80 truncate">AI fills PO, vendor, company &amp; line items</span>
                   <input
                     ref={aiFileInputRef}
                     type="file"
