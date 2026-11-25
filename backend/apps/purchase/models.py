@@ -3855,7 +3855,9 @@ class PurchaseAttachment(BaseModel):
     CATEGORY_CHOICES = (
         ('GENERAL', _('General')),
         ('TRANSPORT', _('Transport')),
+        ('WEIGHMENT', _('Weighment Slip')),
         ('DAMAGE_PROOF', _('Damage Proof')),
+        ('DEVIATION_PROOF', _('Deviation Proof')),
         # A recorded audio clip — e.g. the spoken "reason for change" on a PR.
         ('VOICE_NOTE', _('Voice Note')),
         # Invoice / quote / document justifying a line's unit price when the

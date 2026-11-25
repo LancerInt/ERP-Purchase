@@ -591,6 +591,10 @@ export default function CreateReceiptAdvice() {
   const pendingAttachmentsRef = useRef([]);
   const [pendingTransportAttachments, setPendingTransportAttachments] = useState([]);
   const pendingTransportAttachmentsRef = useRef([]);
+  // Weighment slip photos — WC can upload the weighbridge slip; AI fills the
+  // weighment row. Saved against the receipt as WEIGHMENT attachments.
+  const [pendingWeighmentAttachments, setPendingWeighmentAttachments] = useState([]);
+  const pendingWeighmentAttachmentsRef = useRef([]);
   const transportCameraRef = useRef(null);
   const transportFileRef = useRef(null);
   const generalCameraRef = useRef(null);
@@ -1780,6 +1784,13 @@ export default function CreateReceiptAdvice() {
     const idx = weighmentExtractRowIdx;
     setWeighmentExtractRowIdx(null);
     if (!file || idx == null) return;
+    // Keep the weighment slip photo so it's saved with the receipt (the AI
+    // extract fills the row; the photo is the source document / proof).
+    {
+      const updated = [...pendingWeighmentAttachmentsRef.current, file];
+      pendingWeighmentAttachmentsRef.current = updated;
+      setPendingWeighmentAttachments(updated);
+    }
     setExtractingRowIdx(idx);
     const toastId = toast.loading('Extracting weighment slip…');
     try {
@@ -1872,19 +1883,26 @@ export default function CreateReceiptAdvice() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validate quantities before submission
+    // Weighment is the ONE mandatory part of a receipt — the Warehouse
+    // Coordinator can otherwise just upload photos (receipt / transport /
+    // weighment slip) and let AI fill the rest. Require at least one weighment
+    // row carrying a weight, OR a weighment slip photo uploaded, before saving.
+    const hasWeight = (weighmentDetails || []).some(w =>
+      [w.first_weight, w.second_weight, w.tare_weight].some(v => parseFloat(v) > 0));
+    const hasWeighmentPhoto = (pendingWeighmentAttachmentsRef.current || []).length > 0;
+    if (!hasWeight && !hasWeighmentPhoto) {
+      toast.error('Weighment is required — enter a weight or upload a weighment slip photo.');
+      return;
+    }
+
+    // Validate quantities only on lines the operator actually filled; a
+    // photo-only receipt (no typed lines) is allowed.
     const validLines = receiptLines.filter(l => l.product && l.quantity_received);
     for (let i = 0; i < validLines.length; i++) {
       const line = validLines[i];
       const qty = parseFloat(line.quantity_received) || 0;
       if (qty <= 0) {
         toast.error('Invoice quantity must be greater than 0.');
-        return;
-      }
-      // Received Quantity is mandatory on every line being received.
-      const net = parseFloat(line.net_quantity);
-      if (line.net_quantity === '' || line.net_quantity == null || Number.isNaN(net) || net <= 0) {
-        toast.error(`Line ${i + 1}: Received Quantity is required and must be greater than 0.`);
         return;
       }
       // Over-delivery is permitted by policy — no hard block here.
@@ -1939,28 +1957,13 @@ export default function CreateReceiptAdvice() {
       if (!ok) return;
     }
 
-    // Transport details are mandatory — the lorry, driver and freight terms
-    // must be recorded for every receipt. (Skipped for any field a role hides.)
-    if (!isHidden('vehicle_number') && !(formData.vehicle_number || '').trim()) {
-      toast.error('Lorry No is required under Transport Details.');
-      return;
-    }
-    if (!isHidden('driver_name') && !(formData.driver_name || '').trim()) {
-      toast.error('Driver Name is required under Transport Details.');
-      return;
-    }
-    if (!isHidden('freight_terms') && !(formData.freight_terms || '').trim()) {
-      toast.error('Freight Terms are required under Transport Details.');
-      return;
-    }
-
-    // Freight attachment is compulsory when any freight detail is entered
-    const hasFreightDetails = [
-      formData.transporter_name, formData.freight_bill_no, formData.freight_bill_date,
-    ].some(v => (v || '').toString().trim()) ||
-      [formData.freight_value, formData.advance_amount].some(v => parseFloat(v) > 0);
-    if (hasFreightDetails && pendingTransportAttachmentsRef.current.length === 0) {
-      toast.error('Freight bill attachment is required when freight details are entered.');
+    // Transport details are OPTIONAL — the WC can leave them blank and just
+    // upload a transport photo. Lorry / driver / freight terms are no longer
+    // required. (A freight-bill photo is still expected when freight *money*
+    // is entered, so the amount has a source document.)
+    const hasFreightMoney = [formData.freight_value, formData.advance_amount].some(v => parseFloat(v) > 0);
+    if (hasFreightMoney && pendingTransportAttachmentsRef.current.length === 0) {
+      toast.error('Attach the freight bill / transport photo when a freight amount is entered.');
       return;
     }
 
@@ -2077,6 +2080,9 @@ export default function CreateReceiptAdvice() {
 
       if (pendingTransportAttachments.length > 0 && newId) {
         await uploadPendingFiles('RECEIPT', newId, pendingTransportAttachmentsRef.current, 'TRANSPORT');
+      }
+      if (pendingWeighmentAttachments.length > 0 && newId) {
+        await uploadPendingFiles('RECEIPT', newId, pendingWeighmentAttachmentsRef.current, 'WEIGHMENT');
       }
       if (pendingAttachments.length > 0 && newId) {
         await uploadPendingFiles('RECEIPT', newId, pendingAttachmentsRef.current, 'GENERAL');
@@ -2910,8 +2916,16 @@ export default function CreateReceiptAdvice() {
               className="hidden"
               onChange={handleWeighmentFileChange}
             />
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Weighment Details</h3>
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b flex-wrap gap-2">
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-sm sm:text-base font-semibold text-slate-800">Weighment Details <span className="text-red-500">*</span></h3>
+                <span className="text-[11px] text-slate-400">required — enter a weight or use AI on a slip photo</span>
+                {pendingWeighmentAttachments.length > 0 && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                    {pendingWeighmentAttachments.length} slip photo{pendingWeighmentAttachments.length > 1 ? 's' : ''} attached
+                  </span>
+                )}
+              </div>
               <button type="button" onClick={addWeighment} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
                 <Plus size={16} /> Add Weighment
               </button>
@@ -3391,7 +3405,7 @@ export default function CreateReceiptAdvice() {
                       )}
                       {!isLineHidden('net_quantity') && (
                       <td className="px-3 py-2">
-                        <input type="number" step="0.01" min="0.01" required value={line.net_quantity || ''} onChange={(e) => handleReceiptLineChange(index, 'net_quantity', e.target.value)} disabled={isLineRO('net_quantity')} className={isLineRO('net_quantity') ? lockedInputClass : inputClass} style={{ minWidth: '100px' }} placeholder="0.00" />
+                        <input type="number" step="0.01" min="0.01" value={line.net_quantity || ''} onChange={(e) => handleReceiptLineChange(index, 'net_quantity', e.target.value)} disabled={isLineRO('net_quantity')} className={isLineRO('net_quantity') ? lockedInputClass : inputClass} style={{ minWidth: '100px' }} placeholder="0.00" />
                       </td>
                       )}
                       {/* Density input — only shown for LTR (liquid) lines.
