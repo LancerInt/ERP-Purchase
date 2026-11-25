@@ -2613,30 +2613,11 @@ export default function CreateReceiptAdvice() {
             </div>
           </div>
 
-          {/* ── AI Document Upload (Auto Fill mode only) — the PRIMARY first
-              step: upload the receipt photo and AI fills PO / vendor / company
-              / lines. Prominent so the WC starts here. */}
-          {fillMode === 'autofill' && (
+          {/* ── AI Document upload preview. The upload BUTTON lives on the
+              Receipt Details header row (below); this block only shows the
+              extracted-file card once a file is chosen. */}
+          {fillMode === 'autofill' && uploadedFile && (
             <div>
-              {!uploadedFile && (
-                <button
-                  type="button"
-                  onClick={() => aiFileInputRef.current?.click()}
-                  title="Upload an invoice / DC / GRN — AI fills PO, vendor, company & lines"
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-primary-300 bg-primary-50 text-primary-700 hover:bg-primary-100 transition text-left"
-                >
-                  <Camera size={16} className="shrink-0" />
-                  <span className="text-sm font-semibold">Upload Receipt Photo</span>
-                  <span className="text-[11px] font-normal text-primary-600/80 truncate">AI fills PO, vendor, company &amp; line items</span>
-                  <input
-                    ref={aiFileInputRef}
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
-                    className="hidden"
-                    onChange={(e) => handleAIUpload(e.target.files?.[0])}
-                  />
-                </button>
-              )}
               {uploadedFile && (
                 <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 bg-white">
                   <div className="flex items-center gap-3">
@@ -2715,7 +2696,26 @@ export default function CreateReceiptAdvice() {
 
           {/* Receipt Details */}
           <div>
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Receipt Details</h3>
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b gap-2">
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Receipt Details</h3>
+              {fillMode === 'autofill' && !uploadedFile && (
+                <button
+                  type="button"
+                  onClick={() => aiFileInputRef.current?.click()}
+                  title="Upload an invoice / DC / GRN — AI fills PO, vendor, company & lines"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition shrink-0"
+                >
+                  <Camera size={14} /> Upload Receipt Photo
+                  <input
+                    ref={aiFileInputRef}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
+                    className="hidden"
+                    onChange={(e) => handleAIUpload(e.target.files?.[0])}
+                  />
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
               {!isDirectReceipt && (
               <div>
