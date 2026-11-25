@@ -346,6 +346,10 @@ export default function CreateVendorBill() {
         const qty = parseFloat(rl.quantity_received) || 1;
         const netQty = parseFloat(rl.net_quantity);
         const diffQty = !isNaN(netQty) ? Math.round((qty - netQty) * 100) / 100 : null;
+        const rlRate = parseFloat(rl.rate) || 0;
+        const rlGst = parseFloat(rl.gst_percent || rl.gst) || 0;
+        const rlBase = qty * rlRate;
+        const rlAmount = rlBase + (rlBase * rlGst / 100);
         return {
           item_type: itemType,
           product: itemId,
@@ -357,11 +361,11 @@ export default function CreateVendorBill() {
           net_quantity: !isNaN(netQty) ? netQty : null,
           diff_quantity: diffQty,
           uom: rl.uom || '',
-          rate: '0',
+          rate: String(rlRate),
           po_rate: null,
           discount_percent: '0',
-          tax_percent: '0',
-          amount: '0',
+          tax_percent: String(rlGst),
+          amount: rlAmount.toFixed(2),
         };
       });
       let newLines = [...goodsLines, ...packingLines.map(packingLineToBillLine)];
@@ -394,6 +398,23 @@ export default function CreateVendorBill() {
             });
           }
         } catch {}
+      }
+
+      // Fallback for Direct Receipts: if lines still have rate=0 and
+      // the receipt header carries an invoice_amount, distribute it
+      // evenly across all lines so the bill total isn't zero.
+      const invoiceAmt = parseFloat(r.invoice_amount) || 0;
+      const allZero = invoiceAmt > 0 && newLines.every(l => parseFloat(l.rate) === 0);
+      if (allZero && newLines.length > 0) {
+        const perLine = Math.round((invoiceAmt / newLines.length) * 100) / 100;
+        newLines = newLines.map(l => {
+          const qty = parseFloat(l.quantity) || 1;
+          const rate = Math.round((perLine / qty) * 100) / 100;
+          const base = qty * rate;
+          const gst = parseFloat(l.tax_percent) || 0;
+          const amount = base + (base * gst / 100);
+          return { ...l, rate: String(rate), amount: amount.toFixed(2) };
+        });
       }
 
       setLines(newLines);

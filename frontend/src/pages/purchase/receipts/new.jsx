@@ -1,5 +1,6 @@
 import CustomDatePicker from "@/components/ui/CustomDatePicker";
 import CustomSelect from "@/components/ui/CustomSelect";
+import CreatableSelect from "@/components/ui/CreatableSelect";
 import { confirm } from '@/components/common/confirm';
 import { useState, useEffect, useRef, useMemo, useCallback, memo, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -3069,10 +3070,7 @@ export default function CreateReceiptAdvice() {
               )}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-0.5">Transporter Name</label>
-                <CustomSelect name="transporter_name" value={formData.transporter_name} onChange={handleChange} className={inputClass}>
-                  <option value="">-- Select Transporter --</option>
-                  {transporterOptions.map(o => <option key={o.value} value={o.label}>{o.label}</option>)}
-                </CustomSelect>
+                <CreatableSelect name="transporter_name" value={formData.transporter_name} onChange={handleChange} options={transporterOptions.map(o => o.label)} placeholder="Pick or type transporter" className={inputClass} />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-0.5">Freight Bill No</label>
