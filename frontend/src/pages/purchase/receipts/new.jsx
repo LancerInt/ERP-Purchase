@@ -2695,7 +2695,7 @@ export default function CreateReceiptAdvice() {
           )}
 
           {/* Receipt Details */}
-          <div>
+          <div className="rounded-lg border border-slate-200 p-3 sm:p-4">
             <div className="flex items-center justify-between mb-2 pb-1.5 border-b gap-2">
               <h3 className="text-sm sm:text-base font-semibold text-slate-800">Receipt Details</h3>
               {fillMode === 'autofill' && !uploadedFile && (
@@ -2733,6 +2733,25 @@ export default function CreateReceiptAdvice() {
                       .filter(o => !formData.vendor || o.vendor === formData.vendor)
                       .map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </CustomSelect>
+                )}
+                {/* Multi-PO chips + a subtle add link, right under the PO field
+                    (a receipt can cover several POs from the same vendor). */}
+                {formData.po_no && !formData.job_work_no && (
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {additionalPoIds.map(id => {
+                      const po = poRawData.find(p => p.id === id);
+                      const label = po ? (po.po_no || id) : id;
+                      return (
+                        <span key={id} className="inline-flex items-center gap-1 rounded-full bg-primary-50 border border-primary-200 px-2 py-0.5 text-[11px] text-primary-700" title={po?.vendor_name || ''}>
+                          {label}
+                          <button type="button" onClick={() => removeAdditionalPO(id)} className="text-primary-500 hover:text-red-600" aria-label={`Remove ${label}`}>×</button>
+                        </span>
+                      );
+                    })}
+                    <button type="button" onClick={() => { setAddPoModalSelection([]); setAddPoModalOpen(true); }} className="text-[11px] text-primary-600 hover:text-primary-800 hover:underline whitespace-nowrap">
+                      + Add another PO
+                    </button>
+                  </div>
                 )}
               </div>
               )}
@@ -2811,33 +2830,6 @@ export default function CreateReceiptAdvice() {
                 />
               </div>
               )}
-              {/* Multi-PO chips + add button — sits in its own grid cell beside
-                  Invoice No so it stays inline with the fields (a receipt can
-                  cover several POs from the same vendor). */}
-              {formData.po_no && !formData.job_work_no && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-0.5">Additional POs</label>
-                  <div className="flex flex-wrap items-center gap-2 min-h-[38px]">
-                    {additionalPoIds.map(id => {
-                      const po = poRawData.find(p => p.id === id);
-                      const label = po ? (po.po_no || id) : id;
-                      return (
-                        <span key={id} className="inline-flex items-center gap-1 rounded-full bg-primary-50 border border-primary-200 px-2 py-0.5 text-xs text-primary-700" title={po?.vendor_name || ''}>
-                          + {label}
-                          <button type="button" onClick={() => removeAdditionalPO(id)} className="ml-0.5 text-primary-500 hover:text-red-600" aria-label={`Remove ${label}`}>×</button>
-                        </span>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      onClick={() => { setAddPoModalSelection([]); setAddPoModalOpen(true); }}
-                      className="text-xs text-primary-600 hover:text-primary-800 hover:underline whitespace-nowrap"
-                    >
-                      + Add another PO
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -2907,7 +2899,7 @@ export default function CreateReceiptAdvice() {
               down into each receipt line's Net Quantity automatically
               because that mapping is driven by row index, not by render
               order. */}
-          <div className="order-3">
+          <div className="order-3 rounded-lg border border-slate-200 p-3 sm:p-4">
             <input
               ref={weighmentFileInputRef}
               type="file"
@@ -2915,7 +2907,7 @@ export default function CreateReceiptAdvice() {
               className="hidden"
               onChange={handleWeighmentFileChange}
             />
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b flex-wrap gap-2 cursor-pointer" onClick={() => toggleSection('weighment')}>
+            <div className={`flex items-center justify-between flex-wrap gap-2 cursor-pointer ${openSections.weighment ? 'mb-2 pb-1.5 border-b' : ''}`} onClick={() => toggleSection('weighment')}>
               <div className="flex items-baseline gap-2">
                 <h3 className="text-sm sm:text-base font-semibold text-slate-800">Weighment Details <span className="text-red-500">*</span></h3>
                 <span className="text-[11px] text-slate-400">required — enter a weight or use AI on a slip photo</span>
@@ -3027,8 +3019,8 @@ export default function CreateReceiptAdvice() {
               records the weighbridge readings first (those drive the
               line-item Net Quantity), then fills in the truck / driver /
               freight metadata before reviewing line items. */}
-          <div className="order-4">
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b cursor-pointer" onClick={() => toggleSection('transport')}>
+          <div className="order-4 rounded-lg border border-slate-200 p-3 sm:p-4">
+            <div className={`flex items-center justify-between cursor-pointer ${openSections.transport ? 'mb-2 pb-1.5 border-b' : ''}`} onClick={() => toggleSection('transport')}>
               <h3 className="text-sm sm:text-base font-semibold text-slate-800">Transport Details</h3>
               <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.transport ? '' : '-rotate-90'}`} />
             </div>
@@ -3160,7 +3152,7 @@ export default function CreateReceiptAdvice() {
           </div>
 
           {/* Receipt Line Items */}
-          <div className="order-2">
+          <div className="order-2 rounded-lg border border-slate-200 p-3 sm:p-4">
             {(() => {
               // Live banner as the operator types. Lists lines with
               // (a) Invoice Qty > PO pending (PO over-delivery) or
@@ -3191,7 +3183,7 @@ export default function CreateReceiptAdvice() {
                 </div>
               );
             })()}
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b cursor-pointer" onClick={() => toggleSection('lines')}>
+            <div className={`flex items-center justify-between cursor-pointer ${openSections.lines ? 'mb-2 pb-1.5 border-b' : ''}`} onClick={() => toggleSection('lines')}>
               <h3 className="text-sm sm:text-base font-semibold text-slate-800">Receipt Line Items</h3>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -3635,8 +3627,8 @@ export default function CreateReceiptAdvice() {
           </div>
 
           {/* Packing Material Lines */}
-          <div className="order-5">
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b cursor-pointer" onClick={() => toggleSection('packing')}>
+          <div className="order-5 rounded-lg border border-slate-200 p-3 sm:p-4">
+            <div className={`flex items-center justify-between cursor-pointer ${openSections.packing ? 'mb-2 pb-1.5 border-b' : ''}`} onClick={() => toggleSection('packing')}>
               <div className="flex items-baseline gap-2">
                 <h3 className="text-sm sm:text-base font-semibold text-slate-800">Packing Materials</h3>
                 {packingLines.length > 0 && <span className="text-[11px] text-slate-400">({packingLines.length})</span>}
