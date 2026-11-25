@@ -2613,17 +2613,23 @@ export default function CreateReceiptAdvice() {
             </div>
           </div>
 
-          {/* ── AI Document Upload (Auto Fill mode only) — just a small button */}
+          {/* ── AI Document Upload (Auto Fill mode only) — the PRIMARY first
+              step: upload the receipt photo and AI fills PO / vendor / company
+              / lines. Prominent so the WC starts here. */}
           {fillMode === 'autofill' && (
             <div>
               {!uploadedFile && (
                 <button
                   type="button"
                   onClick={() => aiFileInputRef.current?.click()}
-                  title="Upload an invoice / DC / GRN — AI fills vendor & lines"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition"
+                  title="Upload an invoice / DC / GRN — AI fills PO, vendor, company & lines"
+                  className="w-full flex items-center justify-center gap-3 px-4 py-4 rounded-xl border-2 border-dashed border-primary-300 bg-primary-50 text-primary-700 hover:bg-primary-100 hover:border-primary-400 transition"
                 >
-                  <Camera size={14} /> Upload Receipt Photo
+                  <Camera size={22} className="shrink-0" />
+                  <span className="text-left">
+                    <span className="block text-sm font-semibold">Upload Receipt Photo to auto-fill</span>
+                    <span className="block text-[11px] font-normal text-primary-600/80">AI reads the invoice / DC / GRN and fills PO, vendor, company &amp; line items — PDF, JPG, PNG, DOCX, XLSX</span>
+                  </span>
                   <input
                     ref={aiFileInputRef}
                     type="file"
@@ -2932,10 +2938,10 @@ export default function CreateReceiptAdvice() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.weighment ? '' : '-rotate-90'}`} />
                 <button type="button" onClick={(e) => { e.stopPropagation(); addWeighment(); }} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
                   <Plus size={16} /> Add Weighment
                 </button>
+                <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.weighment ? '' : '-rotate-90'}`} />
               </div>
             </div>
             {openSections.weighment && (<>
@@ -3200,7 +3206,6 @@ export default function CreateReceiptAdvice() {
             <div className="flex items-center justify-between mb-2 pb-1.5 border-b cursor-pointer" onClick={() => toggleSection('lines')}>
               <h3 className="text-sm sm:text-base font-semibold text-slate-800">Receipt Line Items</h3>
               <div className="flex items-center gap-2">
-                <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.lines ? '' : '-rotate-90'}`} />
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 {receiptLines.some(l => l._unresolved) && (
                   <button
@@ -3215,6 +3220,7 @@ export default function CreateReceiptAdvice() {
                   <Plus size={16} /> Add Line
                 </button>
                 </div>
+                <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.lines ? '' : '-rotate-90'}`} />
               </div>
             </div>
             {openSections.lines && (<>
@@ -3648,10 +3654,10 @@ export default function CreateReceiptAdvice() {
                 {packingLines.length > 0 && <span className="text-[11px] text-slate-400">({packingLines.length})</span>}
               </div>
               <div className="flex items-center gap-2">
-                <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.packing ? '' : '-rotate-90'}`} />
                 <button type="button" onClick={(e) => { e.stopPropagation(); if (!openSections.packing) toggleSection('packing'); addPackingLine(); }} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
                   <Plus size={16} /> Add Packing Material
                 </button>
+                <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.packing ? '' : '-rotate-90'}`} />
               </div>
             </div>
             {openSections.packing && (<>
