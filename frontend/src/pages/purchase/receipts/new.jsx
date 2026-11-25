@@ -2608,31 +2608,26 @@ export default function CreateReceiptAdvice() {
             </div>
           </div>
 
-          {/* ── AI Document Upload (Auto Fill mode only) ─────────────── */}
+          {/* ── AI Document Upload (Auto Fill mode only) — just a small button */}
           {fillMode === 'autofill' && (
-            <div className="rounded-lg border border-slate-200 p-3">
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-slate-800">Extract Receipt Data</h3>
-                  <p className="text-[11px] text-slate-400">Invoice / DC / GRN — AI fills vendor &amp; lines. PDF, JPG, PNG, DOCX, XLSX · max 20 MB</p>
-                </div>
-                {!uploadedFile && (
-                  <button
-                    type="button"
-                    onClick={() => aiFileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition shrink-0"
-                  >
-                    <Camera size={14} /> Upload / Take Photo
-                    <input
-                      ref={aiFileInputRef}
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
-                      className="hidden"
-                      onChange={(e) => handleAIUpload(e.target.files?.[0])}
-                    />
-                  </button>
-                )}
-              </div>
+            <div>
+              {!uploadedFile && (
+                <button
+                  type="button"
+                  onClick={() => aiFileInputRef.current?.click()}
+                  title="Upload an invoice / DC / GRN — AI fills vendor & lines"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition"
+                >
+                  <Camera size={14} /> Upload Receipt Photo
+                  <input
+                    ref={aiFileInputRef}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
+                    className="hidden"
+                    onChange={(e) => handleAIUpload(e.target.files?.[0])}
+                  />
+                </button>
+              )}
               {uploadedFile && (
                 <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 bg-white">
                   <div className="flex items-center gap-3">
