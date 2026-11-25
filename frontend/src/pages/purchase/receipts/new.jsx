@@ -3096,22 +3096,13 @@ export default function CreateReceiptAdvice() {
             {/* Transport attachments — inline, no separate heading */}
             <div className="mt-4 pt-3 border-t border-slate-200">
               <div className="flex items-center gap-2 mb-2">
-                <input
-                  ref={transportCameraRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    handleTransportFile(file);
-                    if (transportCameraRef.current) transportCameraRef.current.value = '';
-                  }}
-                />
+                {/* One upload control — on a phone the file picker offers
+                    camera or gallery; on desktop it opens the file browser.
+                    Accepts a photo or PDF; AI extracts the freight details. */}
                 <input
                   ref={transportFileRef}
                   type="file"
-                  accept=".pdf,.jpg,.jpeg,.png,.webp"
+                  accept="image/*,.pdf"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -3121,20 +3112,11 @@ export default function CreateReceiptAdvice() {
                 />
                 <button
                   type="button"
-                  onClick={() => transportCameraRef.current?.click()}
-                  disabled={freightExtracting}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition disabled:opacity-50"
-                >
-                  <Camera size={14} />
-                  Take Photo
-                </button>
-                <button
-                  type="button"
                   onClick={() => transportFileRef.current?.click()}
                   disabled={freightExtracting}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition disabled:opacity-50"
                 >
-                  {freightExtracting ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                  {freightExtracting ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
                   {freightExtracting ? 'Extracting...' : 'Upload Freight Bill'}
                 </button>
               </div>
