@@ -96,7 +96,7 @@ export const NAV_SECTIONS = [
       // 'Expense Reconcile' removed from the menu (route kept so old links don't 404).
       // Standalone (no Tally): Email Bill Inbox, Mappings removed.
       { name: 'Payment Entries', path: '/purchase/payment-entries', module: 'Payment Entries', icon: CreditCard },
-      { name: 'Stock', path: '/purchase/stock', module: 'Stock', icon: Box },
+      // Stock moved to the INVENTORY group (warehouse-owned).
       { name: 'Purchase Report', path: '/reports/summary?tab=purchase', module: 'Reports', icon: BarChart3 },
     ],
   },
@@ -225,10 +225,11 @@ export const NAV_SECTIONS = [
   },
   {
     id: 'inventory',
-    label: 'SHIFTING PURPOSE',
-    tabLabel: 'Shifting',
+    label: 'INVENTORY',
+    tabLabel: 'Inventory',
     groupIcon: Repeat,
     items: [
+      { name: 'Stock', path: '/purchase/stock', module: 'Stock', icon: Box },
       { name: 'Stock Ledger', path: '/inventory/stock-ledger', module: 'Inventory Ledger', icon: BookOpen },
       { name: 'Production Stock', path: '/inventory/production-stock', module: 'Production Stock', icon: Box },
       { name: 'Production Entries', path: '/inventory/production-entries', module: 'Production Entry', icon: GitBranch },
