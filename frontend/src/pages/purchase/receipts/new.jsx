@@ -594,6 +594,7 @@ export default function CreateReceiptAdvice() {
   const transportCameraRef = useRef(null);
   const transportFileRef = useRef(null);
   const generalCameraRef = useRef(null);
+  const generalFileRef = useRef(null);
   const [freightExtracting, setFreightExtracting] = useState(false);
 
   const handleTransportFile = async (file) => {
@@ -687,6 +688,8 @@ export default function CreateReceiptAdvice() {
   const [packingLines, setPackingLines] = useState([]);
   const [listeningPackIdx, setListeningPackIdx] = useState(null);
   const packMicRef = useRef(null);
+  const [listeningLineIdx, setListeningLineIdx] = useState(null);
+  const lineMicRef = useRef(null);
   const [weighmentDetails, setWeighmentDetails] = useState([]);
   const [freightDetails, setFreightDetails] = useState([]);
   const [wageLines, setWageLines] = useState([]);
@@ -1611,6 +1614,33 @@ export default function CreateReceiptAdvice() {
   const removeReceiptLine = (index) => {
     if (receiptLines.length > 1) setReceiptLines(prev => prev.filter((_, i) => i !== index));
   };
+
+  const toggleLineMic = useCallback((index) => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) { toast.error('Speech recognition not supported in this browser.'); return; }
+    if (listeningLineIdx === index && lineMicRef.current) {
+      lineMicRef.current.stop();
+      lineMicRef.current = null;
+      setListeningLineIdx(null);
+      return;
+    }
+    if (lineMicRef.current) { lineMicRef.current.stop(); lineMicRef.current = null; }
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-IN';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript || '';
+      if (transcript) {
+        setReceiptLines(prev => prev.map((r, i) => i === index ? { ...r, remarks: ((r.remarks || '') + (r.remarks ? ' ' : '') + transcript).trim() } : r));
+      }
+    };
+    recognition.onend = () => { lineMicRef.current = null; setListeningLineIdx(null); };
+    recognition.onerror = (e) => { if (e.error !== 'aborted') toast.error(`Mic error: ${e.error}`); lineMicRef.current = null; setListeningLineIdx(null); };
+    lineMicRef.current = recognition;
+    setListeningLineIdx(index);
+    recognition.start();
+  }, [listeningLineIdx]);
 
   // Packing Lines handlers
   const handlePackingLineChange = (index, field, value) => {
@@ -3496,7 +3526,12 @@ export default function CreateReceiptAdvice() {
                       </td>
                       )}
                       <td className="px-3 py-2">
-                        <input type="text" value={line.remarks} onChange={(e) => handleReceiptLineChange(index, 'remarks', e.target.value)} placeholder={getReceiptLineFlag(line) ? 'Reason required' : ''} className={`${inputClass} ${getReceiptLineFlag(line) && !(line.remarks || '').trim() ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : ''}`} style={{ minWidth: '120px' }} />
+                        <div className="flex gap-1.5" style={{ minWidth: '180px' }}>
+                          <textarea rows={2} value={line.remarks} onChange={(e) => handleReceiptLineChange(index, 'remarks', e.target.value)} placeholder={getReceiptLineFlag(line) ? 'Reason required' : 'Remarks'} className={`w-full resize-none ${inputClass} ${getReceiptLineFlag(line) && !(line.remarks || '').trim() ? 'border-red-300 focus:border-red-500 focus:ring-red-200' : ''}`} />
+                          <button type="button" onClick={() => toggleLineMic(index)} className={`flex-shrink-0 self-start mt-0.5 p-2 rounded-lg border transition ${listeningLineIdx === index ? 'bg-red-50 border-red-300 text-red-600 animate-pulse' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`} title={listeningLineIdx === index ? 'Stop recording' : 'Speak remarks'}>
+                            {listeningLineIdx === index ? <MicOff size={14} /> : <Mic size={14} />}
+                          </button>
+                        </div>
                       </td>
                       <td className="px-3 py-2">
                         <button type="button" onClick={() => removeReceiptLine(index)} disabled={receiptLines.length <= 1} className="text-red-500 hover:text-red-700 disabled:opacity-30">
@@ -3827,6 +3862,22 @@ export default function CreateReceiptAdvice() {
                   if (generalCameraRef.current) generalCameraRef.current.value = '';
                 }}
               />
+              <input
+                ref={generalFileRef}
+                type="file"
+                accept="image/*,.pdf,.doc,.docx,.xlsx,.xls,.csv,.txt"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length) {
+                    const updated = [...pendingAttachmentsRef.current, ...files];
+                    pendingAttachmentsRef.current = updated;
+                    setPendingAttachments(updated);
+                  }
+                  if (generalFileRef.current) generalFileRef.current.value = '';
+                }}
+              />
               <button
                 type="button"
                 onClick={() => generalCameraRef.current?.click()}
@@ -3834,6 +3885,14 @@ export default function CreateReceiptAdvice() {
               >
                 <Camera size={14} />
                 Take Photo
+              </button>
+              <button
+                type="button"
+                onClick={() => generalFileRef.current?.click()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition"
+              >
+                <Upload size={14} />
+                Upload File
               </button>
             </div>
             <CombinedAttachmentList
