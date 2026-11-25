@@ -230,7 +230,7 @@ export const NAV_SECTIONS = [
     groupIcon: Repeat,
     items: [
       { name: 'Stock', path: '/purchase/stock', module: 'Stock', icon: Box },
-      { name: 'Stock Ledger', path: '/inventory/stock-ledger', module: 'Inventory Ledger', icon: BookOpen },
+      // Stock Ledger hidden in this standalone — its backend endpoint 404s here.
       { name: 'Production Stock', path: '/inventory/production-stock', module: 'Production Stock', icon: Box },
       { name: 'Production Entries', path: '/inventory/production-entries', module: 'Production Entry', icon: GitBranch },
       { name: 'Additional Wages', path: '/production/additional-wages', module: 'Wage Voucher', icon: CreditCard },

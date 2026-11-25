@@ -55,7 +55,6 @@ ROLE_GRID = {
         'Purchase Order':   VIEW,
         'Receipt Advice':   perm(can_view=True, can_create=True, can_edit=True),
         'Stock':            VIEW,
-        'Inventory Ledger': VIEW,
         'Dashboard':        VIEW,
     },
     'Warehouse Manager': {
@@ -68,7 +67,6 @@ ROLE_GRID = {
         'Receipt Advice':   perm(can_view=True, can_create=True, can_edit=True,
                                  can_approve=True),
         'Stock':            VIEW,
-        'Inventory Ledger': VIEW,
         'Dashboard':        VIEW,
     },
     'Purchase Coordinator': {
