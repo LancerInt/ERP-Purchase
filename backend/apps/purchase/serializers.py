@@ -1808,6 +1808,9 @@ class PurchaseOrderSerializer(FieldPermissionMixin, serializers.ModelSerializer)
     vendor_code = serializers.CharField(source='vendor.vendor_code', read_only=True, default='')
     vendor_gstin = serializers.CharField(source='vendor.gstin', read_only=True, default='')
     vendor_gst_type = serializers.CharField(source='vendor.gst_type', read_only=True, default='')
+    # Vendor contact phone — used by the "Share on WhatsApp" action on the
+    # Send-PO page to open wa.me with the PO text prefilled to this number.
+    vendor_phone = serializers.CharField(source='vendor.contact_phone', read_only=True, default='')
     vendor_address = serializers.SerializerMethodField()
     warehouse_address = serializers.SerializerMethodField()
 
@@ -1872,7 +1875,7 @@ class PurchaseOrderSerializer(FieldPermissionMixin, serializers.ModelSerializer)
             # Printable-PO-document fields (read-only, master-derived)
             'company_gstin', 'company_pan', 'company_phone', 'company_trade_name',
             'company_address', 'company_billing_address',
-            'vendor_code', 'vendor_gstin', 'vendor_gst_type', 'vendor_address',
+            'vendor_code', 'vendor_gstin', 'vendor_gst_type', 'vendor_phone', 'vendor_address',
             'warehouse_address',
             'status', 'status_display', 'partial_receipt_flag', 'linked_prs',
             'linked_pr_numbers',

@@ -11,7 +11,7 @@ import usePermissions from '../../../hooks/usePermissions.js';
 import PermissionDenied from '../../../components/common/PermissionDenied.jsx';
 import EmailAutocomplete from '../../../components/common/EmailAutocomplete.jsx';
 import { DEFAULT_PURCHASE_CC } from '../../../constants/emailDefaults.js';
-import { Eye, Send, X, Mail, Paperclip, FileText, Loader2 } from 'lucide-react';
+import { Eye, Send, X, Mail, Paperclip, FileText, Loader2, MessageCircle, Download } from 'lucide-react';
 import { formatDate, formatDateTime, formatCurrency } from '@/utils/formatters';
 
 export default function SendPOEmail() {
@@ -153,6 +153,56 @@ export default function SendPOEmail() {
     }
   };
 
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  // Share the PO on WhatsApp — opens wa.me with a short PO summary prefilled,
+  // addressed to the vendor's contact phone when known. WhatsApp can't carry
+  // the PDF, so the user attaches it manually (see "Download PO PDF").
+  const handleWhatsApp = () => {
+    if (!po) return;
+    const digits = String(po.vendor_phone || '').replace(/\D/g, '');
+    // Prefix the country code for a bare 10-digit Indian mobile.
+    const phone = digits ? (digits.length === 10 ? `91${digits}` : digits) : '';
+    const lines = (po.po_lines || [])
+      .map((l, i) => `${i + 1}. ${l.item_name || l.product_name || l.service_catalogue_name || 'Item'} — ${Number(l.quantity_ordered || 0).toLocaleString('en-IN')} ${l.uom || ''}`)
+      .join('\n');
+    const msg =
+      `*Purchase Order ${po.po_no}*\n` +
+      `${po.company_name || ''}\n\n` +
+      `Vendor: ${po.vendor_name || ''}\n` +
+      `Date: ${po.po_date ? formatDate(po.po_date) : '-'}\n` +
+      (po.total_order_value ? `Amount: ${formatCurrency(po.total_order_value)}\n` : '') +
+      (lines ? `\nItems:\n${lines}\n` : '') +
+      `\nPlease find the PO document attached. Kindly confirm.`;
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank', 'noopener');
+    if (!phone) toast('No vendor phone on file — pick the contact in WhatsApp.', { icon: 'ℹ️' });
+  };
+
+  // Download the PO document as a printable page the user can save as PDF and
+  // attach in WhatsApp. Uses the same server-rendered PO HTML the email uses.
+  const handleDownloadPdf = async () => {
+    if (pdfLoading) return;
+    setPdfLoading(true);
+    try {
+      let html = pdfHtml;
+      if (!html) {
+        const res = await apiClient.post(`/api/purchase/orders/${id}/preview-email/`, { template_id: selectedTemplate });
+        html = res.data.pdf_html || res.data.body_html || '';
+        setPdfHtml(html);
+      }
+      if (!html) { toast.error('Could not build the PO document.'); return; }
+      const win = window.open('', '_blank');
+      if (!win) { toast.error('Allow pop-ups to download the PO PDF.'); return; }
+      win.document.write(`<!doctype html><html><head><title>${po?.po_no || 'PO'}</title></head><body>${html}<script>window.onload=function(){setTimeout(function(){window.print();},300);}<\/script></body></html>`);
+      win.document.close();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const vendorEmail = previewData?.context_data?.vendor_email || '';
   const canSend = selectedTemplate && po?.vendor;
   const alreadySent = emailLogs.some(l => l.email_sent || (l.status || '').toLowerCase().includes('sent'));
@@ -178,8 +228,8 @@ export default function SendPOEmail() {
   return (
     <MainLayout>
       <PageHeader
-        title={`Send PO Email: ${po?.po_no || ''}`}
-        subtitle="Select a template and send the PO to the vendor via email"
+        title={`Send PO: ${po?.po_no || ''}`}
+        subtitle="Send the PO to the vendor by email, or share it on WhatsApp"
         breadcrumbs={[
           { label: 'Orders', href: '/purchase/orders' },
           { label: po?.po_no || `#${id}`, href: `/purchase/orders/${id}` },
@@ -300,6 +350,37 @@ export default function SendPOEmail() {
                 Email was already sent for this PO. Click above to resend.
               </p>
             )}
+
+            {/* WhatsApp share + PO PDF download — a PO can go by email OR
+                WhatsApp. WhatsApp opens with the PO text prefilled; since it
+                can't carry the file, Download PO PDF lets the user save and
+                attach it in the chat. */}
+            <div className="flex items-center gap-2 pt-1">
+              <div className="flex-1 border-t border-slate-200" />
+              <span className="text-[11px] text-slate-400 uppercase tracking-wide">or share</span>
+              <div className="flex-1 border-t border-slate-200" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleWhatsApp}
+                disabled={!po}
+                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-white bg-[#25D366] hover:bg-[#1ebe5a] disabled:opacity-50 transition"
+              >
+                <MessageCircle size={16} /> WhatsApp
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadPdf}
+                disabled={!po || pdfLoading}
+                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition"
+              >
+                {pdfLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />} PO PDF
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400 text-center">
+              WhatsApp opens with the PO text ready — attach the PO&nbsp;PDF before sending.
+            </p>
 
             {!canSend && (
               <p className="text-xs text-slate-500">
