@@ -169,6 +169,9 @@ export default function PurchaseRequestDetailPage() {
 
   // Status checks
   const approvalStatus = pr?.approval_status || pr?.status || 'DRAFT';
+  // PENDING_APPROVAL is the Warehouse-Manager-approved stage, shown everywhere
+  // on the PR as "Factory Approved". One helper so every badge/label agrees.
+  const statusLabel = (s) => s === 'PENDING_APPROVAL' ? 'Factory Approved' : (s || '').replace(/_/g, ' ');
   const isApproved = approvalStatus === 'APPROVED';
   const isRejected = approvalStatus === 'REJECTED';
   const isEdited = false; // EDITED status no longer used
@@ -987,7 +990,7 @@ export default function PurchaseRequestDetailPage() {
             <div className="flex items-center gap-2 sm:gap-4 ml-7 sm:ml-8 flex-wrap">
               <StatusBadge
                 status={approvalStatus}
-                label={approvalStatus === 'PENDING_APPROVAL' ? 'Factory Approved' : approvalStatus.replace('_', ' ')}
+                label={statusLabel(approvalStatus)}
               />
               <p className="text-slate-600 text-xs sm:text-sm">
                 Created on {formatDate(pr.createdDate || pr.created_at || pr.created_date)}
@@ -1133,7 +1136,7 @@ export default function PurchaseRequestDetailPage() {
                 {!isHidden('approval_status') && (
                 <div>
                   <p className="text-xs font-semibold text-slate-700 mb-0.5">Status</p>
-                  <p className="text-sm text-slate-900 font-medium break-words">{approvalStatus.replace('_', ' ')}</p>
+                  <p className="text-sm text-slate-900 font-medium break-words">{statusLabel(approvalStatus)}</p>
                 </div>
                 )}
 
@@ -1737,7 +1740,7 @@ export default function PurchaseRequestDetailPage() {
                     <CheckCircle size={20} className="text-green-600" />
                     Approved
                   </h3>
-                  <StatusBadge status={approvalStatus} label={approvalStatus.replace('_', ' ')} />
+                  <StatusBadge status={approvalStatus} label={statusLabel(approvalStatus)} />
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   {(pr.approved_by || pr.approvedBy) && (
@@ -1818,7 +1821,7 @@ export default function PurchaseRequestDetailPage() {
                     <span className="text-sm text-slate-600">Current Status</span>
                     <StatusBadge
                       status={approvalStatus}
-                      label={approvalStatus.replace('_', ' ')}
+                      label={statusLabel(approvalStatus)}
                     />
                   </div>
                 )}

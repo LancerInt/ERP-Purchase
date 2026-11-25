@@ -70,8 +70,10 @@ ROLE_GRID = {
         'Dashboard':        VIEW,
     },
     'Purchase Coordinator': {
-        # Final PR decision (stage 3). Owns the purchase pipeline.
-        'Purchase Request':  perm(can_view=True, can_approve=True, can_reject=True),
+        # Final PR decision (stage 3). Can edit the PR before deciding. Owns
+        # the downstream purchase pipeline.
+        'Purchase Request':  perm(can_view=True, can_edit=True,
+                                  can_approve=True, can_reject=True),
         'RFQ':               FULL,
         'Quote':             FULL,
         'Quote Evaluation':  FULL,
