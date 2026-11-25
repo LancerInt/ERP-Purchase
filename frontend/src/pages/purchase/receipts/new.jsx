@@ -2716,7 +2716,7 @@ export default function CreateReceiptAdvice() {
                 </button>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-3 gap-y-2 items-start">
               {!isDirectReceipt && (
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-0.5">PO No <span className="text-red-500">*</span></label>
