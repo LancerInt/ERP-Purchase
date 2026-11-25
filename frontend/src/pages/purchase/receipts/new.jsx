@@ -1,7 +1,7 @@
 import CustomDatePicker from "@/components/ui/CustomDatePicker";
 import CustomSelect from "@/components/ui/CustomSelect";
 import { confirm } from '@/components/common/confirm';
-import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, memo, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, ScanLine, Loader2, Camera, Upload, Paperclip, Mic, MicOff } from 'lucide-react';
@@ -22,8 +22,8 @@ const inputClass = 'w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text
 const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
 
 /* ── Combined Attachment List (bottom section) ─────────────────────────── */
-const CATEGORY_LABELS = { GENERAL: 'Receipt Bill', TRANSPORT: 'Freight Bill', DAMAGE_PROOF: 'Damage Proof' };
-const CATEGORY_COLORS = { GENERAL: 'bg-blue-100 text-blue-700', TRANSPORT: 'bg-emerald-100 text-emerald-700', DAMAGE_PROOF: 'bg-red-100 text-red-700' };
+const CATEGORY_LABELS = { GENERAL: 'Receipt Bill', TRANSPORT: 'Freight Bill', DAMAGE_PROOF: 'Damage Proof', DEVIATION_PROOF: 'Qty Deviation Proof' };
+const CATEGORY_COLORS = { GENERAL: 'bg-blue-100 text-blue-700', TRANSPORT: 'bg-emerald-100 text-emerald-700', DAMAGE_PROOF: 'bg-red-100 text-red-700', DEVIATION_PROOF: 'bg-amber-100 text-amber-700' };
 const PREVIEWABLE_IMAGE = new Set(['jpg', 'jpeg', 'png', 'webp']);
 
 const AttachmentRow = memo(function AttachmentRow({ file }) {
@@ -70,12 +70,13 @@ const AttachmentRow = memo(function AttachmentRow({ file }) {
   );
 });
 
-const CombinedAttachmentList = memo(function CombinedAttachmentList({ generalFiles, transportFiles, damageFiles = [] }) {
+const CombinedAttachmentList = memo(function CombinedAttachmentList({ generalFiles, transportFiles, damageFiles = [], deviationFiles = [] }) {
   const allFiles = useMemo(() => [
     ...generalFiles.map((f, i) => ({ id: `gen-${i}`, file_name: f.name, category: 'GENERAL', rawFile: f })),
     ...transportFiles.map((f, i) => ({ id: `trn-${i}`, file_name: f.name, category: 'TRANSPORT', rawFile: f })),
     ...damageFiles.map((f, i) => ({ id: `dmg-${i}`, file_name: f.name, category: 'DAMAGE_PROOF', rawFile: f })),
-  ], [generalFiles, transportFiles, damageFiles]);
+    ...deviationFiles.map((f, i) => ({ id: `dev-${i}`, file_name: f.name, category: 'DEVIATION_PROOF', rawFile: f })),
+  ], [generalFiles, transportFiles, damageFiles, deviationFiles]);
 
   if (allFiles.length === 0) {
     return <p className="text-xs text-slate-400 text-center py-4">No attachments yet</p>;
@@ -259,6 +260,7 @@ const emptyReceiptLine = {
   breadth: '',
   width: '',
   weight: '',
+  _deviationFiles: [],
 };
 
 // Reasons a receipt can be created without a PO. Picked here to make sure
@@ -1883,10 +1885,12 @@ export default function CreateReceiptAdvice() {
           return;
         }
       }
-      // Require at least one attachment when there's a quantity deviation.
-      if (pendingAttachmentsRef.current.length === 0) {
-        toast.error('At least one attachment (photo) is required when there is a quantity deviation.');
-        return;
+      // Require per-line deviation proof attachment
+      for (const { line, index } of mismatchFlagged) {
+        if (!(line._deviationFiles || []).length) {
+          toast.error(`Line ${index + 1} (${line.item_name || 'item'}): Deviation proof attachment is required when quantity differs from invoice.`);
+          return;
+        }
       }
       const bullets = mismatchFlagged.map(({ line, flag, index }) => {
         const label = line.item_name || line._itemName || `Line ${index + 1}`;
@@ -2047,6 +2051,12 @@ export default function CreateReceiptAdvice() {
       for (const pk of packingLines) {
         if (pk.condition === 'DAMAGED' && pk._damageFiles?.length > 0 && newId) {
           await uploadPendingFiles('RECEIPT', newId, pk._damageFiles, 'DAMAGE_PROOF');
+        }
+      }
+      // Upload deviation proof attachments for qty-mismatched receipt lines
+      for (const rl of receiptLines) {
+        if (rl._deviationFiles?.length > 0 && newId) {
+          await uploadPendingFiles('RECEIPT', newId, rl._deviationFiles, 'DEVIATION_PROOF');
         }
       }
 
@@ -2998,7 +3008,10 @@ export default function CreateReceiptAdvice() {
               )}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-0.5">Transporter Name</label>
-                <input type="text" name="transporter_name" value={formData.transporter_name} onChange={handleChange} className={inputClass} placeholder="e.g. Sri Logistics" />
+                <CustomSelect name="transporter_name" value={formData.transporter_name} onChange={handleChange} className={inputClass}>
+                  <option value="">-- Select Transporter --</option>
+                  {transporterOptions.map(o => <option key={o.value} value={o.label}>{o.label}</option>)}
+                </CustomSelect>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-0.5">Freight Bill No</label>
@@ -3231,7 +3244,8 @@ export default function CreateReceiptAdvice() {
                 </thead>
                 <tbody>
                   {receiptLines.map((line, index) => (
-                    <tr key={index} className="border-b">
+                    <Fragment key={index}>
+                    <tr className="border-b">
                       <td className="px-3 py-2 text-slate-500">{index + 1}</td>
                       {!isDirectReceipt && additionalPoIds.length > 0 && (
                         <td className="px-3 py-2 text-xs text-slate-600 whitespace-nowrap">{line._poNo || '-'}</td>
@@ -3490,6 +3504,62 @@ export default function CreateReceiptAdvice() {
                         </button>
                       </td>
                     </tr>
+                    {/* Deviation proof row — appears when invoice qty ≠ received qty */}
+                    {getReceiptLineFlag(line)?.mismatchBy && (
+                      <tr className="bg-amber-50/60 border-b border-amber-200">
+                        <td colSpan={99} className="px-4 py-2">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className="text-xs font-semibold text-amber-700 flex items-center gap-1">
+                              <Paperclip size={12} /> Deviation Proof *
+                            </span>
+                            {(line._deviationFiles || []).length > 0 && (
+                              <span className="text-[11px] text-slate-400">{line._deviationFiles.length} file(s)</span>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              className="hidden"
+                              id={`deviation-camera-${index}`}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setReceiptLines(prev => prev.map((r, i) => i === index ? { ...r, _deviationFiles: [...(r._deviationFiles || []), file] } : r));
+                                e.target.value = '';
+                              }}
+                            />
+                            <button type="button" onClick={() => document.getElementById(`deviation-camera-${index}`)?.click()} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-100 border border-amber-300 rounded-lg hover:bg-amber-200 transition">
+                              <Camera size={12} /> Take Photo
+                            </button>
+                            <input
+                              type="file"
+                              accept="image/*,.pdf,.doc,.docx"
+                              multiple
+                              className="hidden"
+                              id={`deviation-file-${index}`}
+                              onChange={(e) => {
+                                const files = Array.from(e.target.files || []);
+                                if (files.length) setReceiptLines(prev => prev.map((r, i) => i === index ? { ...r, _deviationFiles: [...(r._deviationFiles || []), ...files] } : r));
+                                e.target.value = '';
+                              }}
+                            />
+                            <button type="button" onClick={() => document.getElementById(`deviation-file-${index}`)?.click()} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition">
+                              <Upload size={12} /> Upload File
+                            </button>
+                            {(line._deviationFiles || []).map((f, fi) => (
+                              <span key={fi} className="inline-flex items-center gap-1 text-xs bg-white border border-slate-200 rounded px-2 py-0.5">
+                                {f.name?.substring(0, 20)}{f.name?.length > 20 ? '...' : ''}
+                                <button type="button" onClick={() => {
+                                  setReceiptLines(prev => prev.map((r, i) => i === index ? { ...r, _deviationFiles: (r._deviationFiles || []).filter((x, j) => j !== fi) } : r));
+                                }} className="p-0.5 text-red-400 hover:text-red-600">
+                                  <Trash2 size={10} />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -3770,6 +3840,7 @@ export default function CreateReceiptAdvice() {
               generalFiles={pendingAttachments}
               transportFiles={pendingTransportAttachments}
               damageFiles={packingLines.flatMap(l => l._damageFiles || [])}
+              deviationFiles={receiptLines.flatMap(l => l._deviationFiles || [])}
             />
           </div>
 
