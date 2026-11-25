@@ -602,7 +602,7 @@ export default function CreateReceiptAdvice() {
   // Collapsible sections. Order on screen: Receipt Details (always open) ->
   // Line Items -> Weighment -> Transport. Only Receipt Details starts open;
   // the other three begin collapsed and expand on a header click.
-  const [openSections, setOpenSections] = useState({ lines: false, weighment: false, transport: false });
+  const [openSections, setOpenSections] = useState({ lines: false, weighment: false, transport: false, packing: false });
   const toggleSection = (k) => setOpenSections((p) => ({ ...p, [k]: !p[k] }));
   const [freightExtracting, setFreightExtracting] = useState(false);
 
@@ -3644,12 +3644,17 @@ export default function CreateReceiptAdvice() {
 
           {/* Packing Material Lines */}
           <div className="order-5">
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Packing Materials</h3>
-              <button type="button" onClick={addPackingLine} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
+            <div className="flex items-center justify-between mb-2 pb-1.5 border-b cursor-pointer" onClick={() => toggleSection('packing')}>
+              <div className="flex items-center gap-1.5">
+                <ChevronDown size={16} className={`transition-transform ${openSections.packing ? '' : '-rotate-90'}`} />
+                <h3 className="text-sm sm:text-base font-semibold text-slate-800">Packing Materials</h3>
+                {packingLines.length > 0 && <span className="text-[11px] text-slate-400">({packingLines.length})</span>}
+              </div>
+              <button type="button" onClick={(e) => { e.stopPropagation(); if (!openSections.packing) toggleSection('packing'); addPackingLine(); }} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
                 <Plus size={16} /> Add Packing Material
               </button>
             </div>
+            {openSections.packing && (<>
             {packingLines.length === 0 ? (
               <p className="text-sm text-slate-400 italic">No packing materials added. Click "Add Packing Material" to add.</p>
             ) : (
@@ -3867,6 +3872,7 @@ export default function CreateReceiptAdvice() {
                 ))}
               </div>
             )}
+            </>)}
           </div>
 
 
