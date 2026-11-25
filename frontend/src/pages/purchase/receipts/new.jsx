@@ -2716,7 +2716,7 @@ export default function CreateReceiptAdvice() {
                 </button>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-3 gap-y-2 items-start">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-3 gap-y-2 items-start">
               {!isDirectReceipt && (
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-0.5">PO No <span className="text-red-500">*</span></label>
@@ -2733,25 +2733,6 @@ export default function CreateReceiptAdvice() {
                       .filter(o => !formData.vendor || o.vendor === formData.vendor)
                       .map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </CustomSelect>
-                )}
-                {/* Multi-PO chips + a subtle add link, right under the PO field
-                    (a receipt can cover several POs from the same vendor). */}
-                {formData.po_no && !formData.job_work_no && (
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                    {additionalPoIds.map(id => {
-                      const po = poRawData.find(p => p.id === id);
-                      const label = po ? (po.po_no || id) : id;
-                      return (
-                        <span key={id} className="inline-flex items-center gap-1 rounded-full bg-primary-50 border border-primary-200 px-2 py-0.5 text-[11px] text-primary-700" title={po?.vendor_name || ''}>
-                          {label}
-                          <button type="button" onClick={() => removeAdditionalPO(id)} className="text-primary-500 hover:text-red-600" aria-label={`Remove ${label}`}>×</button>
-                        </span>
-                      );
-                    })}
-                    <button type="button" onClick={() => { setAddPoModalSelection([]); setAddPoModalOpen(true); }} className="text-[11px] text-primary-600 hover:text-primary-800 hover:underline whitespace-nowrap">
-                      + Add another PO
-                    </button>
-                  </div>
                 )}
               </div>
               )}
@@ -2813,22 +2794,39 @@ export default function CreateReceiptAdvice() {
                 <CustomDatePicker name="receipt_date" value={formData.receipt_date} onChange={handleChange} required disabled={isReadOnly('receipt_date')} className={isReadOnly('receipt_date') ? lockedInputClass : inputClass} />
               </div>
               )}
-              {/* Invoice No — shown in BOTH modes (was previously only inside
-                  the Direct Receipt Info section). Vendor invoice number is
-                  useful evidence on a PO receipt too. */}
+            </div>
+            {/* Invoice No + Add-another-PO on one compact row below the fields. */}
+            <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-2">
               {!isHidden('invoice_no') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Invoice No</label>
-                <input
-                  type="text"
-                  name="invoice_no"
-                  value={formData.invoice_no}
-                  onChange={handleChange}
-                  disabled={isReadOnly('invoice_no')}
-                  className={isReadOnly('invoice_no') ? lockedInputClass : inputClass}
-                  placeholder="Vendor invoice number"
-                />
-              </div>
+                <div className="w-full sm:w-auto sm:min-w-[220px]">
+                  <label className="block text-xs font-semibold text-slate-700 mb-0.5">Invoice No</label>
+                  <input
+                    type="text"
+                    name="invoice_no"
+                    value={formData.invoice_no}
+                    onChange={handleChange}
+                    disabled={isReadOnly('invoice_no')}
+                    className={isReadOnly('invoice_no') ? lockedInputClass : inputClass}
+                    placeholder="Vendor invoice number"
+                  />
+                </div>
+              )}
+              {formData.po_no && !formData.job_work_no && (
+                <div className="flex flex-wrap items-center gap-1.5 pb-1.5">
+                  {additionalPoIds.map(id => {
+                    const po = poRawData.find(p => p.id === id);
+                    const label = po ? (po.po_no || id) : id;
+                    return (
+                      <span key={id} className="inline-flex items-center gap-1 rounded-full bg-primary-50 border border-primary-200 px-2 py-0.5 text-[11px] text-primary-700" title={po?.vendor_name || ''}>
+                        {label}
+                        <button type="button" onClick={() => removeAdditionalPO(id)} className="text-primary-500 hover:text-red-600" aria-label={`Remove ${label}`}>×</button>
+                      </span>
+                    );
+                  })}
+                  <button type="button" onClick={() => { setAddPoModalSelection([]); setAddPoModalOpen(true); }} className="text-xs text-primary-600 hover:text-primary-800 hover:underline whitespace-nowrap">
+                    + Add another PO
+                  </button>
+                </div>
               )}
             </div>
           </div>
