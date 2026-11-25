@@ -2923,10 +2923,7 @@ export default function CreateReceiptAdvice() {
             />
             <div className="flex items-center justify-between mb-2 pb-1.5 border-b flex-wrap gap-2 cursor-pointer" onClick={() => toggleSection('weighment')}>
               <div className="flex items-baseline gap-2">
-                <h3 className="text-sm sm:text-base font-semibold text-slate-800 flex items-center gap-1.5 self-center">
-                  <ChevronDown size={16} className={`transition-transform ${openSections.weighment ? '' : '-rotate-90'}`} />
-                  Weighment Details <span className="text-red-500">*</span>
-                </h3>
+                <h3 className="text-sm sm:text-base font-semibold text-slate-800">Weighment Details <span className="text-red-500">*</span></h3>
                 <span className="text-[11px] text-slate-400">required — enter a weight or use AI on a slip photo</span>
                 {pendingWeighmentAttachments.length > 0 && (
                   <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
@@ -2934,9 +2931,12 @@ export default function CreateReceiptAdvice() {
                   </span>
                 )}
               </div>
-              <button type="button" onClick={(e) => { e.stopPropagation(); addWeighment(); }} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
-                <Plus size={16} /> Add Weighment
-              </button>
+              <div className="flex items-center gap-2">
+                <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.weighment ? '' : '-rotate-90'}`} />
+                <button type="button" onClick={(e) => { e.stopPropagation(); addWeighment(); }} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
+                  <Plus size={16} /> Add Weighment
+                </button>
+              </div>
             </div>
             {openSections.weighment && (<>
             {weighmentDetails.length === 0 ? (
@@ -3035,10 +3035,8 @@ export default function CreateReceiptAdvice() {
               freight metadata before reviewing line items. */}
           <div className="order-4">
             <div className="flex items-center justify-between mb-2 pb-1.5 border-b cursor-pointer" onClick={() => toggleSection('transport')}>
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800 flex items-center gap-1.5">
-                <ChevronDown size={16} className={`transition-transform ${openSections.transport ? '' : '-rotate-90'}`} />
-                Transport Details
-              </h3>
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Transport Details</h3>
+              <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.transport ? '' : '-rotate-90'}`} />
             </div>
             {openSections.transport && (<>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
@@ -3200,11 +3198,10 @@ export default function CreateReceiptAdvice() {
               );
             })()}
             <div className="flex items-center justify-between mb-2 pb-1.5 border-b cursor-pointer" onClick={() => toggleSection('lines')}>
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800 flex items-center gap-1.5">
-                <ChevronDown size={16} className={`transition-transform ${openSections.lines ? '' : '-rotate-90'}`} />
-                Receipt Line Items
-              </h3>
-              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Receipt Line Items</h3>
+              <div className="flex items-center gap-2">
+                <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.lines ? '' : '-rotate-90'}`} />
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 {receiptLines.some(l => l._unresolved) && (
                   <button
                     type="button"
@@ -3217,6 +3214,7 @@ export default function CreateReceiptAdvice() {
                 <button type="button" onClick={addReceiptLine} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
                   <Plus size={16} /> Add Line
                 </button>
+                </div>
               </div>
             </div>
             {openSections.lines && (<>
@@ -3645,14 +3643,16 @@ export default function CreateReceiptAdvice() {
           {/* Packing Material Lines */}
           <div className="order-5">
             <div className="flex items-center justify-between mb-2 pb-1.5 border-b cursor-pointer" onClick={() => toggleSection('packing')}>
-              <div className="flex items-center gap-1.5">
-                <ChevronDown size={16} className={`transition-transform ${openSections.packing ? '' : '-rotate-90'}`} />
+              <div className="flex items-baseline gap-2">
                 <h3 className="text-sm sm:text-base font-semibold text-slate-800">Packing Materials</h3>
                 {packingLines.length > 0 && <span className="text-[11px] text-slate-400">({packingLines.length})</span>}
               </div>
-              <button type="button" onClick={(e) => { e.stopPropagation(); if (!openSections.packing) toggleSection('packing'); addPackingLine(); }} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
-                <Plus size={16} /> Add Packing Material
-              </button>
+              <div className="flex items-center gap-2">
+                <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.packing ? '' : '-rotate-90'}`} />
+                <button type="button" onClick={(e) => { e.stopPropagation(); if (!openSections.packing) toggleSection('packing'); addPackingLine(); }} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
+                  <Plus size={16} /> Add Packing Material
+                </button>
+              </div>
             </div>
             {openSections.packing && (<>
             {packingLines.length === 0 ? (
