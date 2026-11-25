@@ -2734,43 +2734,6 @@ export default function CreateReceiptAdvice() {
                       .map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </CustomSelect>
                 )}
-                {/* Multi-PO chips + add button — only when a primary PO
-                    is picked (chips need a vendor to filter against). */}
-                {formData.po_no && !formData.job_work_no && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {additionalPoIds.map(id => {
-                      const po = poRawData.find(p => p.id === id);
-                      const label = po ? (po.po_no || id) : id;
-                      return (
-                        <span
-                          key={id}
-                          className="inline-flex items-center gap-1 rounded-full bg-primary-50 border border-primary-200 px-2 py-0.5 text-xs text-primary-700"
-                          title={po?.vendor_name || ''}
-                        >
-                          + {label}
-                          <button
-                            type="button"
-                            onClick={() => removeAdditionalPO(id)}
-                            className="ml-0.5 text-primary-500 hover:text-red-600"
-                            aria-label={`Remove ${label}`}
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddPoModalSelection([]);
-                        setAddPoModalOpen(true);
-                      }}
-                      className="text-xs text-primary-600 hover:text-primary-800 hover:underline"
-                    >
-                      + Add another PO
-                    </button>
-                  </div>
-                )}
               </div>
               )}
               {/* Job Work No is only relevant in Direct Receipt mode —
@@ -2849,6 +2812,41 @@ export default function CreateReceiptAdvice() {
               </div>
               )}
             </div>
+            {/* Multi-PO chips + add button — a receipt can cover several POs
+                from the same vendor. Kept BELOW the field grid so the PO cell
+                doesn't grow taller than the others (which left an empty gap). */}
+            {formData.po_no && !formData.job_work_no && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {additionalPoIds.map(id => {
+                  const po = poRawData.find(p => p.id === id);
+                  const label = po ? (po.po_no || id) : id;
+                  return (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-1 rounded-full bg-primary-50 border border-primary-200 px-2 py-0.5 text-xs text-primary-700"
+                      title={po?.vendor_name || ''}
+                    >
+                      + {label}
+                      <button
+                        type="button"
+                        onClick={() => removeAdditionalPO(id)}
+                        className="ml-0.5 text-primary-500 hover:text-red-600"
+                        aria-label={`Remove ${label}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => { setAddPoModalSelection([]); setAddPoModalOpen(true); }}
+                  className="text-xs text-primary-600 hover:text-primary-800 hover:underline"
+                >
+                  + Add another PO
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Direct Receipt Info — only when receipt_source = DIRECT.
