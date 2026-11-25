@@ -271,6 +271,18 @@ export default function ReceiptAdviceList() {
                 </span>
               );
             }
+            // A bill ALREADY exists (e.g. still DRAFT) — don't offer to create
+            // another. Show a disabled "Bill Created" chip that opens the bill.
+            if (bill) {
+              return (
+                <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/purchase/bills/${bill.id}`); }}
+                  title="A bill has already been created for this receipt — click to open it"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 text-xs font-medium rounded-lg hover:bg-slate-200 transition">
+                  <FileText size={13} />
+                  Bill Created
+                </button>
+              );
+            }
             return (
               <button onClick={(e) => { e.stopPropagation(); navigate(`/purchase/bills/new?receipt_id=${row.id}`); }} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition">
                 <FileText size={13} />
