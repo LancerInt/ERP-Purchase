@@ -3022,7 +3022,20 @@ export default function CreateReceiptAdvice() {
           <div className="order-4 rounded-lg border border-slate-200 px-3 py-2.5">
             <div className={`flex items-center justify-between cursor-pointer ${openSections.transport ? 'mb-2 pb-1.5 border-b' : ''}`} onClick={() => toggleSection('transport')}>
               <h3 className="text-sm sm:text-base font-semibold text-slate-800">Transport Details</h3>
-              <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.transport ? '' : '-rotate-90'}`} />
+              <div className="flex items-center gap-2">
+                {openSections.transport && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); transportFileRef.current?.click(); }}
+                    disabled={freightExtracting}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition disabled:opacity-50"
+                  >
+                    {freightExtracting ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+                    {freightExtracting ? 'Extracting...' : 'Upload Freight Bill'}
+                  </button>
+                )}
+                <ChevronDown size={18} className={`text-slate-400 transition-transform ${openSections.transport ? '' : '-rotate-90'}`} />
+              </div>
             </div>
             {openSections.transport && (<>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
@@ -3093,34 +3106,22 @@ export default function CreateReceiptAdvice() {
               )}
             </div>
 
-            {/* Transport attachments — inline, no separate heading */}
-            <div className="mt-4 pt-3 border-t border-slate-200">
-              <div className="flex items-center gap-2 mb-2">
-                {/* One upload control — on a phone the file picker offers
-                    camera or gallery; on desktop it opens the file browser.
-                    Accepts a photo or PDF; AI extracts the freight details. */}
-                <input
-                  ref={transportFileRef}
-                  type="file"
-                  accept="image/*,.pdf"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    handleTransportFile(file);
-                    if (transportFileRef.current) transportFileRef.current.value = '';
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => transportFileRef.current?.click()}
-                  disabled={freightExtracting}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition disabled:opacity-50"
-                >
-                  {freightExtracting ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-                  {freightExtracting ? 'Extracting...' : 'Upload Freight Bill'}
-                </button>
-              </div>
-              {pendingTransportAttachments.length > 0 && (
+            {/* Hidden file input driven by the "Upload Freight Bill" button on
+                the section header. On a phone the picker offers camera/gallery;
+                on desktop the file browser. Photo or PDF — AI extracts. */}
+            <input
+              ref={transportFileRef}
+              type="file"
+              accept="image/*,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                handleTransportFile(file);
+                if (transportFileRef.current) transportFileRef.current.value = '';
+              }}
+            />
+            {pendingTransportAttachments.length > 0 && (
+              <div className="mt-3">
                 <FileAttachments
                   module="RECEIPT"
                   recordId={null}
@@ -3130,8 +3131,8 @@ export default function CreateReceiptAdvice() {
                   presetPendingFiles={pendingTransportAttachments}
                   onPendingChange={(files) => { pendingTransportAttachmentsRef.current = files; setPendingTransportAttachments(files); }}
                 />
-              )}
-            </div>
+              </div>
+            )}
             </>)}
           </div>
 
