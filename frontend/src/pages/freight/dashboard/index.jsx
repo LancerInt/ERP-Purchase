@@ -21,6 +21,7 @@ import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import ListState from '@/components/common/ListState.jsx';
 import CustomSelect from '@/components/ui/CustomSelect';
+import { CTRL_FIELD } from '@/components/common/controls';
 import { PeriodNavigator, usePeriodFilter, inWindow } from '@/components/common/PeriodNavigator';
 import apiClient from '../../../utils/api.js';
 import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
@@ -67,14 +68,14 @@ const TONE = {
   local:       { ...HEAD_CHROME, val: 'text-teal-600' },
   outstanding: { ...HEAD_CHROME, val: 'text-rose-600' },
 };
-function FreightTile({ label, value, words, tone = 'total', onClick, popTitle, popRows }) {
+function FreightTile({ label, value, words, context, tone = 'total', onClick, title, popTitle, popRows }) {
   const t = TONE[tone] || TONE.total;
   const clickable = typeof onClick === 'function';
   const Tag = clickable ? 'button' : 'div';
   const pop = (popRows || []).filter(Boolean);
   return (
     <div className="relative group min-w-0 h-full">
-      <Tag type={clickable ? 'button' : undefined} onClick={clickable ? onClick : undefined}
+      <Tag type={clickable ? 'button' : undefined} onClick={clickable ? onClick : undefined} title={title || ''}
         className={`relative flex h-full w-full min-w-0 flex-col text-left rounded-lg border-2 border-indigo-400 bg-white px-3 py-3 shadow-sm transition hover:shadow-md hover:border-transparent ${clickable ? 'cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300' : ''}`}>
         <div className="flex items-center gap-1.5 min-w-0">
           <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-full shrink-0 ${t.dot}`} />
@@ -91,6 +92,7 @@ function FreightTile({ label, value, words, tone = 'total', onClick, popTitle, p
               <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/75">{label}</p>
               <p className="mt-0.5 text-2xl font-extrabold text-white money leading-tight">{value}</p>
               {words && <p className="mt-0.5 text-[11px] font-medium text-white/70">{words}</p>}
+              {context && <p className="mt-1 text-[11px] text-white/60">{context}</p>}
             </div>
             <div className="px-5 py-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400 mb-2">{popTitle || 'Breakdown'}</p>
@@ -288,7 +290,7 @@ export default function FreightDashboard() {
   const share = (v) => (stats.total ? Math.round((v / stats.total) * 100) : 0);
   const inPct = share(stats.by.in.amt), localPct = share(stats.by.local.amt);
 
-  const SEL = 'border border-slate-300 rounded-lg px-2 text-sm bg-white h-9 min-w-[150px]';
+  const SEL = `${CTRL_FIELD} min-w-[150px]`;
 
   return (
     <MainLayout>

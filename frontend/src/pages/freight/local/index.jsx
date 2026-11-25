@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Plus, Truck, IndianRupee, CheckCircle2, Clock, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import MainLayout from '../../../components/layout/MainLayout';
+import PageHeader from '../../../components/common/PageHeader';
 import DataTable from '../../../components/common/DataTable';
 import CustomSelect from '@/components/ui/CustomSelect';
 import { PeriodNavigator, usePeriodFilter } from '@/components/common/PeriodNavigator';
@@ -84,7 +85,7 @@ export default function LocalFreightList() {
     // tagged "goods" and is deliberately NOT part of any freight money total.
     { field: 'is_dc', header: 'DC / Branch Transfer', sortable: false, width: '240px', render: (v, r) => (v ? (
       <div className="text-xs leading-tight">
-        <span className="inline-block px-1.5 py-0.5 rounded bg-fuchsia-100 text-fuchsia-700 font-semibold">DC</span>
+        <span className="inline-block px-1.5 py-0.5 rounded border border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 text-[10px] font-medium">DC</span>
         <div className="text-slate-600 mt-0.5">{[r.dc_from, r.dc_to].filter(Boolean).join(' → ') || '—'}</div>
         <div className="text-slate-400">{[r.dc_material, Number(r.dc_value) > 0 ? `goods ${formatCurrency(r.dc_value)}` : ''].filter(Boolean).join(' · ')}</div>
       </div>
@@ -94,81 +95,49 @@ export default function LocalFreightList() {
   return (
     <MainLayout>
       <div className="space-y-3 sm:space-y-4">
-        {/* Header — title left, company pills + create on the right (wraps on phones) */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-3xl font-bold text-slate-900 truncate">Local Freight</h1>
-            <p className="hidden sm:block text-slate-600 mt-1 text-sm sm:text-base">Standalone freight &amp; charges bills</p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {canCreate('Local Freight') && (
-              <button onClick={() => navigate('/freight/local/new')} className="flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shrink-0">
-                <Plus size={18} /> <span className="hidden xs:inline">New </span>Local Freight
-              </button>
-            )}
-          </div>
+        <PageHeader
+          compact
+          title="Local Freight"
+          subtitle="Standalone freight & charges bills"
+          breadcrumbs={[{ label: 'Freight' }, { label: 'Local Freight' }]}
+          actions={canCreate('Local Freight')
+            ? { createLink: '/freight/local/new', createLabel: 'New Local Freight' }
+            : {}}
+        />
+
+        {/* Filter row — period + Inward/Local kind dropdown (like the Bills
+            "Category" picker) + warehouse. Single search is owned by DataTable. */}
+        <div className={`${CTRL_ROW} mb-3`}>
+          {/* Standard period navigator (All / Today / Week / Month / FY / Custom). */}
+          <PeriodNavigator allowAll {...period.navProps} />
+          <CustomSelect
+            value={location.pathname.startsWith('/freight/local') ? 'local' : 'inward'}
+            onChange={(e) => navigate(e.target.value === 'local' ? '/freight/local' : '/freight/inward')}
+            title="Freight kind"
+            className={`${CTRL_FIELD} max-w-[160px]`}>
+            <option value="inward">Inward</option>
+            <option value="local">Local</option>
+          </CustomSelect>
+          <CustomSelect value={warehouse} onChange={(e) => setWarehouse(e.target.value)} title="Warehouse" className={`${CTRL_FIELD} max-w-[180px] shrink-0`}>
+            <option value="">All Warehouses</option>
+            {warehouseOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </CustomSelect>
         </div>
 
-        {/* Freight kind tabs — shared switcher (Inward · Outward · Local). */}
-        <div className="flex items-center gap-1 border-b border-slate-200">
-          {[
-            { key: 'inward',  label: 'Inward',  to: '/freight/inward',  Icon: ArrowDownLeft },
-            { key: 'outward', label: 'Outward', to: '/freight/outward', Icon: ArrowUpRight },
-            { key: 'local',   label: 'Local',   to: '/freight/local',   Icon: Truck },
-          ].map(({ key, label, to, Icon }) => {
-            const active = location.pathname.startsWith(to);
-            return (
-              <button key={key} type="button" onClick={() => navigate(to)}
-                className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition
-                  ${active
-                    ? 'border-blue-600 text-blue-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
-                <Icon size={15} /> {label}
-              </button>
-            );
-          })}
+        {/* Summary band — hairline-divided cells, like Purchase Bills. */}
+        <div className="metric-band mb-3">
+          <div className="px-3 py-2"><p className="text-[11px] text-slate-500">Records</p><p className="text-sm font-bold text-slate-900 tabular-nums">{stats.records.toLocaleString('en-IN')}</p></div>
+          <div className="px-3 py-2"><p className="text-[11px] text-slate-500">Total value</p><p className="text-sm font-bold text-slate-900 money">{formatCurrency(stats.value)}</p></div>
+          <div className="px-3 py-2"><p className="text-[11px] text-slate-500">Paid</p><p className="text-sm font-bold text-emerald-700 money">{formatCurrency(stats.paid)}</p></div>
+          <div className="px-3 py-2"><p className="text-[11px] text-slate-500">Pending</p><p className={`text-sm font-bold money ${stats.pending > 0 ? 'text-amber-600' : 'text-slate-900'}`}>{stats.pending.toLocaleString('en-IN')}</p></div>
         </div>
 
-        {/* Filter bar — outer tile directly under the header, like Purchase
-            Analytics. Period presets + warehouse + search, built from the shared
-            toolbar vocabulary so it reflows on phones and keeps touch-sized taps. */}
-        <div className="bg-white rounded-lg border border-slate-200 px-2.5 py-2.5">
-          <div className={CTRL_ROW}>
-            {/* Standard period navigator (All / Today / Week / Month / FY / Custom). */}
-            <PeriodNavigator allowAll {...period.navProps} />
-            <CustomSelect value={warehouse} onChange={(e) => setWarehouse(e.target.value)} className={`${CTRL_FIELD} max-w-[180px] shrink-0`}>
-              <option value="">All Warehouses</option>
-              {warehouseOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </CustomSelect>
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search freight no, lorry, transporter…" className={`${CTRL_FIELD} flex-1 min-w-[160px]`} />
-          </div>
-        </div>
-
-        {/* Summary cards — same four as Inward / Outward Freight */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
-          <div className="bg-white rounded-lg border border-slate-200 p-4 flex items-center justify-between">
-            <div><p className="text-xs text-slate-500 uppercase font-medium">Total Records</p><p className="text-xl font-bold text-slate-900 mt-1">{stats.records}</p></div>
-            <div className="p-2 bg-slate-100 rounded-lg"><Truck size={18} className="text-slate-500" /></div>
-          </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-4 flex items-center justify-between">
-            <div><p className="text-xs text-slate-500 uppercase font-medium">Total Freight Value</p><p className="text-xl font-bold text-slate-900 mt-1">{formatCurrency(stats.value)}</p></div>
-            <div className="p-2 bg-blue-50 rounded-lg"><IndianRupee size={18} className="text-blue-500" /></div>
-          </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-4 flex items-center justify-between">
-            <div><p className="text-xs text-slate-500 uppercase font-medium">Total Paid</p><p className="text-xl font-bold text-emerald-600 mt-1">{formatCurrency(stats.paid)}</p></div>
-            <div className="p-2 bg-emerald-50 rounded-lg"><CheckCircle2 size={18} className="text-emerald-500" /></div>
-          </div>
-          <div className="bg-white rounded-lg border border-slate-200 p-4 flex items-center justify-between">
-            <div><p className="text-xs text-slate-500 uppercase font-medium">Pending / Active</p><p className="text-xl font-bold text-amber-600 mt-1">{stats.pending}</p></div>
-            <div className="p-2 bg-amber-50 rounded-lg"><Clock size={18} className="text-amber-500" /></div>
-          </div>
-        </div>
-
-        <DataTable persistKey="freight-local"
+        <DataTable dense persistKey="freight-local"
           columns={columns}
           data={rows}
           isLoading={isLoading}
           pageSize={15}
+          onSearch={setSearch}
           searchPlaceholder="Search freight no, lorry, bill no, transporter…"
           extraSearchFields={['freight_no', 'lorry_no', 'bill_no', 'transporter_name']}
           onRowClick={(row) => navigate(`/freight/local/${row.id}`)}

@@ -66,10 +66,6 @@ export default function UnifiedFreightList() {
   // Inward freight source split: all | INVOICE_INCLUDED (freight inside the goods
   // bill) | SEPARATE_SLIP (its own slip). Only shown on the inward/purchase page.
   const [sourceFilter, setSourceFilter] = useUrlState('source', 'all');
-  // Hide the multi-column filter strip by default — mirrors the
-  // Sales pages so the freight list opens with records visible and
-  // the user opts in to filtering via the header Filters button.
-  const [showFilters, setShowFilters] = useState(false);
   // Company comes from the GLOBAL header filter. The freight list filters by
   // company NAME, so translate the global company id → its legal name. '' = All.
   const { company: globalCompany, companies: globalCompanies } = useGlobalCompany();
@@ -365,8 +361,8 @@ export default function UnifiedFreightList() {
 
   const columns = [
     { key: 'direction', label: 'Type', sortable: true, render: (v) => (
-      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold ${v === 'Purchase' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
-        {v === 'Purchase' ? <ArrowDownLeft size={12} /> : <ArrowUpRight size={12} />}
+      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium ${v === 'Purchase' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+        {v === 'Purchase' ? <ArrowDownLeft size={11} /> : <ArrowUpRight size={11} />}
         {v}
       </span>
     )},
@@ -375,17 +371,14 @@ export default function UnifiedFreightList() {
     )},
     { key: 'date', label: 'Date', sortable: true, render: v => fmtDate(v) },
     { key: 'party_name', label: 'Vendor / Customer', sortable: true, render: (v, row) => (
-      <div>
-        <span className="font-medium text-slate-800">{v}</span>
-        <span className="text-xs text-slate-400 ml-1">({row.party_type})</span>
-      </div>
+      <span className="whitespace-nowrap"><span className="font-medium text-slate-800">{v}</span><span className="text-[11px] text-slate-400 ml-1">({row.party_type})</span></span>
     )},
     { key: 'reference', label: 'Reference', sortable: true, render: (v, row) => row.reference_link ? (
       <button onClick={(e) => { e.stopPropagation(); navigate(row.reference_link); }} className="text-primary-600 hover:underline text-xs">{v}</button>
     ) : <span className="text-slate-400 text-xs">{v}</span> },
     { key: 'transporter_name', label: 'Transporter', sortable: true },
     { key: 'freight_source', label: 'Source', sortable: true, render: (v, row) => (
-      <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full border ${v === 'INVOICE_INCLUDED' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+      <span className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded border ${v === 'INVOICE_INCLUDED' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
         {v === 'INVOICE_INCLUDED' ? `In bill${row.vendor_bill_no ? ' · ' + row.vendor_bill_no : ''}` : 'Separate slip'}
       </span>
     )},
@@ -418,12 +411,12 @@ export default function UnifiedFreightList() {
     { key: 'source_origin', label: 'Source', sortable: true, render: (_, row) => {
       const inTally = row.source_origin === 'TALLY';
       return (
-        <div className="flex flex-col gap-0.5">
-          <span className={`inline-block text-[10px] font-semibold rounded border px-1.5 py-0.5 w-fit ${inTally ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}
+        <div className="flex items-center gap-1 whitespace-nowrap">
+          <span className={`inline-block text-[10px] font-medium rounded border px-1.5 py-0.5 ${inTally ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}
             title={inTally ? 'Imported from a Tally voucher' : 'Entered in the ERP'}>
             {inTally ? 'Tally' : 'ERP'}
           </span>
-          <span className={`inline-block text-[10px] font-medium rounded border px-1.5 py-0.5 w-fit ${inTally ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}
+          <span className={`inline-block text-[10px] font-medium rounded border px-1.5 py-0.5 ${inTally ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}
             title={inTally ? 'Present in Tally' : 'In the ERP but not in Tally'}>
             {inTally ? 'In Tally' : 'Not in Tally'}
           </span>
@@ -436,8 +429,8 @@ export default function UnifiedFreightList() {
       if (row.status_raw === 'APPROVED' || ['IN_TRANSIT', 'COMPLETED', 'PAID', 'CANCELLED'].includes(row.status_raw)) {
         if (row.status_raw === 'APPROVED') {
           return (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded border border-emerald-200" title="Approved">
-              <CheckCircle2 size={12} /> Approved
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-medium rounded border border-emerald-200 whitespace-nowrap" title="Approved">
+              <CheckCircle2 size={11} /> Approved
             </span>
           );
         }
@@ -446,10 +439,10 @@ export default function UnifiedFreightList() {
       return (
         <button
           onClick={(e) => handleApprove(e, row)}
-          className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-600 text-white text-[10px] font-medium rounded border border-emerald-600 hover:bg-emerald-700 transition whitespace-nowrap"
           title="Approve Freight"
         >
-          <CheckCircle2 size={13} /> Approve
+          <CheckCircle2 size={11} /> Approve
         </button>
       );
     }},
@@ -483,8 +476,8 @@ export default function UnifiedFreightList() {
       if (row.freight_terms_raw === 'PAID') return null;
       return (
         <button onClick={(e) => { e.stopPropagation(); navigate(`/freight/payments/new?type=${row.direction_key}&freight_id=${row.id}`); }}
-          className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition" title="Make Payment">
-          <CreditCard size={13} /> Payment
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-600 text-white text-[10px] font-medium rounded border border-emerald-600 hover:bg-emerald-700 transition whitespace-nowrap" title="Make Payment">
+          <CreditCard size={11} /> Payment
         </button>
       );
     }},
@@ -532,8 +525,6 @@ export default function UnifiedFreightList() {
     { value: 'PARTIALLY_PAID', label: 'Partially Paid' },
     { value: 'CANCELLED', label: 'Cancelled' },
   ];
-
-  const inputClass = 'px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500';
 
   return (
     <MainLayout>
@@ -618,7 +609,6 @@ export default function UnifiedFreightList() {
         ]}
         actions={{
           onPrint: () => window.print(),
-          onFilter: () => setShowFilters(!showFilters),
           // Inward: import freight from Zoho + reconcile from live Tally.
           // Outward: upload a paid-freight register (Excel / CSV).
           ...(lockedDirection !== 'Sales' ? {} : { right: (
@@ -641,71 +631,41 @@ export default function UnifiedFreightList() {
         }}
       />
 
-      {/* Freight kind tabs — Inward · Outward · Local in one place. Each tab is
-          its own route (the lists stay separate pages, this just gives them a
-          shared, Bills-style switcher at the top) so a click navigates and the
-          right list renders. Local is a different model/page; the tab links to
-          it. Active tab is read from the URL. */}
-      <div className="flex items-center gap-1 mb-3 border-b border-slate-200">
-        {[
-          // Outward (Sales) tab removed — this is a purchase-only standalone.
-          { key: 'inward',  label: 'Inward',  to: '/freight/inward',  Icon: ArrowDownLeft },
-          { key: 'local',   label: 'Local',   to: '/freight/local',   Icon: Truck },
-        ].map(({ key, label, to, Icon }) => {
-          const active = location.pathname.startsWith(to);
-          return (
-            <button key={key} type="button" onClick={() => navigate(to)}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition
-                ${active
-                  ? 'border-blue-600 text-blue-700'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}`}>
-              <Icon size={15} /> {label}
-            </button>
-          );
-        })}
-      </div>
-
       {/* Filter bar — one clean row directly under the header, built from the
           shared toolbar vocabulary (CTRL_SEG / CTRL_FIELD / CTRL_ROW) so it reads
           exactly like the Purchase Analytics filter bar. Drives the summary cards
           below and the list (both recompute from it). */}
-      <div className="bg-white rounded-lg border border-slate-200 mb-3 sm:mb-4 px-2.5 py-2.5">
-        <div className={CTRL_ROW}>
-          {/* Standard period navigator (All / Today / Week / Month / FY / Custom). */}
-          <PeriodNavigator allowAll {...period.navProps} />
-          {/* Search — fills the rest of the row */}
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search freight no, vendor, customer, vehicle…"
-            className={`${CTRL_FIELD} flex-1 min-w-[160px]`} />
-        </div>
+      <div className={`${CTRL_ROW} mb-3`}>
+        {/* Standard period navigator (All / Today / Week / Month / FY / Custom). */}
+        <PeriodNavigator allowAll {...period.navProps} />
+        {/* Freight kind — Inward · Local as a dropdown (like the Bills "Category"
+            picker). Each kind is its own route; picking one navigates there. */}
+        <CustomSelect
+          value={location.pathname.startsWith('/freight/local') ? 'local' : 'inward'}
+          onChange={(e) => navigate(e.target.value === 'local' ? '/freight/local' : '/freight/inward')}
+          title="Freight kind"
+          className={`${CTRL_FIELD} max-w-[160px]`}>
+          <option value="inward">Inward</option>
+          <option value="local">Local</option>
+        </CustomSelect>
+        {/* Status quick-filter, inline like the Purchase Bills filter row. */}
+        <CustomSelect value={statusFilter} onChange={e => setStatusFilter(e.target.value)} title="Status"
+          className={`${CTRL_FIELD} max-w-[180px]`}>
+          <option value="">All Status</option>
+          {allStatuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </CustomSelect>
+        {(period.range || statusFilter || search) && (
+          <>
+            <span className="text-xs text-slate-500 tabular-nums">
+              {tableRows.length.toLocaleString('en-IN')} of {filtered.length.toLocaleString('en-IN')} records
+            </span>
+            <button type="button"
+              onClick={() => { period.navProps.setPeriod('all'); setStatusFilter(''); setSearch(''); }}
+              className="text-xs text-slate-500 hover:text-slate-800 underline">Clear</button>
+          </>
+        )}
       </div>
 
-
-      {/* Filters — only render when the user opens them via the
-          header Filters button. Stacks 2-per-row on phones, tight
-          spacing throughout. */}
-      {showFilters && (
-        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3 sm:mb-4">
-          <div className={`grid grid-cols-2 gap-2 sm:gap-3 ${lockedDirection ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
-            {!lockedDirection && (
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Freight Type</label>
-                <CustomSelect value={directionFilter} onChange={e => setDirectionFilter(e.target.value)} className={inputClass + ' w-full'}>
-                  <option value="">All Types</option>
-                  <option value="Purchase">Inward Freight (Purchase)</option>
-                  <option value="Sales">Outward Freight (Sales)</option>
-                </CustomSelect>
-              </div>
-            )}
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Status</label>
-              <CustomSelect value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={inputClass + ' w-full'}>
-                <option value="">All Status</option>
-                {allStatuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </CustomSelect>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isLoading && <div className="text-center py-8 text-slate-500">Loading...</div>}
       {error && !isLoading && (
@@ -714,6 +674,18 @@ export default function UnifiedFreightList() {
           <button onClick={() => fetchData()} className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700">
             <RefreshCw size={15} /> Retry
           </button>
+        </div>
+      )}
+
+      {/* Summary band — hairline-divided cells, exactly like Purchase Bills:
+          count · value · paid · outstanding, over the filtered rows. */}
+      {!isLoading && !error && (
+        <div className="metric-band mb-3">
+          <div className="px-3 py-2"><p className="text-[11px] text-slate-500">Freight bills</p><p className="text-sm font-bold text-slate-900 tabular-nums">{summary.total.toLocaleString('en-IN')}</p></div>
+          <div className="px-3 py-2"><p className="text-[11px] text-slate-500">Total value</p><p className="text-sm font-bold text-slate-900 money">{formatCurrency(summary.totalAmount)}</p></div>
+          <div className="px-3 py-2"><p className="text-[11px] text-slate-500">Paid</p><p className="text-sm font-bold text-emerald-700 money">{formatCurrency(summary.totalPaid)}</p></div>
+          <div className="px-3 py-2"><p className="text-[11px] text-slate-500">Outstanding</p><p className={`text-sm font-bold money ${(summary.totalAmount - summary.totalPaid) > 0 ? 'text-rose-600' : 'text-slate-900'}`}>{formatCurrency(Math.max(0, summary.totalAmount - summary.totalPaid))}</p></div>
+          <div className="px-3 py-2"><p className="text-[11px] text-slate-500">Pending</p><p className={`text-sm font-bold tabular-nums ${summary.pendingCount > 0 ? 'text-amber-600' : 'text-slate-900'}`}>{summary.pendingCount.toLocaleString('en-IN')}</p></div>
         </div>
       )}
 
@@ -752,11 +724,15 @@ export default function UnifiedFreightList() {
       />
 
       <div className="hidden sm:block">
-        <DataTable persistKey="freight"
+        <DataTable dense persistKey="freight"
           exportFileName="unified-freight"
           canExport={canExport('Sales Freight')}
           columns={visibleColumns}
           data={tableRows}
+          isLoading={isLoading}
+          pageSize={15}
+          onSearch={setSearch}
+          searchPlaceholder="Search freight no, vendor, transporter, vehicle…"
           onRowClick={(row) => navigate(`/freight/${row.direction_key}/${row.id}`)}
           exportable
           pagination
