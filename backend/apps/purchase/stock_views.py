@@ -104,11 +104,16 @@ class StockView(APIView):
         if as_of:
             qs = qs.filter(receipt__receipt_date__lte=as_of)
 
-        # Group by PRODUCT only (not uom) so a product received in mixed units
-        # shows as ONE row, not one per unit. The representative UOM is the one
-        # on the most receipt lines (computed below).
+        godown_id = (request.query_params.get('godown') or '').strip() or None
+        if godown_id:
+            qs = qs.filter(godown_location_id=godown_id)
+
+        # Group receipts by PRODUCT × WAREHOUSE × GODOWN so each physical
+        # location is its own row. The representative UOM is per-product (the
+        # unit on most receipt lines), computed below.
         rows = (qs.values('product_id', 'product__product_name',
-                          'product__sku_code')
+                          'product__sku_code',
+                          'receipt__warehouse_id', 'godown_location_id')
                   .annotate(on_hand=Sum('quantity_received'),
                             receipts=Count('receipt_id', distinct=True))
                   .order_by('-on_hand'))
@@ -120,17 +125,20 @@ class StockView(APIView):
             uom_ctr.setdefault(rl['product_id'], _Counter())[rl['uom'] or ''] += 1
         uom_map = {pid: (c.most_common(1)[0][0] if c else '') for pid, c in uom_ctr.items()}
 
-        # Opening stock per product: latest OpeningStock as_of_date ≤ the viewed
-        # date (or ≤ today). Added on top of receipts in the window.
+        # Opening stock per (product, warehouse): latest OpeningStock
+        # as_of_date ≤ the viewed date. OpeningStock has no godown, so it keys
+        # by (pid, warehouse_id) and is attributed to ONE bucket per (pid, wh)
+        # below (never split across that warehouse's godowns → no double-count).
         opening_qs = OpeningStock.objects.all()
         if warehouse_id:
             opening_qs = opening_qs.filter(warehouse_id=warehouse_id)
         if as_of:
             opening_qs = opening_qs.filter(as_of_date__lte=as_of)
         opening_map = {}
-        for op in opening_qs.order_by('product_id', '-as_of_date'):
-            if op.product_id not in opening_map:  # first = latest (ordered desc)
-                opening_map[op.product_id] = op.quantity or Decimal('0')
+        for op in opening_qs.order_by('product_id', 'warehouse_id', '-as_of_date'):
+            key = (op.product_id, op.warehouse_id)
+            if key not in opening_map:  # first = latest (ordered desc)
+                opening_map[key] = op.quantity or Decimal('0')
 
         # Issued / used per product: SUM(StockIssue.quantity) up to the viewed
         # date, scoped by the same warehouse / company filters. Subtracted from
@@ -145,10 +153,12 @@ class StockView(APIView):
             issue_qs = issue_qs.filter(Q(warehouse__company_id=company_id) | Q(warehouse__isnull=True))
         if as_of:
             issue_qs = issue_qs.filter(issue_date__lte=as_of)
+        # Keyed by (product, warehouse) — StockIssue has no godown. Attributed
+        # to one bucket per (pid, wh) below, same as opening.
         issue_map = {}
-        for row in (issue_qs.values('product_id')
+        for row in (issue_qs.values('product_id', 'warehouse_id')
                     .annotate(used=Sum('quantity'))):
-            issue_map[row['product_id']] = row['used'] or Decimal('0')
+            issue_map[(row['product_id'], row['warehouse_id'])] = row['used'] or Decimal('0')
 
         # Bill-line stock-in — so a SCANNED / MANUAL bill (which has no receipt)
         # still adds to stock. DEDUP with receipts: count a bill's lines ONLY
@@ -164,10 +174,13 @@ class StockView(APIView):
             bill_in_qs = bill_in_qs.filter(bill__warehouse__company_id=company_id)
         if as_of:
             bill_in_qs = bill_in_qs.filter(bill__bill_date__lte=as_of)
+        # Keyed by (product, warehouse). A bill has no godown, so its stock-in
+        # lands on a godown=None bucket for that (pid, wh).
         bill_in_map = {}
         bill_uom_ctr = {}
-        for r in bill_in_qs.values('product_id', 'uom').annotate(q=Sum('quantity')):
-            bill_in_map[r['product_id']] = bill_in_map.get(r['product_id'], Decimal('0')) + (r['q'] or Decimal('0'))
+        for r in bill_in_qs.values('product_id', 'bill__warehouse_id', 'uom').annotate(q=Sum('quantity')):
+            k = (r['product_id'], r['bill__warehouse_id'])
+            bill_in_map[k] = bill_in_map.get(k, Decimal('0')) + (r['q'] or Decimal('0'))
             bill_uom_ctr.setdefault(r['product_id'], _Counter())[r['uom'] or ''] += 1
         # A product with ONLY bill-in (no receipts) still needs a row + a UOM.
         for pid, ctr in bill_uom_ctr.items():
@@ -191,29 +204,65 @@ class StockView(APIView):
             return {'RM': 'RM', 'PACKING': 'PM', 'MAIZE': 'RM',
                     'BOUGHT_NOTE': 'RM'}.get(top, top or '')
 
+        # Name maps for the warehouse / godown ids that appear, so each row can
+        # label its location. Only the ids present are queried.
+        wh_ids = {r['receipt__warehouse_id'] for r in rows if r['receipt__warehouse_id']}
+        wh_ids |= {k[1] for k in opening_map if k[1]}
+        wh_ids |= {k[1] for k in issue_map if k[1]}
+        wh_ids |= {k[1] for k in bill_in_map if k[1]}
+        gd_ids = {r['godown_location_id'] for r in rows if r['godown_location_id']}
+        wh_name, gd_name = {}, {}
+        if wh_ids:
+            from core.models import Warehouse
+            wh_name = {w.id: w.name for w in Warehouse.objects.filter(id__in=wh_ids)}
+        if gd_ids:
+            from core.models import Godown
+            gd_name = {g.id: g.godown_name for g in Godown.objects.filter(id__in=gd_ids)}
+
+        # Opening & Used are per (product, warehouse) — they must NOT be split
+        # across that warehouse's godowns (that would double-count). So they're
+        # added to exactly ONE bucket per (pid, wh): the first row emitted for
+        # that pair (rows are ordered by -received, so the largest godown
+        # bucket). Any (pid, wh) that has opening/used but NO receipt bucket is
+        # emitted as its own godown=None row below. Received is per location.
+        # Grand total_qty = Σ opening + Σ received − Σ used = the old per-product
+        # total (location grouping only redistributes the same quantities).
         out = []
         total_qty = Decimal('0')
-        seen = set()
+        opening_applied = set()   # (pid, wh) whose opening/used already placed
+        seen_pw = set()           # (pid, wh) that got at least one receipt row
+
         for r in rows:
             pid = r['product_id']
-            seen.add(pid)
+            wh = r['receipt__warehouse_id']
+            gd = r['godown_location_id']
             pcat = _cat(pid)
             if category and pcat != category:
                 continue
-            opening = opening_map.get(pid, Decimal('0'))
-            # Received = goods from receipts PLUS goods from receipt-less bills
-            # (scan / manual). Receipt-linked bills are already in the receipt
-            # figure, so they're excluded from bill_in_map (no double count).
-            received = (r['on_hand'] or Decimal('0')) + bill_in_map.get(pid, Decimal('0'))
-            used = issue_map.get(pid, Decimal('0'))
+            seen_pw.add((pid, wh))
+            received = r['on_hand'] or Decimal('0')
+            # Fold this warehouse's receipt-less bill-in onto its FIRST bucket.
+            pw = (pid, wh)
+            if pw not in opening_applied:
+                received += bill_in_map.get(pw, Decimal('0'))
+                opening = opening_map.get(pw, Decimal('0'))
+                used = issue_map.get(pw, Decimal('0'))
+                opening_applied.add(pw)
+            else:
+                opening = Decimal('0')
+                used = Decimal('0')
             qty = opening + received - used
             total_qty += qty
             out.append({
                 'product_id': str(pid),
                 'product': r['product__product_name'] or '—',
                 'sku': r['product__sku_code'] or '',
-                'category': _cat(pid),
+                'category': pcat,
                 'uom': uom_map.get(pid, '') or '',
+                'warehouse_id': str(wh) if wh else '',
+                'warehouse': wh_name.get(wh, '') if wh else '',
+                'godown_id': str(gd) if gd else '',
+                'godown': gd_name.get(gd, '') if gd else '',
                 'opening': str(opening),
                 'received': str(received),
                 'used': str(used),
@@ -222,26 +271,40 @@ class StockView(APIView):
                 'receipts': r['receipts'] or 0,
             })
 
-        # Products with an opening balance OR receipt-less bill-in but no receipt
-        # row in the window (so a scan-only / manual-bill-only product still shows).
-        extra_pids = (set(opening_map) | set(bill_in_map)) - seen
-        if extra_pids:
+        # (product, warehouse) pairs with opening / bill-in / used but no receipt
+        # bucket in the window → emit a godown-less row carrying them, so a
+        # scan-only / manual / opening-only location still shows.
+        extra_pw = (set(opening_map) | set(bill_in_map) | set(issue_map)) - opening_applied
+        if extra_pw:
             from master.models import Product
-            for p in Product.objects.filter(id__in=extra_pids):
-                pcat = _cat(p.id)
+            prod_name = {p.id: p for p in Product.objects.filter(
+                id__in={pw[0] for pw in extra_pw})}
+            for (pid, wh) in extra_pw:
+                p = prod_name.get(pid)
+                if not p:
+                    continue
+                pcat = _cat(pid)
                 if category and pcat != category:
                     continue
-                opening = opening_map.get(p.id, Decimal('0'))
-                received = bill_in_map.get(p.id, Decimal('0'))
-                used = issue_map.get(p.id, Decimal('0'))
+                if warehouse_id and str(wh) != str(warehouse_id):
+                    continue
+                if godown_id:   # these carry no godown, so a godown filter excludes them
+                    continue
+                opening = opening_map.get((pid, wh), Decimal('0'))
+                received = bill_in_map.get((pid, wh), Decimal('0'))
+                used = issue_map.get((pid, wh), Decimal('0'))
                 qty = opening + received - used
                 total_qty += qty
                 out.append({
-                    'product_id': str(p.id),
+                    'product_id': str(pid),
                     'product': p.product_name or '—',
                     'sku': p.sku_code or '',
                     'category': pcat,
-                    'uom': uom_map.get(p.id, '') or '',
+                    'uom': uom_map.get(pid, '') or '',
+                    'warehouse_id': str(wh) if wh else '',
+                    'warehouse': wh_name.get(wh, '') if wh else '',
+                    'godown_id': '',
+                    'godown': '',
                     'opening': str(opening),
                     'received': str(received),
                     'used': str(used),
@@ -249,7 +312,8 @@ class StockView(APIView):
                     'on_hand': str(qty),
                     'receipts': 0,
                 })
-            out.sort(key=lambda x: Decimal(x['on_hand']), reverse=True)
+
+        out.sort(key=lambda x: Decimal(x['on_hand']), reverse=True)
         return Response({
             'items': out,
             'item_count': len(out),

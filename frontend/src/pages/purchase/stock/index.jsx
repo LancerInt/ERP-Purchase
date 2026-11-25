@@ -30,6 +30,12 @@ export default function Stock() {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState('0');
   const [cat, setCat] = useState('');
+  const [wh, setWh] = useState('');          // warehouse filter (id)
+  const [gd, setGd] = useState('');          // godown filter (id)
+  // Distinct {id,name} warehouse/godown options, built from the loaded rows so
+  // the dropdowns always match what's on screen (no extra lookups needed).
+  const [whOpts, setWhOpts] = useState([]);
+  const [gdOpts, setGdOpts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState(null);     // opening-stock editor
   const [issue, setIssue] = useState(null);   // issue / used editor
@@ -41,15 +47,39 @@ export default function Stock() {
       if (asOf) p.set('as_of', asOf);
       if (company) p.set('company', company);
       if (cat) p.set('category', cat);
+      if (wh) p.set('warehouse', wh);
+      if (gd) p.set('godown', gd);
       const { data } = await apiClient.get(`/api/purchase/stock/?${p.toString()}`);
-      setRows(data.items || []);
+      const items = data.items || [];
+      setRows(items);
       setTotal(data.total_qty || '0');
     } catch (e) {
       setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [asOf, company, cat]);
+  }, [asOf, company, cat, wh, gd]);
+
+  // Build the warehouse / godown option lists from the UNFILTERED set (so a
+  // filter never hides its own remaining choices). Loaded once + whenever the
+  // company / period changes, not on every wh/gd pick.
+  const loadOpts = useCallback(async () => {
+    try {
+      const p = new URLSearchParams();
+      if (asOf) p.set('as_of', asOf);
+      if (company) p.set('company', company);
+      const { data } = await apiClient.get(`/api/purchase/stock/?${p.toString()}`);
+      const items = data.items || [];
+      const whMap = new Map(), gdMap = new Map();
+      for (const it of items) {
+        if (it.warehouse_id) whMap.set(it.warehouse_id, it.warehouse || it.warehouse_id);
+        if (it.godown_id) gdMap.set(it.godown_id, it.godown || it.godown_id);
+      }
+      setWhOpts([...whMap].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
+      setGdOpts([...gdMap].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
+    } catch { /* keep prior options */ }
+  }, [asOf, company]);
+  useEffect(() => { loadOpts(); }, [loadOpts]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -90,6 +120,14 @@ export default function Stock() {
         ? <span className={`inline-block text-[10px] font-semibold rounded px-1.5 py-0.5 border ${categoryChipCls(v)}`}>{v}</span>
         : <span className="text-slate-300">—</span> },
     { key: 'sku', label: 'SKU', sortable: true, render: (v) => v || '—' },
+    { key: 'warehouse', label: 'Warehouse', sortable: true,
+      render: (v) => v
+        ? <span className="text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 whitespace-nowrap">{v}</span>
+        : <span className="text-slate-300">—</span> },
+    { key: 'godown', label: 'Godown', sortable: true,
+      render: (v) => v
+        ? <span className="text-[11px] font-medium text-slate-600 whitespace-nowrap">{v}</span>
+        : <span className="text-slate-300">—</span> },
     { key: 'opening', label: 'Opening Stock', sortable: true, align: 'right',
       render: (v) => Number(v) ? fmtQty(v) : '—' },
     { key: 'received', label: 'Received', sortable: true, align: 'right',
@@ -133,6 +171,20 @@ export default function Stock() {
           <option value="RM">RM</option>
           <option value="PM">PM</option>
         </select>
+        <select value={wh} onChange={(e) => setWh(e.target.value)}
+          className="h-9 pl-3 pr-8 rounded-lg border border-slate-300 text-sm bg-white min-w-[160px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+          <option value="">All warehouses</option>
+          {whOpts.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+        </select>
+        <select value={gd} onChange={(e) => setGd(e.target.value)}
+          className="h-9 pl-3 pr-8 rounded-lg border border-slate-300 text-sm bg-white min-w-[150px] focus:outline-none focus:ring-2 focus:ring-indigo-200">
+          <option value="">All godowns</option>
+          {gdOpts.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+        </select>
+        {(wh || gd || cat) && (
+          <button type="button" onClick={() => { setWh(''); setGd(''); setCat(''); }}
+            className="text-xs text-slate-500 hover:text-slate-800 underline">Clear</button>
+        )}
       </div>
 
       <DataTable
