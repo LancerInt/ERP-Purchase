@@ -319,7 +319,7 @@ export default function FreightBills() {
             ],
           }}
         />
-        <div className="hidden sm:block">
+        <div className="hidden sm:block [&_td]:!py-1.5 [&_th]:!py-1.5">
           <DataTable
             dense
             persistKey="freight-bills"

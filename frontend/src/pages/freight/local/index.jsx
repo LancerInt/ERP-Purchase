@@ -132,6 +132,7 @@ export default function LocalFreightList() {
           <div className="px-3 py-2"><p className="text-[11px] text-slate-500">Pending</p><p className={`text-sm font-bold money ${stats.pending > 0 ? 'text-amber-600' : 'text-slate-900'}`}>{stats.pending.toLocaleString('en-IN')}</p></div>
         </div>
 
+        <div className="[&_td]:!py-1.5 [&_th]:!py-1.5">
         <DataTable dense persistKey="freight-local"
           columns={columns}
           data={rows}
@@ -144,6 +145,7 @@ export default function LocalFreightList() {
           emptyMessage="No local freight records yet."
           emptyIcon={Truck}
         />
+        </div>
       </div>
     </MainLayout>
   );
