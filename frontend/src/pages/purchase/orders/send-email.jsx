@@ -177,47 +177,82 @@ export default function SendPOEmail() {
     }
   };
 
-  // Share the PO on WhatsApp — opens wa.me with a short PO summary prefilled,
-  // addressed to the vendor's contact phone when known. WhatsApp can't carry
-  // the PDF, so the user attaches it manually (see "Download PO PDF").
-  const handleWhatsApp = () => {
-    if (!po) return;
-    const digits = String(po.vendor_phone || '').replace(/\D/g, '');
+  const waPhone = () => {
+    const digits = String(po?.vendor_phone || '').replace(/\D/g, '');
     // Prefix the country code for a bare 10-digit Indian mobile.
-    const phone = digits ? (digits.length === 10 ? `91${digits}` : digits) : '';
-    const lines = (po.po_lines || [])
+    return digits ? (digits.length === 10 ? `91${digits}` : digits) : '';
+  };
+  const waMessage = () => {
+    const lines = (po?.po_lines || [])
       .map((l, i) => `${i + 1}. ${l.item_name || l.product_name || l.service_catalogue_name || 'Item'} — ${Number(l.quantity_ordered || 0).toLocaleString('en-IN')} ${l.uom || ''}`)
       .join('\n');
-    const msg =
-      `*Purchase Order ${po.po_no}*\n` +
-      `${po.company_name || ''}\n\n` +
-      `Vendor: ${po.vendor_name || ''}\n` +
-      `Date: ${po.po_date ? formatDate(po.po_date) : '-'}\n` +
-      (po.total_order_value ? `Amount: ${formatCurrency(po.total_order_value)}\n` : '') +
+    return `*Purchase Order ${po?.po_no}*\n` +
+      `${po?.company_name || ''}\n\n` +
+      `Vendor: ${po?.vendor_name || ''}\n` +
+      `Date: ${po?.po_date ? formatDate(po.po_date) : '-'}\n` +
+      (po?.total_order_value ? `Amount: ${formatCurrency(po.total_order_value)}\n` : '') +
       (lines ? `\nItems:\n${lines}\n` : '') +
       `\nPlease find the PO document attached. Kindly confirm.`;
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-    window.open(url, '_blank', 'noopener');
-    if (!phone) toast('No vendor phone on file — pick the contact in WhatsApp.', { icon: 'ℹ️' });
   };
 
-  // Download the PO document as a printable page the user can save as PDF and
-  // attach in WhatsApp. Uses the same server-rendered PO HTML the email uses.
+  // Fetch the real PO PDF as a Blob (same document the email attaches).
+  const fetchPdfBlob = async () => {
+    const res = await apiClient.get(`/api/purchase/orders/${id}/download-pdf/`, { responseType: 'blob' });
+    return new Blob([res.data], { type: 'application/pdf' });
+  };
+
+  // Share the PO on WhatsApp WITH the PDF attached where the device allows it.
+  // On a phone the native share sheet carries the file, so picking WhatsApp
+  // attaches the PO PDF directly. On desktop (no file-share) we fall back to
+  // wa.me with the text prefilled and download the PDF so it can be attached
+  // by hand — WhatsApp share links cannot carry a file themselves.
+  const handleWhatsApp = async () => {
+    if (!po || pdfLoading) return;
+    setPdfLoading(true);
+    try {
+      const msg = waMessage();
+      let file = null;
+      try {
+        const blob = await fetchPdfBlob();
+        file = new File([blob], `${po.po_no}.pdf`, { type: 'application/pdf' });
+      } catch { /* fall through to text-only */ }
+
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], text: msg, title: `Purchase Order ${po.po_no}` });
+          return;
+        } catch (e) {
+          if (e?.name === 'AbortError') return;   // user cancelled the sheet
+        }
+      }
+      // Desktop fallback: open WhatsApp with the text, and hand over the PDF.
+      const url = `https://wa.me/${waPhone()}?text=${encodeURIComponent(msg)}`;
+      window.open(url, '_blank', 'noopener');
+      if (file) {
+        const href = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = href; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(href), 4000);
+        toast('PO PDF downloaded — attach it in the WhatsApp chat.', { icon: '📎' });
+      } else if (!waPhone()) {
+        toast('No vendor phone on file — pick the contact in WhatsApp.', { icon: 'ℹ️' });
+      }
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  // Download the PO as a real PDF file to attach in WhatsApp (or keep).
   const handleDownloadPdf = async () => {
     if (pdfLoading) return;
     setPdfLoading(true);
     try {
-      let html = pdfHtml;
-      if (!html) {
-        const res = await apiClient.post(`/api/purchase/orders/${id}/preview-email/`, { template_id: selectedTemplate });
-        html = res.data.pdf_html || res.data.body_html || '';
-        setPdfHtml(html);
-      }
-      if (!html) { toast.error('Could not build the PO document.'); return; }
-      const win = window.open('', '_blank');
-      if (!win) { toast.error('Allow pop-ups to download the PO PDF.'); return; }
-      win.document.write(`<!doctype html><html><head><title>${po?.po_no || 'PO'}</title></head><body>${html}<script>window.onload=function(){setTimeout(function(){window.print();},300);}<\/script></body></html>`);
-      win.document.close();
+      const blob = await fetchPdfBlob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href; a.download = `${po?.po_no || 'PO'}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 4000);
     } catch (err) {
       toast.error(getApiErrorMessage(err));
     } finally {
@@ -401,7 +436,7 @@ export default function SendPOEmail() {
               </button>
             </div>
             <p className="text-[11px] text-slate-400 text-center">
-              WhatsApp opens with the PO text ready — attach the PO&nbsp;PDF before sending.
+              On a phone, WhatsApp opens with the PO&nbsp;PDF attached. On desktop the PDF downloads to attach by hand.
             </p>
 
             {/* Proof of a WhatsApp send — upload the chat screenshot. Logs a

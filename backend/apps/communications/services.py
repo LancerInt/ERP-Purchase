@@ -15,7 +15,14 @@ class TemplateEngine:
 
 
 class PDFGenerator:
-    """Stub PDF generator — builds HTML and wraps it in a BytesIO buffer."""
+    """Render a template's HTML to a real PDF (xhtml2pdf / ReportLab).
+
+    xhtml2pdf is pure-Python (no system binaries), so it works on this
+    standalone where WeasyPrint's native deps aren't available. If the
+    library is missing or a document fails to render, we fall back to the
+    old behaviour of returning the raw HTML bytes, so a PDF send never hard-
+    fails — it just degrades to an HTML attachment.
+    """
 
     @staticmethod
     def build_full_html(template, context):
@@ -29,6 +36,16 @@ class PDFGenerator:
 
     @staticmethod
     def generate(full_html):
+        """Return a BytesIO of a real PDF for `full_html`, else the HTML bytes."""
+        try:
+            from xhtml2pdf import pisa
+            buf = io.BytesIO()
+            result = pisa.CreatePDF(src=full_html, dest=buf, encoding='utf-8')
+            if not result.err and buf.getbuffer().nbytes:
+                buf.seek(0)
+                return buf
+        except Exception:
+            pass
         buf = io.BytesIO(full_html.encode('utf-8'))
         buf.seek(0)
         return buf

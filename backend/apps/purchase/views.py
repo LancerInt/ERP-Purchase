@@ -3379,6 +3379,32 @@ class PurchaseOrderViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet):
         return Response({'success': True, 'message': f'WhatsApp send logged for {po.vendor.vendor_name}',
                          'log_id': str(log.id)})
 
+    @action(detail=True, methods=['get'], url_path='download-pdf')
+    def download_pdf(self, request, pk=None):
+        """Return the PO as a real PDF file (application/pdf).
+
+        Same document the email attaches — used by the Send-PO page so the PO
+        can be shared to WhatsApp via the native share sheet (which carries the
+        file) or downloaded to attach manually.
+        """
+        from django.http import HttpResponse
+        from communications.models import EmailTemplate
+        from communications.services import PDFGenerator
+
+        po = self.get_object()
+        template = (EmailTemplate.objects.filter(name__iregex=r'purchase\s*order').first()
+                    or EmailTemplate.objects.filter(is_default=True).first()
+                    or EmailTemplate.objects.first())
+        if not template:
+            return Response({'error': 'No email template to render the PO document.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        context = self._build_po_email_context(po)
+        full_html = PDFGenerator.build_full_html(template, context)
+        pdf_buffer = PDFGenerator.generate(full_html)
+        resp = HttpResponse(pdf_buffer.read(), content_type='application/pdf')
+        resp['Content-Disposition'] = f'attachment; filename="{po.po_no}.pdf"'
+        return resp
+
     def _po_addr_with_columns(self, entity):
         """Vendor / Warehouse keep a JSON `address` blob PLUS their own
         city/state/pincode columns — join both into one clean line, mirroring
