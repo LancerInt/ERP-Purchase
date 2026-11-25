@@ -3138,15 +3138,17 @@ export default function CreateReceiptAdvice() {
                   {freightExtracting ? 'Extracting...' : 'Upload Freight Bill'}
                 </button>
               </div>
-              <FileAttachments
-                module="RECEIPT"
-                recordId={null}
-                category="TRANSPORT"
-                compact
-                hideUpload
-                presetPendingFiles={pendingTransportAttachments}
-                onPendingChange={(files) => { pendingTransportAttachmentsRef.current = files; setPendingTransportAttachments(files); }}
-              />
+              {pendingTransportAttachments.length > 0 && (
+                <FileAttachments
+                  module="RECEIPT"
+                  recordId={null}
+                  category="TRANSPORT"
+                  compact
+                  hideUpload
+                  presetPendingFiles={pendingTransportAttachments}
+                  onPendingChange={(files) => { pendingTransportAttachmentsRef.current = files; setPendingTransportAttachments(files); }}
+                />
+              )}
             </div>
             </>)}
           </div>
