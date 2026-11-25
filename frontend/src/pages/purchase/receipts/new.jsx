@@ -3876,79 +3876,9 @@ export default function CreateReceiptAdvice() {
           </div>
 
 
-          {/* Additional Information */}
-          <div className="order-6">
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Additional Information</h3>
-            <div className="grid grid-cols-1 gap-3">
-              {!isHidden('remarks') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Remarks</label>
-                <textarea name="remarks" value={formData.remarks} onChange={handleChange} rows={2} disabled={isReadOnly('remarks')} className={isReadOnly('remarks') ? lockedInputClass : inputClass} />
-              </div>
-              )}
-            </div>
-          </div>
-
-          {/* Attachments — combined view with category labels + inline preview */}
-          <div className="order-7">
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Attachments</h3>
-            <div className="flex items-center gap-2 mb-3">
-              <input
-                ref={generalCameraRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const updated = [...pendingAttachmentsRef.current, file];
-                    pendingAttachmentsRef.current = updated;
-                    setPendingAttachments(updated);
-                  }
-                  if (generalCameraRef.current) generalCameraRef.current.value = '';
-                }}
-              />
-              <input
-                ref={generalFileRef}
-                type="file"
-                accept="image/*,.pdf,.doc,.docx,.xlsx,.xls,.csv,.txt"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  const files = Array.from(e.target.files || []);
-                  if (files.length) {
-                    const updated = [...pendingAttachmentsRef.current, ...files];
-                    pendingAttachmentsRef.current = updated;
-                    setPendingAttachments(updated);
-                  }
-                  if (generalFileRef.current) generalFileRef.current.value = '';
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => generalCameraRef.current?.click()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition"
-              >
-                <Camera size={14} />
-                Take Photo
-              </button>
-              <button
-                type="button"
-                onClick={() => generalFileRef.current?.click()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded-lg hover:bg-primary-100 transition"
-              >
-                <Upload size={14} />
-                Upload File
-              </button>
-            </div>
-            <CombinedAttachmentList
-              generalFiles={pendingAttachments}
-              transportFiles={pendingTransportAttachments}
-              damageFiles={packingLines.flatMap(l => l._damageFiles || [])}
-              deviationFiles={receiptLines.flatMap(l => l._deviationFiles || [])}
-            />
-          </div>
+          {/* Additional Information + Attachments sections removed — the WC
+              captures everything through the per-section photo uploads
+              (receipt / weighment / transport). */}
 
           {/* Form Actions */}
           {(() => {
