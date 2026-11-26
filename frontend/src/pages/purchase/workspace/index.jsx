@@ -106,7 +106,7 @@ const SECTION_TITLES = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_TITLES[it.id] = it.label; }));
 const SECTION_ICON = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_ICON[it.id] = it.icon; }));
-const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'pa_drill', 'pa_vturn', 'pa_branch', 'ac_tds']);
+const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'pa_drill', 'pa_vturn', 'pa_branch', 'ac_tds', 'pay_week', 'pay_aged', 'pay_up']);
 
 // Purchase categories for the Item Drill-down filter: chip label -> category code.
 // Categories match the normalized values product_category() returns:
@@ -125,6 +125,11 @@ const MSME_OPTS = [
   { key: 'msme', label: 'MSME only' },
   { key: 'non', label: 'Non-MSME' },
 ];
+// Normalize a bill's raw purchase_category to the DRILL_CATS keys, same mapping
+// product_category() / the vendor-turnover endpoint use (PACKING→PM, MAIZE→RM,
+// BOUGHT_NOTE→RM; RM/PM/FRUIT pass through).
+const CAT_NORMALIZE = { RM: 'RM', PACKING: 'PM', MAIZE: 'RM', BOUGHT_NOTE: 'RM', PM: 'PM', FRUIT: 'FRUIT' };
+const normCat = (raw) => { const k = String(raw || '').toUpperCase(); return CAT_NORMALIZE[k] || k; };
 
 // ── Small presentational helpers (slate/indigo) ──────────────────────
 function Card({ label, value, sub, color, borderColor }) {
@@ -539,6 +544,9 @@ export default function PurchaseWorkspace() {
   const [branchTx, setBranchTx] = useState(null);   // branch-transfers payload
   const [branchOpen, setBranchOpen] = useState(null);    // expanded branch bill id
   const [branchBillLines, setBranchBillLines] = useState({}); // {bill_id: {loading, lines}}
+  const [payCal, setPayCal] = useState(null);       // payables-calendar (live as-of-today snapshot)
+  const [payMsme, setPayMsme] = useState('');       // '' | msme | non (Payables sections)
+  const [payCat, setPayCat] = useState('');         // '' | RM | PM | FRUIT (Payables sections)
 
   // ── Item Analytics UI state ──
   const [itemCat, setItemCat] = useState('');       // category filter (''=All)
@@ -652,6 +660,17 @@ export default function PurchaseWorkspace() {
       .catch(() => { if (alive) setVturn({ months: [], vendors: [] }); });
     return () => { alive = false; };
   }, [company, dateFrom, dateTo, vturnCat, vturnMsme]);
+
+  // ── Payables calendar — live as-of-today snapshot (company only, no window) ──
+  useEffect(() => {
+    let alive = true;
+    setPayCal(null);
+    const cp = company ? `company=${company}` : '';
+    apiClient.get(`/api/purchase/payables-calendar/?${cp}`)
+      .then(r => { if (alive) setPayCal(r.data || { bills: [] }); })
+      .catch(() => { if (alive) setPayCal({ bills: [] }); });
+    return () => { alive = false; };
+  }, [company]);
 
   // ── Derived top-level figures (KPI strip + profile) ──
   const stats = dash?.stats || {};
@@ -842,6 +861,94 @@ export default function PurchaseWorkspace() {
     });
     return { byMonth, grand };
   }, [branchRows, branchMonths]);
+
+  // ── Payables derivations (from the live payables-calendar snapshot) ──
+  // Each bill gets daysLate (>0 = overdue) + a status, then the sections slice
+  // the same enriched list differently (this week / overdue / upcoming).
+  const payBills = useMemo(() => {
+    const bills = payCal?.bills || [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return bills
+      .filter(b => num(b.balance) > 0)
+      .filter(b => !payMsme || (payMsme === 'msme' ? b.vendor_is_msme : !b.vendor_is_msme))
+      .filter(b => !payCat || normCat(b.purchase_category) === payCat)
+      .map(b => {
+        const due = b.due_date ? new Date(b.due_date) : null;
+        if (due) due.setHours(0, 0, 0, 0);
+        const daysLate = due ? Math.floor((today - due) / 86400000) : 0;
+        return { ...b, _due: due, daysLate, overdue: daysLate > 0, amt: num(b.balance) };
+      });
+  }, [payCal, payMsme, payCat]);
+  const payLoading = payCal == null;
+
+  // This Week: already overdue OR due within the next 7 days.
+  const payWeek = useMemo(() => {
+    const rows = payBills.filter(b => b.overdue || (b.daysLate <= 0 && -b.daysLate <= 7));
+    rows.sort((a, b) => (a.overdue === b.overdue ? (a.overdue ? b.daysLate - a.daysLate : a.daysLate - b.daysLate) : (a.overdue ? -1 : 1)));
+    const overdueRows = rows.filter(b => b.overdue);
+    const dueRows = rows.filter(b => !b.overdue);
+    return {
+      rows,
+      total: rows.reduce((s, b) => s + b.amt, 0),
+      overdueTotal: overdueRows.reduce((s, b) => s + b.amt, 0), overdueCount: overdueRows.length,
+      dueTotal: dueRows.reduce((s, b) => s + b.amt, 0), dueCount: dueRows.length,
+      vendors: new Set(rows.map(b => b.vendor_name)).size,
+    };
+  }, [payBills]);
+
+  // Overdue Ageing: overdue bills, bucketed by days-late band.
+  const AGE_BANDS = [[0, 30, '0-30'], [31, 60, '31-60'], [61, 90, '61-90'], [91, 180, '91-180'], [181, Infinity, '180+']];
+  const payAged = useMemo(() => {
+    const rows = payBills.filter(b => b.overdue).sort((a, b) => b.daysLate - a.daysLate);
+    const bandOf = (d) => (AGE_BANDS.find(([lo, hi]) => d >= lo && d <= hi) || AGE_BANDS[0])[2];
+    const bands = AGE_BANDS.map(([, , label]) => {
+      const br = rows.filter(b => bandOf(b.daysLate) === label);
+      return { label, total: br.reduce((s, b) => s + b.amt, 0), count: br.length };
+    });
+    return {
+      rows, bandOf, bands,
+      total: rows.reduce((s, b) => s + b.amt, 0),
+      activeBands: bands.filter(b => b.count > 0).length,
+      vendors: new Set(rows.map(b => b.vendor_name)).size,
+    };
+  }, [payBills]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Upcoming: not-yet-overdue bills (due in the future), soonest first.
+  const payUp = useMemo(() => {
+    const rows = payBills.filter(b => !b.overdue).sort((a, b) => a.daysLate - b.daysLate); // daysLate <= 0, nearest 0 first
+    const dueIn = (b) => -b.daysLate; // days until due
+    const next30 = rows.filter(b => dueIn(b) <= 30);
+    const next60 = rows.filter(b => dueIn(b) > 30 && dueIn(b) <= 60);
+    const later = rows.filter(b => dueIn(b) > 60);
+    return {
+      rows,
+      next30Total: next30.reduce((s, b) => s + b.amt, 0),
+      next60Total: next60.reduce((s, b) => s + b.amt, 0),
+      laterTotal: later.reduce((s, b) => s + b.amt, 0),
+      vendors: new Set(rows.map(b => b.vendor_name)).size,
+    };
+  }, [payBills]);
+
+  // Export datasets for the payables tables.
+  const expPayWeek = useMemo(() => ({
+    cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'invoice', header: 'Invoice' }, { field: 'due', header: 'Due Date' },
+      { field: 'days', header: 'Days' }, { field: 'status', header: 'Status' }, { field: 'outstanding', header: 'Outstanding' }],
+    data: payWeek.rows.map(b => ({ vendor: b.vendor_name, invoice: b.bill_no || b.vendor_invoice_no || '',
+      due: fmtDate(b.due_date), days: b.overdue ? `${b.daysLate}d late` : `in ${-b.daysLate}d`,
+      status: b.overdue ? 'OVERDUE' : 'DUE', outstanding: fmtRup(b.amt) })),
+  }), [payWeek]);
+  const expPayAged = useMemo(() => ({
+    cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'invoice', header: 'Invoice' }, { field: 'due', header: 'Due Date' },
+      { field: 'days', header: 'Days Late' }, { field: 'band', header: 'Band' }, { field: 'outstanding', header: 'Outstanding' }],
+    data: payAged.rows.map(b => ({ vendor: b.vendor_name, invoice: b.bill_no || b.vendor_invoice_no || '',
+      due: fmtDate(b.due_date), days: `${b.daysLate}d`, band: payAged.bandOf(b.daysLate), outstanding: fmtRup(b.amt) })),
+  }), [payAged]);
+  const expPayUp = useMemo(() => ({
+    cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'invoice', header: 'Invoice' }, { field: 'due', header: 'Due Date' },
+      { field: 'dueIn', header: 'Due In' }, { field: 'category', header: 'Category' }, { field: 'outstanding', header: 'Outstanding' }],
+    data: payUp.rows.map(b => ({ vendor: b.vendor_name, invoice: b.bill_no || b.vendor_invoice_no || '',
+      due: fmtDate(b.due_date), dueIn: `in ${-b.daysLate}d`, category: normCat(b.purchase_category), outstanding: fmtRup(b.amt) })),
+  }), [payUp]);
 
   // ── Export datasets (cols + flat rows) per table ──
   // Top Vendors
@@ -1135,6 +1242,18 @@ export default function PurchaseWorkspace() {
                 </select>
               </>
             )}
+            {(activeSection === 'pay_week' || activeSection === 'pay_aged' || activeSection === 'pay_up') && (
+              <>
+                <select value={payCat} onChange={e => setPayCat(e.target.value)}
+                  className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[150px]">
+                  {DRILL_CATS.map(c => <option key={c.key || 'all'} value={c.key}>{c.key ? c.label : 'All Categories'}</option>)}
+                </select>
+                <select value={payMsme} onChange={e => setPayMsme(e.target.value)}
+                  className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[130px]">
+                  {MSME_OPTS.map(o => <option key={o.key || 'all'} value={o.key}>{o.label}</option>)}
+                </select>
+              </>
+            )}
             <div className="relative flex items-center gap-1.5">
               {DATE_PRESETS.filter(p => p.key === 'fy' || p.key === 'pfy' || p.key === 'cm').map(p => (
                 <button key={p.key} type="button" onClick={() => applyPreset(p)}
@@ -1185,6 +1304,128 @@ export default function PurchaseWorkspace() {
               <div className="flex items-center justify-center py-24 text-slate-400">
                 <Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span>
               </div>
+            )}
+
+            {/* ===== Payables · This Week ===== */}
+            {!loading && activeSection === 'pay_week' && (
+              payLoading ? (
+                <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span></div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                    <Card label="Total Due This Week" value={fmtINR(payWeek.total)} sub={`${payWeek.rows.length} bills`} color="text-amber-600" borderColor="border-amber-400" />
+                    <Card label="Already Overdue" value={fmtINR(payWeek.overdueTotal)} sub={`${payWeek.overdueCount} past due`} color="text-red-600" borderColor="border-red-400" />
+                    <Card label="Due This Week" value={fmtINR(payWeek.dueTotal)} sub={`${payWeek.dueCount} bills`} color="text-emerald-600" borderColor="border-emerald-400" />
+                    <Card label="Vendors" value={payWeek.vendors} sub="affected" />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Due or overdue this week</div>
+                    <TableExport cols={expPayWeek.cols} data={expPayWeek.data} filename={`payables-this-week-${slug(companyName)}`} title="Payables — This Week" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>Vendor</TH><TH>Invoice</TH><TH>Due Date</TH><TH right>Days</TH><TH>Status</TH><TH right>Outstanding</TH></tr></thead>
+                      <tbody>
+                        {payWeek.rows.map((b, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <TD bold>{b.vendor_name}{b.vendor_is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
+                            <TD clickable onClick={() => navigate(`/purchase/bills?quick=${b.bill_id}`)}>{b.bill_no || b.vendor_invoice_no || '—'}</TD>
+                            <TD color="text-slate-500">{fmtDate(b.due_date)}</TD>
+                            <TD right color={b.overdue ? 'text-red-600' : 'text-emerald-600'}>{b.overdue ? `${b.daysLate}d late` : `in ${-b.daysLate}d`}</TD>
+                            <TD><span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${b.overdue ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{b.overdue ? 'OVERDUE' : 'DUE'}</span></TD>
+                            <TD right bold color={b.overdue ? 'text-red-600' : 'text-slate-800'}>{fmtRup(b.amt)}</TD>
+                          </tr>
+                        ))}
+                        {payWeek.rows.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-sm">No payables due this week.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* ===== Payables · Overdue Ageing ===== */}
+            {!loading && activeSection === 'pay_aged' && (
+              payLoading ? (
+                <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span></div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+                    <Card label="Total Overdue" value={fmtINR(payAged.total)} sub={`${payAged.rows.length} bills`} color="text-red-600" borderColor="border-red-400" />
+                    <Card label="Ageing Bands" value={payAged.activeBands} sub="active bands" />
+                    <Card label="Vendors" value={payAged.vendors} sub="with overdue" color="text-red-600" />
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
+                    {payAged.bands.map(b => (
+                      <div key={b.label} className="bg-white rounded-lg border border-rose-200 p-2.5 text-center">
+                        <div className="text-[9px] font-bold uppercase tracking-wider text-rose-700">{b.label}</div>
+                        <div className="text-base font-extrabold text-red-600 tabular-nums mt-0.5">{fmtINR(b.total)}</div>
+                        <div className="text-[10px] text-rose-400">{b.count} bill{b.count === 1 ? '' : 's'}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Overdue bills</div>
+                    <TableExport cols={expPayAged.cols} data={expPayAged.data} filename={`payables-overdue-${slug(companyName)}`} title="Payables — Overdue Ageing" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>Vendor</TH><TH>Invoice</TH><TH>Due Date</TH><TH right>Days Late</TH><TH>Band</TH><TH right>Outstanding</TH></tr></thead>
+                      <tbody>
+                        {payAged.rows.map((b, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <TD bold>{b.vendor_name}{b.vendor_is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
+                            <TD clickable onClick={() => navigate(`/purchase/bills?quick=${b.bill_id}`)}>{b.bill_no || b.vendor_invoice_no || '—'}</TD>
+                            <TD color="text-slate-500">{fmtDate(b.due_date)}</TD>
+                            <TD right color="text-red-600">{b.daysLate}d</TD>
+                            <TD><span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700">{payAged.bandOf(b.daysLate)}</span></TD>
+                            <TD right bold color="text-red-600">{fmtRup(b.amt)}</TD>
+                          </tr>
+                        ))}
+                        {payAged.rows.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-sm">No overdue payables.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* ===== Payables · Upcoming ===== */}
+            {!loading && activeSection === 'pay_up' && (
+              payLoading ? (
+                <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span></div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                    <Card label="Due Next 30 Days" value={fmtINR(payUp.next30Total)} color="text-amber-600" borderColor="border-amber-400" />
+                    <Card label="Due Next 60 Days" value={fmtINR(payUp.next60Total)} color="text-indigo-700" borderColor="border-indigo-400" />
+                    <Card label="Due Later" value={fmtINR(payUp.laterTotal)} color="text-slate-700" />
+                    <Card label="Vendors" value={payUp.vendors} sub="upcoming" />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Upcoming payables</div>
+                    <TableExport cols={expPayUp.cols} data={expPayUp.data} filename={`payables-upcoming-${slug(companyName)}`} title="Payables — Upcoming" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>Vendor</TH><TH>Invoice</TH><TH>Due Date</TH><TH right>Due In</TH><TH>Category</TH><TH right>Outstanding</TH></tr></thead>
+                      <tbody>
+                        {payUp.rows.map((b, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <TD bold>{b.vendor_name}{b.vendor_is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
+                            <TD clickable onClick={() => navigate(`/purchase/bills?quick=${b.bill_id}`)}>{b.bill_no || b.vendor_invoice_no || '—'}</TD>
+                            <TD color="text-slate-500">{fmtDate(b.due_date)}</TD>
+                            <TD right color="text-emerald-600">in {-b.daysLate}d</TD>
+                            <TD color="text-slate-500">{normCat(b.purchase_category) || '—'}</TD>
+                            <TD right bold color="text-slate-800">{fmtRup(b.amt)}</TD>
+                          </tr>
+                        ))}
+                        {payUp.rows.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-sm">No upcoming payables.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
             )}
 
             {/* ===== Top Vendors ===== */}
