@@ -15,7 +15,7 @@ import {
   CreditCard, TrendingUp, Package, DollarSign,
   Shield, RotateCcw, Clock, Users as UsersIcon, Star,
   UserX, UserPlus, Target, BarChart3, ArrowLeftRight,
-  Loader2, X, Calendar, Sparkles,
+  Loader2, X, Calendar, Sparkles, Check, Building2,
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import apiClient from '../../../utils/api.js';
@@ -33,6 +33,12 @@ const fmtINR = (v) => {
 const fmtRup = (v) => `₹${Math.round(num(v)).toLocaleString('en-IN')}`;
 const fmtDate = (iso) => (iso ? formatDate(iso) : '—');
 const fmtQty = (v) => num(v).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+// 'YYYY-MM' -> 'Nov 26'
+const monthLabel = (ym) => {
+  if (!ym || ym.length < 7) return ym || '';
+  const [y, m] = ym.split('-');
+  return `${MONTH_ABBR[Number(m) - 1] || m} '${String(y).slice(2)}`;
+};
 
 // ── Date range presets (copied from Company-360) ────────────────────
 const _today = new Date();
@@ -97,15 +103,24 @@ const SECTION_TITLES = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_TITLES[it.id] = it.label; }));
 const SECTION_ICON = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_ICON[it.id] = it.icon; }));
-const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'ac_tds']);
+const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'pa_drill', 'ac_tds']);
+
+// Purchase categories for the Item Drill-down filter: chip label -> category code.
+const DRILL_CATS = [
+  { key: '', label: 'All' },
+  { key: 'RM', label: 'RM' },
+  { key: 'PACKING', label: 'Packing' },
+  { key: 'MAIZE', label: 'Maize' },
+  { key: 'FRUIT', label: 'Fruit' },
+];
 
 // ── Small presentational helpers (slate/indigo) ──────────────────────
 function Card({ label, value, sub, color, borderColor }) {
   return (
-    <div className={`bg-white border border-slate-200 rounded-lg px-3 py-2.5 ${borderColor ? `border-l-[3px] ${borderColor}` : ''}`}>
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
+    <div className={`bg-white border border-slate-300 rounded-lg px-3 py-2.5 shadow-sm ${borderColor ? `border-l-[3px] ${borderColor}` : ''}`}>
+      <div className="text-[10px] font-bold uppercase tracking-wide text-slate-600">{label}</div>
       <div className={`text-lg font-extrabold tabular-nums mt-0.5 ${color || 'text-slate-900'}`}>{value}</div>
-      {sub && <div className="text-[10px] text-slate-400 mt-0.5">{sub}</div>}
+      {sub && <div className="text-[10px] font-medium text-slate-500 mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -126,13 +141,62 @@ function ComingSoon({ sectionId }) {
   );
 }
 
+// Exact rupee (2dp) — for the "Detailed figures (for Tally verification)" view.
+const fmtExact = (v) => `₹${num(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+// Monthly turnover pivot: Purchases / +Debit Notes / −Credit Notes / Net, then
+// an "already excluded" sub-group (Branch Transfers, Freight). `fmt` controls
+// compact (fmtINR) vs exact (fmtExact) rendering.
+function BreakdownPivot({ breakdown, fmt }) {
+  const months = breakdown?.months || [];
+  const rows = breakdown?.rows || {};
+  if (!months.length) return <div className="text-center py-8 text-slate-400 text-sm">No data for this period.</div>;
+  const Row = ({ label, k, sign, labelCls, rowCls }) => (
+    <tr className={rowCls || 'hover:bg-slate-50'}>
+      <td className={`sticky left-0 bg-white px-2 py-1.5 text-[11px] font-semibold border-b border-slate-100 z-10 ${labelCls || 'text-slate-700'}`}>{label}</td>
+      {months.map(m => {
+        const v = rows[k]?.[m.month];
+        return <td key={m.month} className={`text-right px-2 py-1.5 text-[10px] tabular-nums border-b border-l border-slate-100 ${labelCls || 'text-slate-700'}`}>{v ? `${sign || ''}${fmt(v)}` : '—'}</td>;
+      })}
+      <td className={`text-right px-2 py-1.5 text-[11px] font-bold tabular-nums border-b border-l border-slate-200 ${labelCls || 'text-slate-700'}`}>{rows[k]?.total ? `${sign || ''}${fmt(rows[k].total)}` : '—'}</td>
+    </tr>
+  );
+  return (
+    <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
+      <table className="min-w-[720px] w-full">
+        <thead><tr>
+          <th className="sticky left-0 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200 z-10">Type</th>
+          {months.map(m => <th key={m.month} className="text-center px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[78px]">{m.label}</th>)}
+          <th className="text-right px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total</th>
+        </tr></thead>
+        <tbody>
+          <Row label="Purchases" k="purchases" labelCls="text-slate-800" />
+          <Row label="+ Debit Notes" k="debit_notes" sign="+" labelCls="text-sky-700" />
+          <Row label="− Credit Notes" k="credit_notes" sign="−" labelCls="text-red-600" />
+          <tr className="bg-indigo-50/60 font-bold">
+            <td className="sticky left-0 bg-indigo-50/60 px-2 py-1.5 text-[11px] font-bold text-indigo-800 border-b border-slate-200 z-10">Net Turnover</td>
+            {months.map(m => <td key={m.month} className="text-right px-2 py-1.5 text-[10px] tabular-nums font-bold text-indigo-800 border-b border-l border-slate-200">{rows.net?.[m.month] ? fmt(rows.net[m.month]) : '—'}</td>)}
+            <td className="text-right px-2 py-1.5 text-[11px] font-extrabold tabular-nums text-indigo-800 border-b border-l border-slate-200">{rows.net?.total ? fmt(rows.net.total) : '—'}</td>
+          </tr>
+          <tr>
+            <td colSpan={months.length + 2} className="px-2 pt-2.5 pb-1 text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-white">Already excluded from Purchases above</td>
+          </tr>
+          <Row label="Branch Transfers" k="branch_transfers" labelCls="text-amber-600" />
+          <Row label="Freight / Charges" k="freight" labelCls="text-slate-500" />
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function PurchaseWorkspace() {
   const navigate = useNavigate();
-  const { company, companies } = useGlobalCompany();
+  const { company, companies, setCompany } = useGlobalCompany();
 
   // ── UI state ──
   const [activeSection, setActiveSection] = useState('top_vend');
   const [profileCollapsed, setProfileCollapsed] = useState(false);
+  const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(() => {
     const o = {}; NAV_GROUPS.forEach(g => { o[g.title] = g.title === 'Payables'; }); return o;
   });
@@ -150,6 +214,14 @@ export default function PurchaseWorkspace() {
   const [trend, setTrend] = useState([]);       // mom_trend
   const [items, setItems] = useState([]);       // item-rate-trend items
   const [tds, setTds] = useState(null);         // tds-summary
+  const [breakdown, setBreakdown] = useState(null); // monthly-breakdown pivot
+  const [showExact, setShowExact] = useState(false); // "detailed figures" toggle
+  const [drillPivot, setDrillPivot] = useState(null); // item-rate-trend mode=pivot (vendor x month)
+
+  // ── Item Drill-down UI state ──
+  const [drillCat, setDrillCat] = useState('');     // category filter (''=All)
+  const [drillItem, setDrillItem] = useState('');   // selected item name
+  const [drillMeasure, setDrillMeasure] = useState('qty'); // qty | rate | value
 
   const applyPreset = (p) => { setDateFrom(p.from); setDateTo(p.to); setActivePeriod(p.key); setShowDatePicker(false); };
   const toggleGroup = (title) => setExpandedGroups(prev => ({ ...prev, [title]: !prev[title] }));
@@ -185,14 +257,17 @@ export default function PurchaseWorkspace() {
     const cp = company ? `company=${company}&` : '';
     const win = `${cp}from=${dateFrom}&to=${dateTo}`;
     const fyParam = String(_fyYear(new Date(dateFrom)));
+    setBreakdown(null); setDrillPivot(null);
     Promise.all([
       apiClient.get(`/api/purchase/dashboard/?${cp}period=custom&from=${dateFrom}&to=${dateTo}`).then(r => r.data).catch(() => null),
       apiClient.get(`/api/purchase/dashboard/analytics/?${win}`).then(r => r.data?.mom_trend || []).catch(() => []),
       apiClient.get(`/api/purchase/item-rate-trend/?side=purchase&${win}`).then(r => r.data?.items || []).catch(() => []),
       apiClient.get(`/api/purchase/tds-summary/?${cp}fy=${fyParam}`).then(r => r.data).catch(() => null),
-    ]).then(([d, t, it, td]) => {
+      apiClient.get(`/api/purchase/monthly-breakdown/?${win}`).then(r => r.data).catch(() => null),
+      apiClient.get(`/api/purchase/item-rate-trend/?side=purchase&mode=pivot&${win}`).then(r => r.data).catch(() => null),
+    ]).then(([d, t, it, td, bd, pv]) => {
       if (!alive) return;
-      setDash(d); setTrend(t || []); setItems(it || []); setTds(td);
+      setDash(d); setTrend(t || []); setItems(it || []); setTds(td); setBreakdown(bd); setDrillPivot(pv);
     }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [company, dateFrom, dateTo]);
@@ -236,6 +311,76 @@ export default function PurchaseWorkspace() {
     .slice(0, 40),
   [items]);
 
+  // ── Item Drill-down derivations ──
+  // Items available for the dropdown (from the rate-trend payload), filtered by
+  // the category chip. Each carries category + per-month points.
+  const drillItems = useMemo(() => {
+    const list = (items || []).map(it => ({
+      item: it.item, uom: it.uom || '', category: (it.category || '').toUpperCase(),
+      qty: num(it.total_qty), value: num(it.total_value), points: it.points || [],
+    }));
+    const filtered = drillCat ? list.filter(it => it.category === drillCat) : list;
+    return filtered.sort((a, b) => b.value - a.value);
+  }, [items, drillCat]);
+
+  // Keep the selected item valid for the current category filter.
+  useEffect(() => {
+    if (drillItems.length === 0) { if (drillItem) setDrillItem(''); return; }
+    if (!drillItems.some(it => it.item === drillItem)) setDrillItem(drillItems[0].item);
+  }, [drillItems, drillItem]);
+
+  const drillSelected = useMemo(
+    () => drillItems.find(it => it.item === drillItem) || null,
+    [drillItems, drillItem]);
+
+  // Vendor×month pivot entry for the selected item (only multi-vendor items are
+  // present). months here are 'YYYY-MM' strings.
+  const drillPivotItem = useMemo(() => {
+    if (!drillPivot || !drillItem) return null;
+    return (drillPivot.items || []).find(it => it.item === drillItem) || null;
+  }, [drillPivot, drillItem]);
+  const drillMonths = drillPivot?.months || [];
+
+  // Vendor-wise rows for the selected item (sorted by value desc).
+  const drillVendors = useMemo(() => {
+    if (!drillPivotItem) return [];
+    const total = num(drillPivotItem.vendors.reduce((s, v) => s + num(v.total_value), 0));
+    return drillPivotItem.vendors
+      .map(v => ({
+        vendor: v.vendor, qty: num(v.total_qty), value: num(v.total_value),
+        avg: v.avg_rate != null ? num(v.avg_rate) : (num(v.total_qty) > 0 ? num(v.total_value) / num(v.total_qty) : 0),
+        cells: v.cells || {},
+        pct: total > 0 ? (num(v.total_value) / total) * 100 : 0,
+        cheapest: v.vendor === drillPivotItem.cheapest_vendor,
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [drillPivotItem]);
+
+  // Monthly price summary for the selected item. Avg from rate-trend points;
+  // min/max rate across vendors from the pivot cells where available.
+  const drillMonthly = useMemo(() => {
+    if (!drillSelected) return [];
+    const byMonth = {};
+    (drillSelected.points || []).forEach(p => {
+      if (!p || !p.month) return;
+      byMonth[p.month] = { month: p.month, qty: num(p.qty), rate: p.rate != null ? num(p.rate) : null, min: null, max: null, vendors: 0 };
+    });
+    if (drillPivotItem) {
+      drillPivotItem.vendors.forEach(v => {
+        Object.entries(v.cells || {}).forEach(([ym, c]) => {
+          if (!c || c.rate == null) return;
+          const row = byMonth[ym] || (byMonth[ym] = { month: ym, qty: 0, rate: null, min: null, max: null, vendors: 0 });
+          row.min = row.min == null ? c.rate : Math.min(row.min, c.rate);
+          row.max = row.max == null ? c.rate : Math.max(row.max, c.rate);
+          row.vendors += 1;
+        });
+      });
+    }
+    return Object.values(byMonth).sort((a, b) => a.month.localeCompare(b.month));
+  }, [drillSelected, drillPivotItem]);
+
+  const drillHasMinMax = useMemo(() => drillMonthly.some(r => r.min != null), [drillMonthly]);
+
   // ── Purchase trend (bar chart scale) ──
   const trendRows = useMemo(() => (trend || []).map(r => ({
     month: r.month, label: r.label, billed: num(r.billed), paid: num(r.paid),
@@ -251,12 +396,42 @@ export default function PurchaseWorkspace() {
       {/* ── Top bar ── */}
       <div className="flex items-center gap-2.5 px-4 py-2 bg-white border-b-2 border-slate-200 flex-shrink-0">
         <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-600 transition"><ChevronLeft size={18} /></button>
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-white flex items-center justify-center font-extrabold text-[13px] flex-shrink-0">{initials}</div>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-bold text-slate-900 truncate">{companyName}</div>
-          <div className="text-[10px] text-slate-400 truncate">{[companyGstin && `GSTIN: ${companyGstin}`, 'Purchase workspace'].filter(Boolean).join(' · ')}</div>
+        {/* Company switcher — click the avatar/name to change the global company. */}
+        <div className="relative flex-1 min-w-0">
+          <button type="button" onClick={() => setCompanyMenuOpen(o => !o)}
+            className="flex items-center gap-2.5 max-w-full rounded-lg px-1.5 py-1 -mx-1.5 hover:bg-slate-50 transition">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-white flex items-center justify-center font-extrabold text-[13px] flex-shrink-0">{initials}</div>
+            <div className="min-w-0 text-left">
+              <div className="text-sm font-bold text-slate-900 truncate flex items-center gap-1">
+                {companyName}
+                <ChevronDown size={13} className={`text-slate-400 transition-transform ${companyMenuOpen ? 'rotate-180' : ''}`} />
+              </div>
+              <div className="text-[10px] text-slate-400 truncate">{[companyGstin && `GSTIN: ${companyGstin}`, 'Purchase workspace'].filter(Boolean).join(' · ')}</div>
+            </div>
+          </button>
+          {companyMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-[5]" onClick={() => setCompanyMenuOpen(false)} />
+              <div className="absolute left-0 top-full mt-1.5 z-10 w-64 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5">
+                <div className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><Building2 size={11} /> Company</div>
+                {[{ id: '', legal_name: 'All Companies', trade_name: '' }, ...(companies || [])].map((c) => {
+                  const cid = String(c.id || '');
+                  const isActive = cid === String(company || '');
+                  const nm = c.legal_name || c.trade_name || c.company_code || 'Company';
+                  return (
+                    <button key={cid || 'all'} type="button"
+                      onClick={() => { setCompany(cid); setCompanyMenuOpen(false); }}
+                      className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-[12.5px] text-left hover:bg-indigo-50 ${isActive ? 'text-indigo-700 font-semibold bg-indigo-50/60' : 'text-slate-700'}`}>
+                      <span className="truncate">{nm}</span>
+                      {isActive && <Check size={14} className="text-indigo-600 flex-shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
-        <div className="hidden md:flex items-center gap-3.5 text-[11px] text-slate-400">
+        <div className="hidden md:flex items-center gap-3.5 text-[11px] font-medium text-slate-600">
           <span>Purchase <b className="ml-1 text-indigo-600">{fmtINR(totalPurchase)}</b></span>
           <span>Billed <b className="ml-1 text-sky-600">{fmtINR(billed)}</b></span>
           <span>Paid <b className="ml-1 text-emerald-600">{fmtINR(paid)}</b></span>
@@ -278,16 +453,16 @@ export default function PurchaseWorkspace() {
             </button>
             <div className={`overflow-hidden transition-all duration-200 ${profileCollapsed ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100 mt-2'}`}>
               <div className="space-y-1 text-[11px]">
-                <div className="flex justify-between"><span className="text-slate-400">GSTIN</span><span className={`font-semibold tabular-nums ${companyGstin ? '' : 'text-slate-300'}`}>{companyGstin || '—'}</span></div>
-                {co?.pan && <div className="flex justify-between"><span className="text-slate-400">PAN</span><span className="font-semibold tabular-nums">{co.pan}</span></div>}
+                <div className="flex justify-between"><span className="text-slate-600 font-medium">GSTIN</span><span className={`font-semibold tabular-nums ${companyGstin ? 'text-slate-900' : 'text-slate-300'}`}>{companyGstin || '—'}</span></div>
+                {co?.pan && <div className="flex justify-between"><span className="text-slate-600 font-medium">PAN</span><span className="font-semibold tabular-nums text-slate-900">{co.pan}</span></div>}
                 <div className="border-t border-slate-100 my-1.5 pt-1.5"></div>
-                <div className="flex justify-between"><span className="text-slate-400">Total Purchase</span><span className="font-semibold text-indigo-600">{fmtINR(totalPurchase)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Paid</span><span className="font-semibold text-emerald-600">{fmtINR(paid)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Payable</span><span className="font-semibold text-amber-600">{fmtINR(payable)}</span></div>
-                {overdue > 0 && <div className="flex justify-between"><span className="text-slate-400">Overdue</span><span className="font-semibold text-red-600">{fmtINR(overdue)}</span></div>}
+                <div className="flex justify-between"><span className="text-slate-600 font-medium">Total Purchase</span><span className="font-bold text-indigo-600">{fmtINR(totalPurchase)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600 font-medium">Paid</span><span className="font-bold text-emerald-600">{fmtINR(paid)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600 font-medium">Payable</span><span className="font-bold text-amber-600">{fmtINR(payable)}</span></div>
+                {overdue > 0 && <div className="flex justify-between"><span className="text-slate-600 font-medium">Overdue</span><span className="font-bold text-red-600">{fmtINR(overdue)}</span></div>}
                 <div className="border-t border-slate-100 my-1.5 pt-1.5"></div>
-                <div className="flex justify-between"><span className="text-slate-400">Vendors</span><span className="font-semibold">{vendorCount}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Bills</span><span className="font-semibold">{billCount}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600 font-medium">Vendors</span><span className="font-bold text-slate-900">{vendorCount}</span></div>
+                <div className="flex justify-between"><span className="text-slate-600 font-medium">Bills</span><span className="font-bold text-slate-900">{billCount}</span></div>
               </div>
             </div>
           </div>
@@ -297,8 +472,8 @@ export default function PurchaseWorkspace() {
             {NAV_GROUPS.map(g => (
               <div key={g.title} className="mb-0.5">
                 <button onClick={() => toggleGroup(g.title)}
-                  className="w-full flex items-center gap-1 px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 rounded transition-colors">
-                  <ChevronDown size={10} className={`transition-transform ${expandedGroups[g.title] ? '' : '-rotate-90'}`} />
+                  className="w-full flex items-center gap-1 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700 hover:text-indigo-800 hover:bg-indigo-50 rounded transition-colors">
+                  <ChevronDown size={11} className={`text-indigo-400 transition-transform ${expandedGroups[g.title] ? '' : '-rotate-90'}`} />
                   <span>{g.title}</span>
                 </button>
                 {expandedGroups[g.title] && g.items.map(item => {
@@ -380,7 +555,7 @@ export default function PurchaseWorkspace() {
                   <Card label="Total Overdue" value={fmtINR(totalOverdue)} color="text-red-600" borderColor="border-red-400" />
                   <Card label="Payment Rate" value={`${paymentRate.toFixed(1)}%`} sub="Paid / Billed" color="text-emerald-600" borderColor="border-emerald-400" />
                 </div>
-                <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
                   <table className="w-full">
                     <thead><tr><TH>Vendor</TH><TH right>Billed</TH><TH right>Payable</TH><TH right>Overdue</TH><TH right>% of total</TH></tr></thead>
                     <tbody>
@@ -421,28 +596,29 @@ export default function PurchaseWorkspace() {
                     <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-sky-400"></span> Paid</span>
                   </div>
                 </div>
-                <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                  <table className="w-full">
-                    <thead><tr><TH>Month</TH><TH right>Billed</TH><TH right>Paid</TH><TH right>Unpaid</TH></tr></thead>
-                    <tbody>
-                      {trendRows.map((r, i) => (
-                        <tr key={i} className="hover:bg-slate-50">
-                          <TD bold>{r.label}</TD>
-                          <TD right>{fmtINR(r.billed)}</TD>
-                          <TD right color="text-emerald-600">{fmtINR(r.paid)}</TD>
-                          <TD right color={r.billed - r.paid > 0 ? 'text-amber-600' : ''}>{fmtINR(Math.max(0, r.billed - r.paid))}</TD>
-                        </tr>
-                      ))}
-                      {trendRows.length === 0 && <tr><td colSpan={4} className="text-center py-8 text-slate-400 text-sm">No data</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
+                {/* Monthly Turnover Breakdown (taxable, ex-GST) */}
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Monthly Turnover Breakdown <span className="text-slate-400 font-semibold normal-case">(taxable, ex-GST)</span></div>
+                {breakdown == null
+                  ? <div className="bg-white rounded-lg border border-slate-300 shadow-sm py-8 text-center text-slate-400 text-sm mb-4">Loading…</div>
+                  : <div className="mb-4"><BreakdownPivot breakdown={breakdown} fmt={fmtINR} /></div>}
+
+                {/* Detailed figures (exact ₹) — collapsible */}
+                {breakdown != null && (breakdown.months || []).length > 0 && (
+                  <div>
+                    <button type="button" onClick={() => setShowExact(s => !s)}
+                      className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600 hover:text-indigo-700 mb-1.5">
+                      <ChevronDown size={13} className={`transition-transform ${showExact ? '' : '-rotate-90'}`} />
+                      Detailed figures <span className="text-slate-400 font-semibold normal-case">(exact ₹ for Tally verification)</span>
+                    </button>
+                    {showExact && <BreakdownPivot breakdown={breakdown} fmt={fmtExact} />}
+                  </div>
+                )}
               </div>
             )}
 
             {/* ===== Item Analytics ===== */}
             {!loading && activeSection === 'pa_item' && (
-              <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
                 <div className="px-4 py-2.5 text-[12px] font-bold text-slate-800 border-b border-slate-100">
                   Product Summary <span className="font-medium text-slate-400 text-[11px] ml-1">({itemRows.length} products)</span>
                 </div>
@@ -464,6 +640,171 @@ export default function PurchaseWorkspace() {
               </div>
             )}
 
+            {/* ===== Item Drill-down ===== */}
+            {!loading && activeSection === 'pa_drill' && (
+              <div>
+                {/* Category filter + item selector */}
+                <div className="flex flex-wrap items-center gap-3 mb-4">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Category:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {DRILL_CATS.map(c => (
+                      <button key={c.key || 'all'} type="button" onClick={() => setDrillCat(c.key)}
+                        className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition ${drillCat === c.key ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}`}>
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 ml-1">Item:</span>
+                  <select value={drillItem} onChange={e => setDrillItem(e.target.value)}
+                    className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-900 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[220px]">
+                    {drillItems.length === 0 && <option value="">— no items —</option>}
+                    {drillItems.map(it => <option key={it.item} value={it.item}>{it.item}</option>)}
+                  </select>
+                </div>
+
+                {!drillSelected ? (
+                  <div className="text-center py-16 text-slate-400 text-sm">No purchased items in this period{drillCat ? ' for this category' : ''}.</div>
+                ) : (
+                  <div>
+                    {/* Heading + category chip */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="text-sm font-bold text-slate-800">{drillSelected.item}</h3>
+                      {drillSelected.uom && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{drillSelected.uom}</span>}
+                      {drillSelected.category && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 uppercase tracking-wide">{drillSelected.category}</span>}
+                    </div>
+
+                    {/* 5 summary cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
+                      <Card label="Total Qty" value={`${fmtQty(drillSelected.qty)} ${drillSelected.uom}`.trim()} />
+                      <Card label="Total Value" value={fmtINR(drillSelected.value)} color="text-indigo-700" />
+                      <Card label={`Avg Price/${drillSelected.uom || 'unit'}`} value={drillSelected.qty > 0 ? fmtRup(drillSelected.value / drillSelected.qty) : '—'} />
+                      <Card label="Vendors" value={drillVendors.length || (drillPivotItem ? drillPivotItem.vendors.length : 1)} />
+                      <Card label="Price Range" value={(() => {
+                        const avgs = drillVendors.map(v => v.avg).filter(Boolean);
+                        if (avgs.length >= 1) return `${fmtRup(Math.min(...avgs)).replace('₹', '')} - ${fmtRup(Math.max(...avgs)).replace('₹', '')}`;
+                        const rates = (drillSelected.points || []).map(p => p.rate).filter(r => r != null);
+                        return rates.length ? `${fmtRup(Math.min(...rates)).replace('₹', '')} - ${fmtRup(Math.max(...rates)).replace('₹', '')}` : '—';
+                      })()} />
+                    </div>
+
+                    {/* Vendor-wise table (only for multi-vendor items) */}
+                    {drillVendors.length > 0 ? (
+                      <>
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Vendor-wise Purchases</div>
+                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden mb-4">
+                          <table className="w-full">
+                            <thead><tr><TH>Vendor</TH><TH>UOM</TH><TH right>Qty</TH><TH right>Avg Price</TH><TH right>Total Value</TH><TH right>% Share</TH></tr></thead>
+                            <tbody>
+                              {drillVendors.map((v, i) => (
+                                <tr key={i} className={`hover:bg-slate-50 ${v.cheapest ? 'bg-emerald-50/50' : ''}`}>
+                                  <TD bold>{v.vendor}{v.cheapest && <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wide text-emerald-700 align-middle">cheapest</span>}</TD>
+                                  <TD color="text-slate-400">{drillSelected.uom || '—'}</TD>
+                                  <TD right>{fmtQty(v.qty)}</TD>
+                                  <TD right color={v.cheapest ? 'text-emerald-700' : ''}>{fmtRup(v.avg)}</TD>
+                                  <TD right bold color="text-indigo-700">{fmtINR(v.value)}</TD>
+                                  <TD right color="text-slate-400">{v.pct.toFixed(1)}%</TD>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="bg-indigo-50/50 border border-indigo-100 rounded-lg px-3 py-2 text-[11px] text-slate-600 mb-4">
+                        Bought from a single vendor in this period — no vendor comparison. The monthly price trend is shown below.
+                      </div>
+                    )}
+
+                    {/* Monthly price summary */}
+                    {drillMonthly.length > 0 && (
+                      <>
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Monthly Price Summary</div>
+                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto mb-4">
+                          <table className="min-w-[520px] w-full">
+                            <thead><tr>
+                              <TH>Month</TH><TH right>Qty</TH><TH right>Avg Price</TH>
+                              {drillHasMinMax && <TH right>Min Price</TH>}
+                              {drillHasMinMax && <TH right>Max Price</TH>}
+                            </tr></thead>
+                            <tbody>
+                              {drillMonthly.map((r, i) => (
+                                <tr key={i} className="hover:bg-slate-50">
+                                  <TD bold>{monthLabel(r.month)}</TD>
+                                  <TD right>{r.qty ? fmtQty(r.qty) : '—'}</TD>
+                                  <TD right>{r.rate != null ? fmtRup(r.rate) : '—'}</TD>
+                                  {drillHasMinMax && <TD right color="text-emerald-700">{r.min != null ? fmtRup(r.min) : '—'}</TD>}
+                                  {drillHasMinMax && <TD right color="text-red-600">{r.max != null ? fmtRup(r.max) : '—'}</TD>}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Vendor × Month pivot (only for multi-vendor items) */}
+                    {drillPivotItem && drillMonths.length > 0 && (
+                      <>
+                        <div className="flex items-center justify-between gap-3 mb-1.5">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Vendor × Month Pivot</div>
+                          <div className="flex gap-1">
+                            {[['qty', 'Qty'], ['rate', 'Avg Rate'], ['value', 'Value']].map(([k, lbl]) => (
+                              <button key={k} type="button" onClick={() => setDrillMeasure(k)}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition ${drillMeasure === k ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}`}>
+                                {lbl}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
+                          <table className="min-w-[640px] w-full">
+                            <thead><tr>
+                              <th className="sticky left-0 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200 z-10">Vendor</th>
+                              {drillMonths.map(m => <th key={m} className="text-center px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[64px]">{monthLabel(m)}</th>)}
+                              <th className="text-right px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total</th>
+                            </tr></thead>
+                            <tbody>
+                              {drillVendors.map((v, i) => {
+                                const cellVal = (c) => {
+                                  if (!c) return null;
+                                  if (drillMeasure === 'qty') return c.qty;
+                                  if (drillMeasure === 'rate') return c.rate;
+                                  return (c.rate != null && c.qty != null) ? c.rate * c.qty : null;
+                                };
+                                const fmtCell = (x) => x == null ? '—' : (drillMeasure === 'value' ? fmtINR(x) : drillMeasure === 'rate' ? fmtRup(x) : fmtQty(x));
+                                const rowTotal = drillMeasure === 'qty' ? v.qty : drillMeasure === 'value' ? v.value : v.avg;
+                                return (
+                                  <tr key={i} className="hover:bg-slate-50">
+                                    <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 border-b border-slate-100 z-10">{v.vendor}</td>
+                                    {drillMonths.map(m => <td key={m} className="text-right px-2 py-1 text-[10px] tabular-nums border-b border-l border-slate-100">{fmtCell(cellVal(v.cells[m]))}</td>)}
+                                    <td className="text-right px-2 py-1 text-[11px] font-bold tabular-nums text-indigo-700 border-b border-l border-slate-200">{fmtCell(rowTotal)}</td>
+                                  </tr>
+                                );
+                              })}
+                              {/* Totals row (qty / value only; rate has no column total) */}
+                              <tr className="bg-slate-50 font-bold">
+                                <td className="sticky left-0 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700 border-t border-slate-200 z-10">Total</td>
+                                {drillMonths.map(m => {
+                                  let t = null;
+                                  if (drillMeasure === 'qty') t = drillVendors.reduce((s, v) => s + num(v.cells[m]?.qty), 0) || null;
+                                  else if (drillMeasure === 'value') t = drillVendors.reduce((s, v) => { const c = v.cells[m]; return s + ((c && c.rate != null && c.qty != null) ? c.rate * c.qty : 0); }, 0) || null;
+                                  else { const a = drillPivotItem.month_avg?.[m]; t = a?.rate ?? null; }
+                                  return <td key={m} className="text-right px-2 py-1 text-[10px] tabular-nums font-bold text-slate-700 border-t border-l border-slate-200">{t == null ? '—' : (drillMeasure === 'value' ? fmtINR(t) : drillMeasure === 'rate' ? fmtRup(t) : fmtQty(t))}</td>;
+                                })}
+                                <td className="text-right px-2 py-1 text-[11px] font-extrabold tabular-nums text-indigo-800 border-t border-l border-slate-200">
+                                  {drillMeasure === 'qty' ? fmtQty(drillSelected.qty) : drillMeasure === 'value' ? fmtINR(drillSelected.value) : (drillSelected.qty > 0 ? fmtRup(drillSelected.value / drillSelected.qty) : '—')}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ===== TDS Summary ===== */}
             {!loading && activeSection === 'ac_tds' && (
               <div>
@@ -472,7 +813,7 @@ export default function PurchaseWorkspace() {
                   <Card label="Tally TDS (deducted)" value={fmtRup(num(tds?.tally_total))} color="text-sky-600" borderColor="border-sky-400" />
                   <Card label="Difference" value={fmtRup(num(tds?.difference_total))} sub={`${num(tds?.vendor_count)} vendors`} color={num(tds?.difference_total) > 0 ? 'text-amber-600' : 'text-emerald-600'} borderColor="border-amber-400" />
                 </div>
-                <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
                   <table className="w-full">
                     <thead><tr><TH>Vendor</TH><TH>Section</TH><TH right>Rate</TH><TH right>FY base</TH><TH right>ERP TDS</TH><TH right>Tally TDS</TH><TH right>Diff</TH></tr></thead>
                     <tbody>
