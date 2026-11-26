@@ -21,7 +21,10 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
   const [form, setForm] = useState({
     vendor_name: '', vendor_type: '', company: companyId || '',
     gst_treatment: '', gstin: '', pan: '', contact_email: '', contact_phone: '',
+    is_msme: 'no',
   });
+  const [vendorDoc, setVendorDoc] = useState(null);   // required vendor document
+  const [msmeDoc, setMsmeDoc] = useState(null);       // required only when is_msme=yes
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
 
@@ -32,7 +35,9 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
   // Reset form when modal opens (F1-016)
   useEffect(() => {
     if (open) {
-      setForm({ vendor_name: '', vendor_type: '', company: companyId || '', gst_treatment: '', gstin: '', pan: '', contact_email: '', contact_phone: '' });
+      setForm({ vendor_name: '', vendor_type: '', company: companyId || '', gst_treatment: '', gstin: '', pan: '', contact_email: '', contact_phone: '', is_msme: 'no' });
+      setVendorDoc(null);
+      setMsmeDoc(null);
       setErrors({});
     }
   }, [open]);
@@ -62,12 +67,18 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
     if (form.gstin.trim() && !isValidGstin(form.gstin.trim())) errs.gstin = errs.gstin || 'Invalid GSTIN format (e.g. 22AAAAA0000A1Z5)';
     if (isRegisteredTreatment(form.gst_treatment) && !form.pan.trim()) errs.pan = 'PAN required for registered vendor';
     if (!form.contact_email.trim()) errs.contact_email = 'Required';
+    // A vendor document is compulsory. And if the vendor is MSME, the MSME
+    // certificate is compulsory too.
+    if (!vendorDoc) errs.vendor_doc = 'A vendor document is required';
+    if (form.is_msme === 'yes' && !msmeDoc) errs.msme_doc = 'MSME certificate is required';
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
     setSaving(true);
     try {
-      const payload = cleanFormData({ ...form });
+      const { is_msme, ...rest } = form;
+      const payload = cleanFormData({ ...rest });
       payload.vendor_type = form.vendor_type ? [form.vendor_type] : [];
+      payload.is_msme = form.is_msme === 'yes';
       const NUMERIC = ['gst', 'sgst_rate', 'cgst_rate', 'igst_rate', 'tds_rate', 'tcs_rate', 'credit_limit', 'credit_days'];
       NUMERIC.forEach(k => { if (payload[k] === '' || payload[k] == null) delete payload[k]; });
 
@@ -78,6 +89,10 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
         else if (typeof v === 'boolean') fd.append(k, v ? 'true' : 'false');
         else fd.append(k, v);
       });
+      // Documents: the compulsory vendor doc, and the MSME certificate when
+      // the vendor is MSME. The Vendor model has FileFields for both.
+      if (vendorDoc) fd.append('written_agreement_doc', vendorDoc);
+      if (form.is_msme === 'yes' && msmeDoc) fd.append('msme_certificate', msmeDoc);
 
       const res = await apiClient.post('/api/vendors/', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -86,7 +101,8 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
       clearLookupCache('/api/vendors/');
       onCreated(res.data);
       onClose();
-      setForm({ vendor_name: '', vendor_type: '', company: companyId || '', gst_treatment: '', gstin: '', pan: '', contact_email: '', contact_phone: '' });
+      setForm({ vendor_name: '', vendor_type: '', company: companyId || '', gst_treatment: '', gstin: '', pan: '', contact_email: '', contact_phone: '', is_msme: 'no' });
+      setVendorDoc(null); setMsmeDoc(null);
       setErrors({});
     } catch (err) {
       const d = err.response?.data || {};
@@ -168,6 +184,42 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
               <input type="text" name="contact_phone" value={form.contact_phone} onChange={handleChange} className={fieldClass('contact_phone')} placeholder="Enter phone" />
             </div>
           </div>
+
+          {/* MSME — Yes/No. When Yes, the MSME certificate is required. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">MSME? <span className="text-red-500">*</span></label>
+              <div className="flex items-center gap-4 h-[38px]">
+                <label className="inline-flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input type="radio" name="is_msme" value="yes" checked={form.is_msme === 'yes'} onChange={handleChange} /> Yes
+                </label>
+                <label className="inline-flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input type="radio" name="is_msme" value="no" checked={form.is_msme === 'no'} onChange={handleChange} /> No
+                </label>
+              </div>
+            </div>
+            {form.is_msme === 'yes' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-0.5">MSME Certificate <span className="text-red-500">*</span></label>
+                <label className={`flex items-center gap-1.5 px-3 h-[38px] text-sm border rounded-lg cursor-pointer hover:bg-slate-50 ${errors.msme_doc ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
+                  <span className="truncate text-slate-600">{msmeDoc ? msmeDoc.name : 'Attach MSME certificate'}</span>
+                  <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => { setMsmeDoc(e.target.files?.[0] || null); setErrors(p => { const n = { ...p }; delete n.msme_doc; return n; }); }} />
+                </label>
+                {errors.msme_doc && <p className="mt-1 text-xs text-red-600">{errors.msme_doc}</p>}
+              </div>
+            )}
+          </div>
+
+          {/* Compulsory vendor document. */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-0.5">Vendor Document <span className="text-red-500">*</span></label>
+            <label className={`flex items-center gap-1.5 px-3 h-[38px] text-sm border rounded-lg cursor-pointer hover:bg-slate-50 ${errors.vendor_doc ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
+              <span className="truncate text-slate-600">{vendorDoc ? vendorDoc.name : 'Attach a document (GST cert / agreement / ID)'}</span>
+              <input type="file" accept="image/*,.pdf,.docx" className="hidden" onChange={(e) => { setVendorDoc(e.target.files?.[0] || null); setErrors(p => { const n = { ...p }; delete n.vendor_doc; return n; }); }} />
+            </label>
+            {errors.vendor_doc && <p className="mt-1 text-xs text-red-600">{errors.vendor_doc}</p>}
+          </div>
+
           <div className="flex justify-end gap-3 pt-2 border-t">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
             <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
