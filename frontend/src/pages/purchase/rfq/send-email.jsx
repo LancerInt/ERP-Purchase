@@ -195,6 +195,9 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
             </Field>
             <Field label="PAN" required={isRegisteredTreatment(form.gst_treatment)} error={errors.pan}>
               <input type="text" name="pan" value={form.pan} onChange={handleChange} maxLength={10} className={fieldClass('pan')} placeholder="Enter PAN" />
+              {!form.pan.trim() && !errors.pan && (
+                <p className="mt-1 text-[11px] text-amber-600">No PAN → TDS deducted at the higher 206AA rate (5% goods / 20% other).</p>
+              )}
             </Field>
           </div>
 
