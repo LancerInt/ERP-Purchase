@@ -59,11 +59,15 @@ class PurchaseItemRateTrendView(APIView):
         if mode == 'vendor-comparison':
             return Response(self._vendor_comparison(qs))
         if mode == 'pivot':
-            return Response(self._pivot(qs))
+            # include_single=1 keeps single-vendor items too (the Item Analytics
+            # expand renders the same vendor x month grid for every product);
+            # default keeps the multi-vendor-only "comparison" behaviour.
+            include_single = str(request.query_params.get('include_single', '')).lower() in ('1', 'true', 'yes')
+            return Response(self._pivot(qs, include_single=include_single))
         return Response(self._rate_trend(qs))
 
     # ── item × vendor × month pivot (trend + comparison in one grid) ──────────
-    def _pivot(self, qs):
+    def _pivot(self, qs, include_single=False):
         # Clubs the rate/qty trend and the vendor comparison. Per item:
         #   - months[]                      (aligned column list)
         #   - vendors[]: each with a per-month {rate, qty} cell, its own
@@ -98,8 +102,8 @@ class PurchaseItemRateTrendView(APIView):
         months = sorted(months_seen)
         items = []
         for name, vends in acc.items():
-            if len(vends) < 2:
-                continue  # only multi-vendor items are worth a pivot
+            if len(vends) < 2 and not include_single:
+                continue  # only multi-vendor items are worth a pivot (unless asked)
             vendors = []
             # month -> [qty, value] rolled up across vendors, for the trend row.
             month_roll = defaultdict(lambda: [Z, Z])

@@ -221,6 +221,10 @@ export default function PurchaseWorkspace() {
   const [showExact, setShowExact] = useState(false); // "detailed figures" toggle
   const [drillPivot, setDrillPivot] = useState(null); // item-rate-trend mode=pivot (vendor x month)
 
+  // ── Item Analytics UI state ──
+  const [itemCat, setItemCat] = useState('');       // category filter (''=All)
+  const [itemOpen, setItemOpen] = useState(null);   // expanded product row (name)
+
   // ── Item Drill-down UI state ──
   const [drillCat, setDrillCat] = useState('');     // category filter (''=All)
   const [drillItem, setDrillItem] = useState('');   // selected item name
@@ -287,7 +291,7 @@ export default function PurchaseWorkspace() {
       apiClient.get(`/api/purchase/item-rate-trend/?side=purchase&${win}`).then(r => r.data?.items || []).catch(() => []),
       apiClient.get(`/api/purchase/tds-summary/?${cp}fy=${fyParam}`).then(r => r.data).catch(() => null),
       apiClient.get(`/api/purchase/monthly-breakdown/?${win}`).then(r => r.data).catch(() => null),
-      apiClient.get(`/api/purchase/item-rate-trend/?side=purchase&mode=pivot&${win}`).then(r => r.data).catch(() => null),
+      apiClient.get(`/api/purchase/item-rate-trend/?side=purchase&mode=pivot&include_single=1&${win}`).then(r => r.data).catch(() => null),
     ]).then(([d, t, it, td, bd, pv]) => {
       if (!alive) return;
       setDash(d); setTrend(t || []); setItems(it || []); setTds(td); setBreakdown(bd); setDrillPivot(pv);
@@ -340,11 +344,38 @@ export default function PurchaseWorkspace() {
   const itemRows = useMemo(() => (items || [])
     .map(it => {
       const qty = num(it.total_qty); const val = num(it.total_value);
-      return { item: it.item, uom: it.uom || '', category: it.category || '', qty, value: val, avg: qty > 0 ? val / qty : 0 };
+      return { item: it.item, uom: it.uom || '', category: (it.category || '').toUpperCase(), qty, value: val, avg: qty > 0 ? val / qty : 0 };
     })
+    .filter(it => !itemCat || it.category === itemCat)
     .sort((a, b) => b.value - a.value)
     .slice(0, 40),
-  [items]);
+  [items, itemCat]);
+
+  // Lookups for the expandable Item-Analytics rows:
+  //  - pivot entry per item name (vendor × month breakdown; multi-vendor items only)
+  //  - rate points per item name (MIN/MAX fallback for single-vendor items)
+  const pivotByItem = useMemo(() => {
+    const m = {};
+    (drillPivot?.items || []).forEach(p => { m[p.item] = p; });
+    return m;
+  }, [drillPivot]);
+  const pointsByItem = useMemo(() => {
+    const m = {};
+    (items || []).forEach(it => { m[it.item] = it.points || []; });
+    return m;
+  }, [items]);
+  const itemMonths = drillPivot?.months || [];
+
+  // MIN / MAX rate for a product: across its vendors' avg rates when in the
+  // pivot, else across its monthly rate points. Returns {min, max} or nulls.
+  const itemMinMax = (name) => {
+    const piv = pivotByItem[name];
+    let rates = [];
+    if (piv) rates = piv.vendors.map(v => (v.avg_rate != null ? num(v.avg_rate) : null)).filter(r => r != null);
+    if (rates.length === 0) rates = (pointsByItem[name] || []).map(p => p.rate).filter(r => r != null).map(num);
+    if (rates.length === 0) return { min: null, max: null };
+    return { min: Math.min(...rates), max: Math.max(...rates) };
+  };
 
   // ── Item Drill-down derivations ──
   // Items available for the dropdown (from the rate-trend payload), filtered by
@@ -366,6 +397,9 @@ export default function PurchaseWorkspace() {
 
   // A new item / company / period invalidates the cached vendor-bill drills.
   useEffect(() => { setDrillOpenVendor(null); setDrillVendorBills({}); }, [drillItem, company, dateFrom, dateTo]);
+
+  // Collapse any open Item-Analytics product row when the scope changes.
+  useEffect(() => { setItemOpen(null); }, [itemCat, company, dateFrom, dateTo]);
 
   const drillSelected = useMemo(
     () => drillItems.find(it => it.item === drillItem) || null,
@@ -545,13 +579,19 @@ export default function PurchaseWorkspace() {
         </div>
 
         {/* ── Main content ── */}
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col">
           <div className="px-5 py-2.5 bg-white border-b border-slate-200 flex items-center justify-between gap-3 flex-shrink-0">
             <h2 className="text-base font-bold text-slate-900 shrink-0">{sectionTitle}</h2>
             <div className="flex items-center gap-2.5 ml-auto">
             {activeSection === 'pa_vturn' && (
               <select value={vturnCat} onChange={e => { setVturnCat(e.target.value); setVturnOpen(null); }}
-                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100">
+                className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[150px]">
+                {DRILL_CATS.map(c => <option key={c.key || 'all'} value={c.key}>{c.key ? c.label : 'All Categories'}</option>)}
+              </select>
+            )}
+            {activeSection === 'pa_item' && (
+              <select value={itemCat} onChange={e => setItemCat(e.target.value)}
+                className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[150px]">
                 {DRILL_CATS.map(c => <option key={c.key || 'all'} value={c.key}>{c.key ? c.label : 'All Categories'}</option>)}
               </select>
             )}
@@ -680,21 +720,102 @@ export default function PurchaseWorkspace() {
             {!loading && activeSection === 'pa_item' && (
               <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
                 <div className="px-4 py-2.5 text-[12px] font-bold text-slate-800 border-b border-slate-100">
-                  Product Summary <span className="font-medium text-slate-400 text-[11px] ml-1">({itemRows.length} products)</span>
+                  Product Summary <span className="font-medium text-slate-400 text-[11px] ml-1">({itemRows.length} products · click to expand)</span>
                 </div>
                 <table className="w-full">
-                  <thead><tr><TH>Product</TH><TH>UOM</TH><TH right>Qty</TH><TH right>Avg price</TH><TH right>Value</TH></tr></thead>
+                  <thead><tr><TH>Product</TH><TH>UOM</TH><TH right>Qty</TH><TH right>Avg price</TH><TH right>Min</TH><TH right>Max</TH><TH right>Value</TH></tr></thead>
                   <tbody>
-                    {itemRows.map((r, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <TD bold>{r.item}</TD>
-                        <TD color="text-slate-400">{r.uom || '—'}</TD>
-                        <TD right>{fmtQty(r.qty)}</TD>
-                        <TD right>{fmtRup(r.avg)}</TD>
-                        <TD right bold color="text-indigo-700">{fmtINR(r.value)}</TD>
-                      </tr>
-                    ))}
-                    {itemRows.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate-400 text-sm">No item data for this period</td></tr>}
+                    {itemRows.map((r, i) => {
+                      const open = itemOpen === r.item;
+                      const piv = pivotByItem[r.item];
+                      const { min, max } = itemMinMax(r.item);
+                      const vendors = piv ? [...piv.vendors].map(v => ({
+                        vendor: v.vendor, qty: num(v.total_qty), value: num(v.total_value),
+                        cells: v.cells || {}, cheapest: v.vendor === piv.cheapest_vendor,
+                      })).sort((a, b) => b.value - a.value) : [];
+                      const pts = pointsByItem[r.item] || [];
+                      return (
+                        <React.Fragment key={i}>
+                          <tr onClick={() => setItemOpen(open ? null : r.item)}
+                            className={`cursor-pointer hover:bg-slate-50 ${open ? 'bg-indigo-50/60' : ''}`}>
+                            <TD bold>
+                              <ChevronDown size={12} className={`inline-block mr-1 text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
+                              {r.item}
+                            </TD>
+                            <TD color="text-slate-400">{r.uom || '—'}</TD>
+                            <TD right>{fmtQty(r.qty)}</TD>
+                            <TD right>{fmtRup(r.avg)}</TD>
+                            <TD right color="text-emerald-600">{min != null ? fmtRup(min) : '—'}</TD>
+                            <TD right color="text-rose-600">{max != null ? fmtRup(max) : '—'}</TD>
+                            <TD right bold color="text-indigo-700">{fmtINR(r.value)}</TD>
+                          </tr>
+                          {open && (
+                            <tr>
+                              <td colSpan={7} className="bg-slate-50 border-t border-slate-200 px-3 py-2">
+                                {vendors.length > 0 ? (
+                                  <div className="bg-white rounded-md border border-slate-200 overflow-x-auto">
+                                    <table className="w-full min-w-[640px]">
+                                      <thead><tr>
+                                        <th className="sticky left-0 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200 z-10">Vendor</th>
+                                        <TH>UOM</TH>
+                                        {itemMonths.map(m => <th key={m} className="text-right px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[88px]">{monthLabel(m)}</th>)}
+                                        <TH right>Total Qty</TH><TH right>Total Value</TH>
+                                      </tr></thead>
+                                      <tbody>
+                                        {vendors.map((v, vi) => (
+                                          <tr key={vi} className={`hover:bg-slate-50 ${v.cheapest ? 'bg-emerald-50/50' : ''}`}>
+                                            <td className={`sticky left-0 px-2 py-1.5 text-[11px] font-semibold border-b border-slate-100 z-10 ${v.cheapest ? 'bg-emerald-50/50' : 'bg-white'}`}>
+                                              {v.vendor}{v.cheapest && <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wide text-emerald-700">cheapest</span>}
+                                            </td>
+                                            <td className="px-2 py-1.5 text-[11px] text-slate-400 border-b border-slate-100">{r.uom || '—'}</td>
+                                            {itemMonths.map(m => {
+                                              const c = v.cells[m];
+                                              return (
+                                                <td key={m} className="text-right px-2 py-1.5 text-[10px] tabular-nums border-b border-l border-slate-100">
+                                                  {c ? <span className="text-slate-700">{fmtQty(c.qty)}<span className="text-slate-400"> · {fmtRup((c.rate || 0) * (c.qty || 0))}</span></span> : <span className="text-slate-300">—</span>}
+                                                </td>
+                                              );
+                                            })}
+                                            <td className="text-right px-2 py-1.5 text-[11px] tabular-nums font-semibold border-b border-l border-slate-200">{fmtQty(v.qty)}</td>
+                                            <td className="text-right px-2 py-1.5 text-[11px] tabular-nums font-bold text-indigo-700 border-b border-l border-slate-200">{fmtINR(v.value)}</td>
+                                          </tr>
+                                        ))}
+                                        {/* Totals */}
+                                        <tr className="bg-indigo-50/60 font-bold">
+                                          <td className="sticky left-0 bg-indigo-50/60 px-2 py-1.5 text-[11px] font-bold text-indigo-800 border-t border-slate-200 z-10">Total</td>
+                                          <td className="border-t border-slate-200"></td>
+                                          {itemMonths.map(m => {
+                                            const q = vendors.reduce((s, v) => s + (v.cells[m]?.qty || 0), 0);
+                                            const val = vendors.reduce((s, v) => s + ((v.cells[m]?.rate || 0) * (v.cells[m]?.qty || 0)), 0);
+                                            return <td key={m} className="text-right px-2 py-1.5 text-[10px] tabular-nums font-bold text-indigo-800 border-t border-l border-slate-200">{q ? <span>{fmtQty(q)}<span className="text-indigo-400"> · {fmtRup(val)}</span></span> : '—'}</td>;
+                                          })}
+                                          <td className="text-right px-2 py-1.5 text-[11px] tabular-nums font-extrabold text-indigo-800 border-t border-l border-slate-200">{fmtQty(vendors.reduce((s, v) => s + v.qty, 0))}</td>
+                                          <td className="text-right px-2 py-1.5 text-[11px] tabular-nums font-extrabold text-indigo-800 border-t border-l border-slate-200">{fmtINR(vendors.reduce((s, v) => s + v.value, 0))}</td>
+                                        </tr>
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <div className="text-[11px] font-semibold text-slate-600 mb-1.5">Bought from a single vendor — monthly price trend:</div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {pts.filter(p => p.rate != null).map((p, pi) => (
+                                        <span key={pi} className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px]">
+                                          <span className="text-slate-400">{monthLabel(p.month)}</span>
+                                          <span className="font-semibold text-slate-700 tabular-nums">{fmtRup(p.rate)}</span>
+                                        </span>
+                                      ))}
+                                      {pts.filter(p => p.rate != null).length === 0 && <span className="text-[11px] text-slate-400">No monthly rate data.</span>}
+                                    </div>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                    {itemRows.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate-400 text-sm">No item data for this period</td></tr>}
                   </tbody>
                 </table>
               </div>
