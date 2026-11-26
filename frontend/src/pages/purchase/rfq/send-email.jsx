@@ -134,7 +134,7 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
+            <div>
               <label className="block text-xs font-semibold text-slate-700 mb-0.5">Vendor Name <span className="text-red-500">*</span></label>
               <input type="text" name="vendor_name" value={form.vendor_name} onChange={handleChange} maxLength={255} className={fieldClass('vendor_name')} placeholder="Enter vendor name" autoFocus />
               {errors.vendor_name && <p className="mt-1 text-xs text-red-600">{errors.vendor_name}</p>}
@@ -185,7 +185,9 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
             </div>
           </div>
 
-          {/* MSME — Yes/No. When Yes, the MSME certificate is required. */}
+          {/* MSME Yes/No + Vendor Document on one row (no empty gap). When MSME
+              is Yes, the MSME certificate takes the Vendor-Document slot and the
+              Vendor Document wraps to the next line. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-0.5">MSME? <span className="text-red-500">*</span></label>
@@ -208,16 +210,16 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
                 {errors.msme_doc && <p className="mt-1 text-xs text-red-600">{errors.msme_doc}</p>}
               </div>
             )}
-          </div>
-
-          {/* Compulsory vendor document. */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-0.5">Vendor Document <span className="text-red-500">*</span></label>
-            <label className={`flex items-center gap-1.5 px-3 h-[38px] text-sm border rounded-lg cursor-pointer hover:bg-slate-50 ${errors.vendor_doc ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
-              <span className="truncate text-slate-600">{vendorDoc ? vendorDoc.name : 'Attach a document (GST cert / agreement / ID)'}</span>
-              <input type="file" accept="image/*,.pdf,.docx" className="hidden" onChange={(e) => { setVendorDoc(e.target.files?.[0] || null); setErrors(p => { const n = { ...p }; delete n.vendor_doc; return n; }); }} />
-            </label>
-            {errors.vendor_doc && <p className="mt-1 text-xs text-red-600">{errors.vendor_doc}</p>}
+            {/* Compulsory vendor document — fills the row's second cell when MSME
+                is No, or wraps to its own row when the cert is shown. */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Vendor Document <span className="text-red-500">*</span></label>
+              <label className={`flex items-center gap-1.5 px-3 h-[38px] text-sm border rounded-lg cursor-pointer hover:bg-slate-50 ${errors.vendor_doc ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
+                <span className="truncate text-slate-600">{vendorDoc ? vendorDoc.name : 'Attach a document (GST cert / agreement / ID)'}</span>
+                <input type="file" accept="image/*,.pdf,.docx" className="hidden" onChange={(e) => { setVendorDoc(e.target.files?.[0] || null); setErrors(p => { const n = { ...p }; delete n.vendor_doc; return n; }); }} />
+              </label>
+              {errors.vendor_doc && <p className="mt-1 text-xs text-red-600">{errors.vendor_doc}</p>}
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-2 border-t">
