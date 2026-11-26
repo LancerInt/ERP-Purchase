@@ -137,7 +137,7 @@ function Card({ label, value, sub, color, borderColor }) {
   );
 }
 function TH({ children, right }) {
-  return <th className={`${right ? 'text-right' : 'text-left'} px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-slate-200`}>{children}</th>;
+  return <th className={`${right ? 'text-right' : 'text-left'} sticky top-0 z-10 px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-slate-200`}>{children}</th>;
 }
 function TD({ children, right, bold, color, clickable, onClick }) {
   return <td onClick={onClick} className={`px-2 py-1.5 border-b border-slate-100 text-[11px] ${right ? 'text-right tabular-nums' : ''} ${bold ? 'font-semibold' : ''} ${color || ''} ${clickable ? 'text-indigo-600 cursor-pointer hover:underline' : ''}`}>{children}</td>;
@@ -174,12 +174,12 @@ function BreakdownPivot({ breakdown, fmt }) {
     </tr>
   );
   return (
-    <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
+    <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
       <table className="min-w-[720px] w-full">
         <thead><tr>
-          <th className="sticky left-0 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200 z-10">Type</th>
-          {months.map(m => <th key={m.month} className="text-center px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[78px]">{m.label}</th>)}
-          <th className="text-right px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total</th>
+          <th className="sticky top-0 left-0 z-20 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200">Type</th>
+          {months.map(m => <th key={m.month} className="sticky top-0 z-10 text-center px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[78px]">{m.label}</th>)}
+          <th className="sticky top-0 z-10 text-right px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total</th>
         </tr></thead>
         <tbody>
           <Row label="Purchases" k="purchases" labelCls="text-slate-800" />
@@ -1122,6 +1122,19 @@ export default function PurchaseWorkspace() {
                 {DRILL_CATS.map(c => <option key={c.key || 'all'} value={c.key}>{c.key ? c.label : 'All Categories'}</option>)}
               </select>
             )}
+            {activeSection === 'pa_drill' && (
+              <>
+                <select value={drillCat} onChange={e => setDrillCat(e.target.value)}
+                  className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[150px]">
+                  {DRILL_CATS.map(c => <option key={c.key || 'all'} value={c.key}>{c.key ? c.label : 'All Categories'}</option>)}
+                </select>
+                <select value={drillItem} onChange={e => setDrillItem(e.target.value)}
+                  className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-900 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[200px]">
+                  {drillItems.length === 0 && <option value="">— no items —</option>}
+                  {drillItems.map(it => <option key={it.item} value={it.item}>{it.item}</option>)}
+                </select>
+              </>
+            )}
             <div className="relative flex items-center gap-1.5">
               {DATE_PRESETS.filter(p => p.key === 'fy' || p.key === 'pfy' || p.key === 'cm').map(p => (
                 <button key={p.key} type="button" onClick={() => applyPreset(p)}
@@ -1186,7 +1199,7 @@ export default function PurchaseWorkspace() {
                   <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Top Vendors by Payable</div>
                   <TableExport cols={expTopVendors.cols} data={expTopVendors.data} filename={`top-vendors-${slug(companyName)}`} title="Top Vendors by Payable" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'vendor', valueField: 'payable' }} />
                 </div>
-                <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                   <table className="w-full">
                     <thead><tr><TH>Vendor</TH><TH right>Billed</TH><TH right>Payable</TH><TH right>Overdue</TH><TH right>% of total</TH></tr></thead>
                     <tbody>
@@ -1255,7 +1268,7 @@ export default function PurchaseWorkspace() {
 
             {/* ===== Item Analytics ===== */}
             {!loading && activeSection === 'pa_item' && (
-              <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
+              <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                 <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-3">
                   <div className="text-[12px] font-bold text-slate-800">Product Summary <span className="font-medium text-slate-400 text-[11px] ml-1">({itemRows.length} products · click to expand)</span></div>
                   <TableExport cols={expItems.cols} data={expItems.data} filename={`item-analytics-${slug(companyName)}`} title="Item Analytics — Product Summary" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'product', valueField: 'value' }} />
@@ -1291,12 +1304,12 @@ export default function PurchaseWorkspace() {
                             <tr>
                               <td colSpan={7} className="bg-slate-50 border-t border-slate-200 px-3 py-2">
                                 {vendors.length > 0 ? (
-                                  <div className="bg-white rounded-md border border-slate-200 overflow-x-auto">
+                                  <div className="bg-white rounded-md border border-slate-200 overflow-auto max-h-[50vh]">
                                     <table className="w-full min-w-[640px]">
                                       <thead><tr>
-                                        <th className="sticky left-0 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200 z-10">Vendor</th>
+                                        <th className="sticky top-0 left-0 z-20 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200">Vendor</th>
                                         <TH>UOM</TH>
-                                        {itemMonths.map(m => <th key={m} className="text-right px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[88px]">{monthLabel(m)}</th>)}
+                                        {itemMonths.map(m => <th key={m} className="sticky top-0 z-10 text-right px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[88px]">{monthLabel(m)}</th>)}
                                         <TH right>Total Qty</TH><TH right>Total Value</TH>
                                       </tr></thead>
                                       <tbody>
@@ -1362,25 +1375,6 @@ export default function PurchaseWorkspace() {
             {/* ===== Item Drill-down ===== */}
             {!loading && activeSection === 'pa_drill' && (
               <div>
-                {/* Category filter + item selector */}
-                <div className="flex flex-wrap items-center gap-3 mb-4">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Category:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {DRILL_CATS.map(c => (
-                      <button key={c.key || 'all'} type="button" onClick={() => setDrillCat(c.key)}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition ${drillCat === c.key ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}`}>
-                        {c.label}
-                      </button>
-                    ))}
-                  </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 ml-1">Item:</span>
-                  <select value={drillItem} onChange={e => setDrillItem(e.target.value)}
-                    className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-900 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[220px]">
-                    {drillItems.length === 0 && <option value="">— no items —</option>}
-                    {drillItems.map(it => <option key={it.item} value={it.item}>{it.item}</option>)}
-                  </select>
-                </div>
-
                 {!drillSelected ? (
                   <div className="text-center py-16 text-slate-400 text-sm">No purchased items in this period{drillCat ? ' for this category' : ''}.</div>
                 ) : (
@@ -1413,7 +1407,7 @@ export default function PurchaseWorkspace() {
                           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Vendor-wise Purchases</div>
                           <TableExport cols={expDrillVendors.cols} data={expDrillVendors.data} filename={`item-drill-vendors-${slug(drillSelected?.item)}`} title={`${drillSelected?.item} — Vendor-wise Purchases`} metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'vendor', valueField: 'value' }} />
                         </div>
-                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden mb-4">
+                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh] mb-4">
                           <table className="w-full">
                             <thead><tr><TH>Vendor</TH><TH>UOM</TH><TH right>Qty</TH><TH right>Avg Price</TH><TH right>Total Value</TH><TH right>% Share</TH></tr></thead>
                             <tbody>
@@ -1440,7 +1434,7 @@ export default function PurchaseWorkspace() {
                                           {drill?.loading ? (
                                             <div className="text-[11px] text-slate-500 py-2 px-1">Loading…</div>
                                           ) : (drill?.rows?.length ? (
-                                            <div className="bg-white rounded-md border border-slate-200 overflow-x-auto">
+                                            <div className="bg-white rounded-md border border-slate-200 overflow-auto max-h-[50vh]">
                                               <table className="w-full min-w-[640px]">
                                                 <thead><tr>
                                                   <TH>Month</TH><TH>Invoice #</TH><TH>Date</TH><TH right>Qty</TH><TH>UOM</TH><TH right>Rate/{drillSelected.uom || 'unit'}</TH><TH right>Taxable value</TH><TH>Status</TH>
@@ -1487,7 +1481,7 @@ export default function PurchaseWorkspace() {
                           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Monthly Price Summary</div>
                           <TableExport cols={expDrillMonthly.cols} data={expDrillMonthly.data} filename={`item-drill-monthly-${slug(drillSelected?.item)}`} title={`${drillSelected?.item} — Monthly Price Summary`} metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'month', valueField: 'qty' }} />
                         </div>
-                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto mb-4">
+                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh] mb-4">
                           <table className="min-w-[520px] w-full">
                             <thead><tr>
                               <TH>Month</TH><TH right>Qty</TH><TH right>Avg Price</TH>
@@ -1527,12 +1521,12 @@ export default function PurchaseWorkspace() {
                             <TableExport cols={expDrillPivot.cols} data={expDrillPivot.data} filename={`item-drill-pivot-${slug(drillSelected?.item)}`} title={`${drillSelected?.item} — Vendor × Month Pivot`} metaLines={[...exportMeta, `Measure: ${drillMeasure}`]} landscape kpis={reportKpis} companyName={companyName} initials={initials} />
                           </div>
                         </div>
-                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
+                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                           <table className="min-w-[640px] w-full">
                             <thead><tr>
-                              <th className="sticky left-0 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200 z-10">Vendor</th>
-                              {drillMonths.map(m => <th key={m} className="text-center px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[64px]">{monthLabel(m)}</th>)}
-                              <th className="text-right px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total</th>
+                              <th className="sticky top-0 left-0 z-20 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200">Vendor</th>
+                              {drillMonths.map(m => <th key={m} className="sticky top-0 z-10 text-center px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[64px]">{monthLabel(m)}</th>)}
+                              <th className="sticky top-0 z-10 text-right px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total</th>
                             </tr></thead>
                             <tbody>
                               {drillVendors.map((v, i) => {
@@ -1588,7 +1582,7 @@ export default function PurchaseWorkspace() {
                   <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">TDS by Vendor</div>
                   <TableExport cols={expTds.cols} data={expTds.data} filename={`tds-summary-${slug(companyName)}`} title="TDS Summary by Vendor" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'vendor', valueField: 'erp' }} />
                 </div>
-                <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                   <table className="w-full">
                     <thead><tr><TH>Vendor</TH><TH>Section</TH><TH right>Rate</TH><TH right>FY base</TH><TH right>ERP TDS</TH><TH right>Tally TDS</TH><TH right>Diff</TH></tr></thead>
                     <tbody>
@@ -1627,12 +1621,12 @@ export default function PurchaseWorkspace() {
                       </div>
                       <TableExport cols={expVturn.cols} data={expVturn.data} filename={`vendor-turnover-${slug(companyName)}`} title="Vendor Turnover" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'vendor', valueField: 'total' }} />
                     </div>
-                    <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
+                    <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                       <table className="min-w-[720px] w-full">
                         <thead><tr>
-                          <th className="sticky left-0 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200 z-10">Vendor</th>
-                          {vturnMonths.map(m => <th key={m} className="text-center px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[70px]">{monthLabel(m)}</th>)}
-                          <th className="text-right px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total</th>
+                          <th className="sticky top-0 left-0 z-20 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200">Vendor</th>
+                          {vturnMonths.map(m => <th key={m} className="sticky top-0 z-10 text-center px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[70px]">{monthLabel(m)}</th>)}
+                          <th className="sticky top-0 z-10 text-right px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total</th>
                         </tr></thead>
                         <tbody>
                           {vturnVendors.map((v, i) => {
@@ -1659,14 +1653,14 @@ export default function PurchaseWorkspace() {
                                     <div className="bg-slate-50 border-t border-b border-slate-200 px-4 py-3">
                                       <div className="text-[10px] font-bold text-slate-600 uppercase mb-2">Items Purchased</div>
                                       {(v.items || []).length > 0 ? (
-                                        <div className="bg-white rounded-md border border-slate-200 overflow-x-auto">
+                                        <div className="bg-white rounded-md border border-slate-200 overflow-auto max-h-[50vh]">
                                           <table className="min-w-[640px] w-full">
                                             <thead><tr>
-                                              <th className="sticky left-0 bg-slate-100 text-left px-2 py-1 text-[9px] font-bold uppercase text-indigo-700 z-10">Product</th>
-                                              <th className="text-left px-2 py-1 text-[9px] font-bold uppercase text-indigo-700">UOM</th>
-                                              {vturnMonths.map(m => <th key={m} className="text-center px-2 py-1 text-[9px] font-bold uppercase text-indigo-700 border-l border-slate-200 min-w-[72px]">{monthLabel(m)}</th>)}
-                                              <th className="text-right px-2 py-1 text-[9px] font-extrabold uppercase text-indigo-700 border-l border-slate-200">Total Qty</th>
-                                              <th className="text-right px-2 py-1 text-[9px] font-extrabold uppercase text-indigo-700 border-l border-slate-200">Total Value</th>
+                                              <th className="sticky top-0 left-0 z-20 bg-slate-100 text-left px-2 py-1 text-[9px] font-bold uppercase text-indigo-700">Product</th>
+                                              <th className="sticky top-0 z-10 bg-slate-100 text-left px-2 py-1 text-[9px] font-bold uppercase text-indigo-700">UOM</th>
+                                              {vturnMonths.map(m => <th key={m} className="sticky top-0 z-10 bg-slate-100 text-center px-2 py-1 text-[9px] font-bold uppercase text-indigo-700 border-l border-slate-200 min-w-[72px]">{monthLabel(m)}</th>)}
+                                              <th className="sticky top-0 z-10 bg-slate-100 text-right px-2 py-1 text-[9px] font-extrabold uppercase text-indigo-700 border-l border-slate-200">Total Qty</th>
+                                              <th className="sticky top-0 z-10 bg-slate-100 text-right px-2 py-1 text-[9px] font-extrabold uppercase text-indigo-700 border-l border-slate-200">Total Value</th>
                                             </tr></thead>
                                             <tbody>
                                               {v.items.map((it, ii) => (
@@ -1734,12 +1728,12 @@ export default function PurchaseWorkspace() {
                           </div>
                           <TableExport cols={expBranchSummary.cols} data={expBranchSummary.data} filename={`branch-summary-${slug(companyName)}`} title="Branch Transfer Summary" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'branch', valueField: 'total' }} />
                         </div>
-                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto mb-5">
+                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh] mb-5">
                           <table className="min-w-[720px] w-full">
                             <thead><tr>
-                              <th className="sticky left-0 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200 z-10">Branch</th>
-                              {branchMonths.map(m => <th key={m.month} className="text-center px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[78px]">{m.label}</th>)}
-                              <th className="text-right px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total</th>
+                              <th className="sticky top-0 left-0 z-20 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200">Branch</th>
+                              {branchMonths.map(m => <th key={m.month} className="sticky top-0 z-10 text-center px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[78px]">{m.label}</th>)}
+                              <th className="sticky top-0 z-10 text-right px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total</th>
                             </tr></thead>
                             <tbody>
                               {branchRows.map((b, i) => (
@@ -1770,7 +1764,7 @@ export default function PurchaseWorkspace() {
                           </div>
                           <TableExport cols={expBranchBills.cols} data={expBranchBills.data} filename={`branch-bills-${slug(companyName)}`} title="Branch Bills" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
                         </div>
-                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
+                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                           <table className="min-w-[640px] w-full">
                             <thead><tr><TH>Invoice #</TH><TH>Date</TH><TH>Branch</TH><TH right>Taxable</TH><TH right>Total (incl GST)</TH></tr></thead>
                             <tbody>
@@ -1796,10 +1790,10 @@ export default function PurchaseWorkspace() {
                                           {det?.loading ? (
                                             <div className="text-[11px] text-slate-400 py-2">Loading line items…</div>
                                           ) : (det?.lines?.length ? (
-                                            <div className="bg-white rounded-md border border-slate-200 overflow-x-auto">
+                                            <div className="bg-white rounded-md border border-slate-200 overflow-auto max-h-[50vh]">
                                               <table className="w-full min-w-[520px]">
                                                 <thead><tr>
-                                                  <th className="text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-slate-200">Item</th>
+                                                  <th className="sticky top-0 z-10 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-slate-200">Item</th>
                                                   <TH>UOM</TH><TH right>Qty</TH><TH right>Rate</TH><TH right>Tax%</TH><TH right>Amount</TH>
                                                 </tr></thead>
                                                 <tbody>
