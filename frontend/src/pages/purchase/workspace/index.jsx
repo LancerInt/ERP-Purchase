@@ -119,6 +119,12 @@ const DRILL_CATS = [
   { key: 'PM', label: 'Packing' },
   { key: 'FRUIT', label: 'Fruit' },
 ];
+// MSME filter options — a first-class header dropdown on vendor-facing views.
+const MSME_OPTS = [
+  { key: '', label: 'MSME: All' },
+  { key: 'msme', label: 'MSME only' },
+  { key: 'non', label: 'Non-MSME' },
+];
 
 // ── Small presentational helpers (slate/indigo) ──────────────────────
 function Card({ label, value, sub, color, borderColor }) {
@@ -195,44 +201,309 @@ function BreakdownPivot({ breakdown, fmt }) {
   );
 }
 
-// ── Per-table export (Excel + PDF) ───────────────────────────────────
-// Opens a print window and triggers the browser's Print-to-PDF, mirroring the
-// Reports page. cols = [{field, header}]; data = [{field: value}].
-function exportTablePdf({ title, metaLines = [], cols, data, landscape }) {
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+// ── PDF report builder ────────────────────────────────────────────────
+// Parse a possibly-formatted value ("₹34.19L", "1,202", "12%") to a number,
+// expanding Indian magnitude suffixes so a chart scales correctly.
+function parseNum(s) {
+  if (s == null) return 0;
+  if (typeof s === 'number') return s;
+  const str = String(s).trim();
+  const m = str.replace(/[₹,\s%]/g, '').match(/^(-?[\d.]+)\s*(cr|l|k)?/i);
+  if (!m) return 0;
+  let n = parseFloat(m[1]) || 0;
+  const suf = (m[2] || '').toLowerCase();
+  if (suf === 'cr') n *= 1e7; else if (suf === 'l') n *= 1e5; else if (suf === 'k') n *= 1e3;
+  return n;
+}
+
+// Compact value label for chart ticks (₹1.2Cr / ₹3.4L / 1,234).
+function chartNum(n) {
+  const a = Math.abs(n);
+  if (a >= 1e7) return `₹${(n / 1e7).toFixed(1)}Cr`;
+  if (a >= 1e5) return `₹${(n / 1e5).toFixed(1)}L`;
+  if (a >= 1e3) return `₹${(n / 1e3).toFixed(0)}K`;
+  return n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
+
+const _esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const _INDIGO_SHADES = ['#4f46e5', '#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#4338ca', '#3730a3', '#6d28d9'];
+const _PIE_COLORS = ['#4f46e5', '#059669', '#d97706', '#dc2626', '#0284c7', '#7c3aed', '#94a3b8'];
+
+// Build an inline SVG chart (bar | line | pie) from {label,value} points.
+function buildChartSvg(points, chartType) {
+  const pts = points.filter(p => p && isFinite(p.value)).slice();
+  if (!pts.length) return '';
+  const trunc = (s) => { s = String(s || ''); return s.length > 14 ? s.slice(0, 13) + '…' : s; };
+
+  if (chartType === 'pie') {
+    const sorted = [...pts].sort((a, b) => b.value - a.value);
+    const top = sorted.slice(0, 6);
+    const restV = sorted.slice(6).reduce((s, p) => s + p.value, 0);
+    const slices = restV > 0 ? [...top, { label: 'Others', value: restV }] : top;
+    const total = slices.reduce((s, p) => s + p.value, 0) || 1;
+    let a0 = -Math.PI / 2; const cx = 95, cy = 95, r = 80;
+    const arcs = slices.map((p, i) => {
+      const frac = p.value / total; const a1 = a0 + frac * 2 * Math.PI;
+      const x0 = cx + r * Math.cos(a0), y0 = cy + r * Math.sin(a0);
+      const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+      const large = frac > 0.5 ? 1 : 0;
+      const d = `M${cx},${cy} L${x0.toFixed(1)},${y0.toFixed(1)} A${r},${r} 0 ${large} 1 ${x1.toFixed(1)},${y1.toFixed(1)} Z`;
+      a0 = a1;
+      return `<path d="${d}" fill="${_PIE_COLORS[i % _PIE_COLORS.length]}" stroke="#fff" stroke-width="1"/>`;
+    }).join('');
+    const legend = slices.map((p, i) => `
+      <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:#334155;margin:2px 0">
+        <span style="width:9px;height:9px;border-radius:2px;background:${_PIE_COLORS[i % _PIE_COLORS.length]};display:inline-block"></span>
+        ${_esc(trunc(p.label))} · ${((p.value / total) * 100).toFixed(0)}%
+      </div>`).join('');
+    return `<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+      <svg viewBox="0 0 190 190" width="190" height="190">${arcs}</svg>
+      <div>${legend}</div></div>`;
+  }
+
+  // bar / line share a scaled plot
+  const data = (chartType === 'bar' ? [...pts].sort((a, b) => b.value - a.value) : pts).slice(0, chartType === 'bar' ? 8 : 24);
+  const max = Math.max(1, ...data.map(p => p.value));
+  const W = 560, H = 170, padB = 34, padL = 8, padT = 16, plotH = H - padB - padT;
+  const axis = `<line x1="${padL}" y1="${H - padB}" x2="${W - 8}" y2="${H - padB}" stroke="#cbd5e1"/>`;
+
+  if (chartType === 'line') {
+    const n = data.length; const step = (W - padL - 16) / Math.max(1, n - 1);
+    const pxy = data.map((p, i) => [padL + i * step, padT + plotH - (p.value / max) * plotH]);
+    const poly = pxy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+    const dots = pxy.map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.5" fill="#4f46e5"/>`).join('');
+    const labels = data.map((p, i) => `<text x="${(padL + i * step).toFixed(1)}" y="${H - padB + 12}" font-size="7" fill="#64748b" text-anchor="middle">${_esc(trunc(p.label))}</text>`).join('');
+    const grid = [0.25, 0.5, 0.75, 1].map(f => `<line x1="${padL}" y1="${(padT + plotH - f * plotH).toFixed(1)}" x2="${W - 8}" y2="${(padT + plotH - f * plotH).toFixed(1)}" stroke="#eef2f7"/>`).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="Inter,Arial,sans-serif">${grid}${axis}
+      <polyline points="${poly}" fill="none" stroke="#4f46e5" stroke-width="2"/>${dots}${labels}</svg>`;
+  }
+
+  // bar
+  const n = data.length; const gap = 10; const bw = Math.max(8, (W - padL - 16 - gap * n) / n);
+  const bars = data.map((p, i) => {
+    const h = (p.value / max) * plotH; const x = padL + i * (bw + gap); const y = padT + plotH - h;
+    const lbl = i < 3 ? `<text x="${(x + bw / 2).toFixed(1)}" y="${(y - 3).toFixed(1)}" font-size="7.5" font-weight="700" fill="#334155" text-anchor="middle">${chartNum(p.value)}</text>` : '';
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, h).toFixed(1)}" rx="3" fill="${_INDIGO_SHADES[i % _INDIGO_SHADES.length]}"/>
+      <text x="${(x + bw / 2).toFixed(1)}" y="${H - padB + 12}" font-size="7" fill="#64748b" text-anchor="middle">${_esc(trunc(p.label))}</text>${lbl}`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" font-family="Inter,Arial,sans-serif">${axis}${bars}</svg>`;
+}
+
+// Build the full styled report document and open it for printing.
+function buildReportHtml(opts) {
+  const {
+    title, metaLines = [], cols, data, landscape, content = 'everything',
+    chartType = 'bar', kpis = [], chartSpec, showBanner = true, showTotals = true,
+    companyName = '', initials = 'SB',
+  } = opts;
+  const esc = _esc;
+  const firstField = cols[0]?.field;
+  const isParent = (r) => firstField != null && !/^\s/.test(String(r[firstField] ?? ''));
+  const hasNesting = data.some(r => firstField != null && /^\s/.test(String(r[firstField] ?? '')));
+
+  const wantSummary = content === 'summary_table' || content === 'everything';
+  const wantChart = (content === 'table_chart' || content === 'everything') && !!chartSpec;
+
+  // KPI tiles
+  const toneColor = { indigo: '#4f46e5', emerald: '#059669', amber: '#d97706', rose: '#dc2626' };
+  const kpiHtml = (wantSummary && kpis.length) ? `<div class="kpis">${kpis.map(k => {
+    const c = toneColor[k.tone] || '#4f46e5';
+    return `<div class="kpi" style="border-top-color:${c}"><div class="k">${esc(k.label)}</div><div class="v" style="color:${c}">${esc(k.value)}</div></div>`;
+  }).join('')}</div>` : '';
+
+  // Chart
+  let chartHtml = '';
+  if (wantChart) {
+    const src = hasNesting ? data.filter(isParent) : data;
+    const points = src
+      .filter(r => !/^total/i.test(String(r[firstField] ?? '').trim()))
+      .map(r => ({ label: String(r[chartSpec.labelField] ?? ''), value: parseNum(r[chartSpec.valueField]) }))
+      .filter(p => p.value > 0);
+    const svg = buildChartSvg(points, chartType);
+    if (svg) {
+      const lblHdr = (cols.find(c => c.field === chartSpec.labelField)?.header) || 'Item';
+      const valHdr = (cols.find(c => c.field === chartSpec.valueField)?.header) || 'Value';
+      chartHtml = `<p class="sec">${esc(lblHdr)} by ${esc(valHdr)}</p><div class="chart">${svg}</div>`;
+    }
+  }
+
+  // Table
   const thead = `<tr>${cols.map((c, i) => `<th style="text-align:${i === 0 ? 'left' : 'right'}">${esc(c.header)}</th>`).join('')}</tr>`;
-  const tbody = data.map((r) => `<tr>${cols.map((c, i) => `<td style="text-align:${i === 0 ? 'left' : 'right'}">${esc(r[c.field])}</td>`).join('')}</tr>`).join('');
+  const lastIsTotal = showTotals && data.length && /^total/i.test(String(data[data.length - 1][firstField] ?? '').trim());
+  const tbody = data.map((r, ri) => {
+    const cls = [];
+    if (hasNesting && isParent(r)) cls.push('parent');
+    if (lastIsTotal && ri === data.length - 1) cls.push('total');
+    return `<tr${cls.length ? ` class="${cls.join(' ')}"` : ''}>${cols.map((c, i) => {
+      let v = esc(r[c.field]);
+      if (i === 0) v = v.replace(/^ +/, (m) => '&nbsp;'.repeat(m.length));
+      return `<td style="text-align:${i === 0 ? 'left' : 'right'}">${v}</td>`;
+    }).join('')}</tr>`;
+  }).join('');
+
+  const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const metaRight = (showBanner ? metaLines : []).concat(`Generated ${today}`).map(esc).join('<br>');
+
   const w = window.open('', '_blank');
   if (!w) return;
-  w.document.write(`<!doctype html><html><head><title>${esc(title)}</title>
-    <style>@page{size:A4 ${landscape ? 'landscape' : 'portrait'};margin:12mm}
-    body{font-family:Arial,sans-serif;color:#1e293b}h2{margin:0 0 2px;font-size:18px}
-    .meta{color:#64748b;font-size:12px;margin-bottom:12px;line-height:1.5}
-    table{width:100%;border-collapse:collapse;font-size:11px}
-    th{background:#f1f5f9;padding:6px 8px;border:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:#475569}
-    td{padding:5px 8px;border:1px solid #eef2f7}</style></head>
-    <body><h2>${esc(title)}</h2><div class="meta">${metaLines.map(esc).join('<br>')}</div>
+  w.document.write(`<!doctype html><html><head><title>${esc(title)}</title><meta charset="utf-8">
+  <style>
+    @page{size:A4 ${landscape ? 'landscape' : 'portrait'};margin:0}
+    *{box-sizing:border-box}
+    body{font-family:Inter,Arial,sans-serif;color:#0f172a;margin:0}
+    .wrap{padding:14mm 12mm}
+    .rhead{background:linear-gradient(100deg,#4f46e5,#6366f1);color:#fff;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;margin:-14mm -12mm 16px}
+    .rhead .l{display:flex;align-items:center;gap:12px}
+    .logo{width:38px;height:38px;border-radius:9px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+    .co{font-size:15px;font-weight:800}.rt{font-size:11px;color:#c7d2fe;margin-top:1px}
+    .rhead .meta{text-align:right;font-size:10px;color:#c7d2fe;line-height:1.5}
+    .kpis{display:flex;gap:10px;margin-bottom:16px}
+    .kpi{flex:1;border:1px solid #e2e8f0;border-radius:9px;padding:9px 11px;border-top:3px solid #4f46e5}
+    .kpi .k{font-size:8.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#64748b}
+    .kpi .v{font-size:15px;font-weight:800;margin-top:2px}
+    .sec{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#4f46e5;margin:0 0 8px}
+    .chart{border:1px solid #e2e8f0;border-radius:9px;padding:12px;margin-bottom:16px}
+    table{width:100%;border-collapse:collapse;font-size:10.5px}
+    th{background:#eef2ff;color:#3730a3;padding:6px 8px;border:1px solid #e2e8f0;font-size:8.5px;text-transform:uppercase;letter-spacing:.03em}
+    td{padding:5px 8px;border:1px solid #eef2f7}
+    tbody tr:nth-child(even) td{background:#f8fafc}
+    tbody tr.parent td{font-weight:800;background:#eef2ff}
+    tbody tr.total td{font-weight:800;background:#f1f5f9;border-top:2px solid #cbd5e1}
+    .rfoot{margin-top:14px;padding-top:8px;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:9px;display:flex;justify-content:space-between}
+  </style></head>
+  <body><div class="wrap">
+    <div class="rhead"><div class="l"><div class="logo">${esc(initials)}</div>
+      <div><div class="co">${esc(companyName || 'Company')}</div><div class="rt">${esc(title)}</div></div></div>
+      <div class="meta">${metaRight}</div></div>
+    ${wantSummary ? '<p class="sec">Summary</p>' : ''}${kpiHtml}
+    ${chartHtml}
+    <p class="sec">Details</p>
     <table><thead>${thead}</thead><tbody>${tbody}</tbody></table>
-    <div style="margin-top:10px;color:#94a3b8;font-size:10px">Lancer ERP · Purchase Analytics</div>
-    <script>window.onload=function(){window.print();}<\/script></body></html>`);
+    <div class="rfoot"><span>Lancer ERP · Purchase Analytics</span><span>${esc(companyName)}</span></div>
+  </div><script>window.onload=function(){window.print();}<\/script></body></html>`);
   w.document.close();
 }
 
-function TableExport({ cols, data, filename, title, metaLines = [], landscape }) {
+// ── "Build report" dialog ─────────────────────────────────────────────
+function ReportDialog({ open, onClose, onGenerate, defaults = {}, canChart }) {
+  const [content, setContent] = useState(canChart ? 'everything' : 'summary_table');
+  const [chartType, setChartType] = useState('bar');
+  const [showBanner, setShowBanner] = useState(true);
+  const [showTotals, setShowTotals] = useState(true);
+  const [landscape, setLandscape] = useState(!!defaults.landscape);
+  useEffect(() => {
+    if (open) {
+      setContent(canChart ? 'everything' : 'summary_table');
+      setChartType('bar'); setShowBanner(true); setShowTotals(true); setLandscape(!!defaults.landscape);
+    }
+  }, [open, canChart, defaults.landscape]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+  if (!open) return null;
+
+  const wantsChart = content === 'table_chart' || content === 'everything';
+  const OPTS = [
+    { v: 'table', d: 'Table only', s: 'Just the data, formatted' },
+    { v: 'summary_table', d: 'Summary + table', s: 'KPI tiles on top' },
+    ...(canChart ? [{ v: 'table_chart', d: 'Table + chart', s: 'Chart drawn from the data' }] : []),
+    ...(canChart ? [{ v: 'everything', d: 'Everything', s: 'Summary · chart · table' }] : []),
+  ];
+  const Toggle = ({ label, on, set }) => (
+    <div className="flex items-center justify-between text-[12px] text-slate-600 py-0.5">
+      <span>{label}</span>
+      <button type="button" onClick={() => set(v => !v)}
+        className={`w-[34px] h-[19px] rounded-full relative transition ${on ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+        <span className={`absolute top-0.5 w-[15px] h-[15px] rounded-full bg-white transition-all ${on ? 'left-[17px]' : 'left-0.5'}`} />
+      </button>
+    </div>
+  );
+
+  return createPortal(
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+      <button aria-label="Close" onClick={onClose} className="absolute inset-0 bg-slate-900/50" />
+      <div className="relative w-full max-w-[340px] bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+          <span className="text-[13px] font-extrabold text-slate-900">Build report</span>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700"><X size={16} /></button>
+        </div>
+        <div className="px-4 py-3.5 flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Include</p>
+            {OPTS.map(o => (
+              <button key={o.v} type="button" onClick={() => setContent(o.v)}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg border text-left mb-1.5 transition ${content === o.v ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300'}`}>
+                <span className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 relative ${content === o.v ? 'border-indigo-600' : 'border-slate-300'}`}>
+                  {content === o.v && <span className="absolute inset-0.5 rounded-full bg-indigo-600" />}
+                </span>
+                <span><span className="block text-[12.5px] font-semibold text-slate-800">{o.d}</span><span className="block text-[10.5px] text-slate-400">{o.s}</span></span>
+              </button>
+            ))}
+          </div>
+          {canChart && wantsChart && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Chart type</p>
+              <div className="flex gap-1.5">
+                {['bar', 'line', 'pie'].map(t => (
+                  <button key={t} type="button" onClick={() => setChartType(t)}
+                    className={`text-[11.5px] font-bold rounded-lg px-3 py-1.5 border capitalize transition ${chartType === t ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}>{t}</button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Options</p>
+            <Toggle label="Company · period banner" on={showBanner} set={setShowBanner} />
+            <Toggle label="Totals row" on={showTotals} set={setShowTotals} />
+            <Toggle label="Landscape" on={landscape} set={setLandscape} />
+          </div>
+        </div>
+        <div className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="text-[12.5px] font-bold rounded-lg px-3.5 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50">Cancel</button>
+          <button type="button" onClick={() => { onGenerate({ content, chartType, showBanner, showTotals, landscape }); onClose(); }}
+            className="text-[12.5px] font-bold rounded-lg px-3.5 py-2 bg-indigo-600 text-white hover:bg-indigo-700">Preview &amp; download</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function TableExport({ cols, data, filename, title, metaLines = [], landscape, boldRow, kpis, chartSpec, companyName, initials }) {
+  const [dlgOpen, setDlgOpen] = useState(false);
   if (!data || data.length === 0) return null;
   const btn = 'text-[11px] font-semibold rounded-md px-2.5 py-1 border inline-flex items-center gap-1 transition';
+  // Default: in a NESTED export (some rows are indented with leading spaces to
+  // mark detail rows), bold the parent rows (no leading space) so groups stand
+  // out. A flat table (no indented rows) gets no per-row bold — the header is
+  // already bold, and bolding every row would be pointless.
+  const firstField = cols[0]?.field;
+  const hasNesting = firstField != null && data.some(r => /^\s/.test(String(r[firstField] ?? '')));
+  const isBold = boldRow || (hasNesting ? (row) => !/^\s/.test(String(row[firstField] ?? '')) : null);
+  const canChart = !!chartSpec;
   return (
     <div className="flex items-center gap-2">
       <button type="button" title="Download Excel"
-        onClick={() => exportToExcel(data, cols, filename, 'Sheet1', null, [title, ...metaLines])}
+        onClick={() => exportToExcel(data, cols, filename, 'Sheet1', null, [title, ...metaLines], isBold)}
         className={`${btn} border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50`}>
         <FileSpreadsheet size={12} /> Excel
       </button>
-      <button type="button" title="Download PDF"
-        onClick={() => exportTablePdf({ title, metaLines, cols, data, landscape })}
+      <button type="button" title="Build PDF report"
+        onClick={() => setDlgOpen(true)}
         className={`${btn} border-slate-300 text-slate-600 bg-white hover:border-indigo-400 hover:text-indigo-700`}>
         <FileText size={12} /> PDF
       </button>
+      <ReportDialog
+        open={dlgOpen} onClose={() => setDlgOpen(false)} canChart={canChart} defaults={{ landscape }}
+        onGenerate={(chosen) => buildReportHtml({
+          title, metaLines, cols, data, landscape: chosen.landscape, content: chosen.content,
+          chartType: chosen.chartType, kpis, chartSpec, showBanner: chosen.showBanner,
+          showTotals: chosen.showTotals, companyName, initials,
+        })}
+      />
     </div>
   );
 }
@@ -283,6 +554,8 @@ export default function PurchaseWorkspace() {
   // ── Vendor Turnover UI state ──
   const [vturn, setVturn] = useState(null);         // vendor-turnover payload
   const [vturnCat, setVturnCat] = useState('');     // category filter (''=All)
+  const [vturnMsme, setVturnMsme] = useState('');   // '' | msme | non
+  const [topMsme, setTopMsme] = useState('');       // '' | msme | non (Top Vendors)
   const [vturnOpen, setVturnOpen] = useState(null); // expanded vendor name
 
   const applyPreset = (p) => { setDateFrom(p.from); setDateTo(p.to); setActivePeriod(p.key); setShowDatePicker(false); };
@@ -373,11 +646,12 @@ export default function PurchaseWorkspace() {
     setVturn(null); setVturnOpen(null);
     const cp = company ? `company=${company}&` : '';
     const catP = vturnCat ? `&category=${encodeURIComponent(vturnCat)}` : '';
-    apiClient.get(`/api/purchase/vendor-turnover/?${cp}from=${dateFrom}&to=${dateTo}${catP}`)
+    const msmeP = vturnMsme ? `&msme=${vturnMsme}` : '';
+    apiClient.get(`/api/purchase/vendor-turnover/?${cp}from=${dateFrom}&to=${dateTo}${catP}${msmeP}`)
       .then(r => { if (alive) setVturn(r.data || { months: [], vendors: [] }); })
       .catch(() => { if (alive) setVturn({ months: [], vendors: [] }); });
     return () => { alive = false; };
-  }, [company, dateFrom, dateTo, vturnCat]);
+  }, [company, dateFrom, dateTo, vturnCat, vturnMsme]);
 
   // ── Derived top-level figures (KPI strip + profile) ──
   const stats = dash?.stats || {};
@@ -390,6 +664,14 @@ export default function PurchaseWorkspace() {
   const billCount = num(stats.bills?.count);
   const vendorCount = vendorBreakdown.length;
 
+  // KPI tiles for the PDF report summary band (passed to every TableExport).
+  const reportKpis = useMemo(() => [
+    { label: 'Total Purchase', value: fmtINR(totalPurchase), tone: 'indigo' },
+    { label: 'Paid', value: fmtINR(paid), tone: 'emerald' },
+    { label: 'Payable', value: fmtINR(payable), tone: 'amber' },
+    { label: 'Overdue', value: fmtINR(overdue), tone: 'rose' },
+  ], [totalPurchase, paid, payable, overdue]);
+
   // ── Top vendors table rows (sorted by payable) ──
   const topVendors = useMemo(() => {
     const rows = vendorBreakdown
@@ -400,10 +682,11 @@ export default function PurchaseWorkspace() {
         is_msme: r.is_msme,
       }))
       .filter(r => r.billed > 0 || r.outstanding > 0)
+      .filter(r => !topMsme || (topMsme === 'msme' ? r.is_msme : !r.is_msme))
       .sort((a, b) => b.outstanding - a.outstanding);
     const totalOut = rows.reduce((s, r) => s + r.outstanding, 0);
     return rows.map(r => ({ ...r, pct: totalOut > 0 ? (r.outstanding / totalOut) * 100 : 0 })).slice(0, 25);
-  }, [vendorBreakdown]);
+  }, [vendorBreakdown, topMsme]);
   const totalPayable = topVendors.reduce((s, r) => s + r.outstanding, 0);
   const totalOverdue = topVendors.reduce((s, r) => s + r.overdue, 0);
   const paymentRate = billed > 0 ? (paid / billed) * 100 : 0;
@@ -569,16 +852,43 @@ export default function PurchaseWorkspace() {
       payable: fmtRup(r.outstanding), overdue: fmtRup(r.overdue), pct: `${r.pct.toFixed(1)}%` })),
   }), [topVendors]);
 
-  // Item Analytics — Product Summary
-  const expItems = useMemo(() => ({
-    cols: [{ field: 'product', header: 'Product' }, { field: 'uom', header: 'UOM' }, { field: 'qty', header: 'Qty' },
-      { field: 'avg', header: 'Avg price' }, { field: 'min', header: 'Min' }, { field: 'max', header: 'Max' }, { field: 'value', header: 'Value' }],
-    data: itemRows.map(r => {
+  // Item Analytics — Product Summary, EXPANDED: every product row followed by
+  // its per-vendor x month breakdown (what the UI shows when a row is opened),
+  // so the download carries the drill-down detail, not just the top level.
+  const expItems = useMemo(() => {
+    const months = itemMonths;
+    const cols = [
+      { field: 'product', header: 'Product / Vendor' },
+      { field: 'uom', header: 'UOM' },
+      { field: 'qty', header: 'Qty' },
+      { field: 'avg', header: 'Avg price' },
+      { field: 'min', header: 'Min' },
+      { field: 'max', header: 'Max' },
+      ...months.map(m => ({ field: `m_${m}`, header: monthLabel(m) })),
+      { field: 'value', header: 'Value' },
+    ];
+    const data = [];
+    itemRows.forEach(r => {
       const { min, max } = itemMinMax(r.item);
-      return { product: r.item, uom: r.uom || '', qty: fmtQty(r.qty), avg: fmtRup(r.avg),
+      const base = { product: r.item, uom: r.uom || '', qty: fmtQty(r.qty), avg: fmtRup(r.avg),
         min: min != null ? fmtRup(min) : '', max: max != null ? fmtRup(max) : '', value: fmtRup(r.value) };
-    }),
-  }), [itemRows, pivotByItem, pointsByItem]); // eslint-disable-line react-hooks/exhaustive-deps
+      months.forEach(m => { base[`m_${m}`] = ''; });   // product row leaves months blank
+      data.push(base);
+      // vendor rows (indented), each with its per-month qty · value
+      const piv = pivotByItem[r.item];
+      (piv?.vendors || []).forEach(v => {
+        const row = { product: `   ${v.vendor}`, uom: r.uom || '',
+          qty: fmtQty(num(v.total_qty)), avg: v.avg_rate != null ? fmtRup(v.avg_rate) : '',
+          min: '', max: '', value: fmtRup(num(v.total_value)) };
+        months.forEach(m => {
+          const c = v.cells?.[m];
+          row[`m_${m}`] = (c && c.qty) ? `${fmtQty(c.qty)} · ${fmtRup(c.rate)}` : '';
+        });
+        data.push(row);
+      });
+    });
+    return { cols, data };
+  }, [itemRows, pivotByItem, itemMonths]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Purchase Trend — monthly breakdown (compact + exact share the shape)
   const buildBreakdownExport = (fmt) => {
@@ -599,15 +909,29 @@ export default function PurchaseWorkspace() {
   const expTrendExact = useMemo(() => buildBreakdownExport(fmtExact), [breakdown]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Vendor Turnover
-  const expVturn = useMemo(() => ({
-    cols: [{ field: 'vendor', header: 'Vendor' }, ...vturnMonths.map(m => ({ field: `m_${m}`, header: monthLabel(m) })), { field: 'total', header: 'Total' }],
-    data: vturnVendors.map(v => {
+  // Vendor Turnover, EXPANDED: each vendor row followed by its "Items Purchased"
+  // rows (per-month value), so the download carries the drill detail too.
+  const expVturn = useMemo(() => {
+    const cols = [{ field: 'vendor', header: 'Vendor / Item' },
+      ...vturnMonths.map(m => ({ field: `m_${m}`, header: monthLabel(m) })), { field: 'total', header: 'Total' }];
+    const data = [];
+    vturnVendors.forEach(v => {
       const row = { vendor: v.vendor };
       vturnMonths.forEach(m => { row[`m_${m}`] = v.by_month?.[m] ? fmtRup(v.by_month[m]) : ''; });
       row.total = fmtRup(v.by_month?.total);
-      return row;
-    }),
-  }), [vturnVendors, vturnMonths]);
+      data.push(row);
+      (v.items || []).forEach(it => {
+        const ir = { vendor: `   ${it.item}` };
+        vturnMonths.forEach(m => {
+          const c = it.by_month?.[m];
+          ir[`m_${m}`] = (c && c.value) ? fmtRup(c.value) : '';
+        });
+        ir.total = fmtRup(num(it.total_value));
+        data.push(ir);
+      });
+    });
+    return { cols, data };
+  }, [vturnVendors, vturnMonths]);
 
   // Item Drill-down — vendor-wise
   const expDrillVendors = useMemo(() => ({
@@ -775,9 +1099,21 @@ export default function PurchaseWorkspace() {
             <h2 className="text-base font-bold text-slate-900 shrink-0">{sectionTitle}</h2>
             <div className="flex items-center gap-2.5 ml-auto">
             {activeSection === 'pa_vturn' && (
-              <select value={vturnCat} onChange={e => { setVturnCat(e.target.value); setVturnOpen(null); }}
-                className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[150px]">
-                {DRILL_CATS.map(c => <option key={c.key || 'all'} value={c.key}>{c.key ? c.label : 'All Categories'}</option>)}
+              <>
+                <select value={vturnCat} onChange={e => { setVturnCat(e.target.value); setVturnOpen(null); }}
+                  className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[150px]">
+                  {DRILL_CATS.map(c => <option key={c.key || 'all'} value={c.key}>{c.key ? c.label : 'All Categories'}</option>)}
+                </select>
+                <select value={vturnMsme} onChange={e => { setVturnMsme(e.target.value); setVturnOpen(null); }}
+                  className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[130px]">
+                  {MSME_OPTS.map(o => <option key={o.key || 'all'} value={o.key}>{o.label}</option>)}
+                </select>
+              </>
+            )}
+            {activeSection === 'top_vend' && (
+              <select value={topMsme} onChange={e => setTopMsme(e.target.value)}
+                className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[130px]">
+                {MSME_OPTS.map(o => <option key={o.key || 'all'} value={o.key}>{o.label}</option>)}
               </select>
             )}
             {activeSection === 'pa_item' && (
@@ -848,7 +1184,7 @@ export default function PurchaseWorkspace() {
                 </div>
                 <div className="flex items-center justify-between gap-3 mb-1.5">
                   <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Top Vendors by Payable</div>
-                  <TableExport cols={expTopVendors.cols} data={expTopVendors.data} filename={`top-vendors-${slug(companyName)}`} title="Top Vendors by Payable" metaLines={exportMeta} />
+                  <TableExport cols={expTopVendors.cols} data={expTopVendors.data} filename={`top-vendors-${slug(companyName)}`} title="Top Vendors by Payable" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'vendor', valueField: 'payable' }} />
                 </div>
                 <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
                   <table className="w-full">
@@ -894,7 +1230,7 @@ export default function PurchaseWorkspace() {
                 {/* Monthly Turnover Breakdown (taxable, ex-GST) */}
                 <div className="flex items-center justify-between gap-3 mb-1.5">
                   <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Monthly Turnover Breakdown <span className="text-slate-400 font-semibold normal-case">(taxable, ex-GST)</span></div>
-                  <TableExport cols={expTrend.cols} data={expTrend.data} filename={`purchase-trend-${slug(companyName)}`} title="Monthly Turnover Breakdown" metaLines={exportMeta} landscape />
+                  <TableExport cols={expTrend.cols} data={expTrend.data} filename={`purchase-trend-${slug(companyName)}`} title="Monthly Turnover Breakdown" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'type', valueField: 'total' }} />
                 </div>
                 {breakdown == null
                   ? <div className="bg-white rounded-lg border border-slate-300 shadow-sm py-8 text-center text-slate-400 text-sm mb-4">Loading…</div>
@@ -909,7 +1245,7 @@ export default function PurchaseWorkspace() {
                         <ChevronDown size={13} className={`transition-transform ${showExact ? '' : '-rotate-90'}`} />
                         Detailed figures <span className="text-slate-400 font-semibold normal-case">(exact ₹ for Tally verification)</span>
                       </button>
-                      <TableExport cols={expTrendExact.cols} data={expTrendExact.data} filename={`purchase-trend-exact-${slug(companyName)}`} title="Detailed figures (exact ₹)" metaLines={exportMeta} landscape />
+                      <TableExport cols={expTrendExact.cols} data={expTrendExact.data} filename={`purchase-trend-exact-${slug(companyName)}`} title="Detailed figures (exact ₹)" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'type', valueField: 'total' }} />
                     </div>
                     {showExact && <BreakdownPivot breakdown={breakdown} fmt={fmtExact} />}
                   </div>
@@ -922,7 +1258,7 @@ export default function PurchaseWorkspace() {
               <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-3">
                   <div className="text-[12px] font-bold text-slate-800">Product Summary <span className="font-medium text-slate-400 text-[11px] ml-1">({itemRows.length} products · click to expand)</span></div>
-                  <TableExport cols={expItems.cols} data={expItems.data} filename={`item-analytics-${slug(companyName)}`} title="Item Analytics — Product Summary" metaLines={exportMeta} />
+                  <TableExport cols={expItems.cols} data={expItems.data} filename={`item-analytics-${slug(companyName)}`} title="Item Analytics — Product Summary" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'product', valueField: 'value' }} />
                 </div>
                 <table className="w-full">
                   <thead><tr><TH>Product</TH><TH>UOM</TH><TH right>Qty</TH><TH right>Avg price</TH><TH right>Min</TH><TH right>Max</TH><TH right>Value</TH></tr></thead>
@@ -1075,7 +1411,7 @@ export default function PurchaseWorkspace() {
                       <>
                         <div className="flex items-center justify-between gap-3 mb-1.5">
                           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Vendor-wise Purchases</div>
-                          <TableExport cols={expDrillVendors.cols} data={expDrillVendors.data} filename={`item-drill-vendors-${slug(drillSelected?.item)}`} title={`${drillSelected?.item} — Vendor-wise Purchases`} metaLines={exportMeta} />
+                          <TableExport cols={expDrillVendors.cols} data={expDrillVendors.data} filename={`item-drill-vendors-${slug(drillSelected?.item)}`} title={`${drillSelected?.item} — Vendor-wise Purchases`} metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'vendor', valueField: 'value' }} />
                         </div>
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden mb-4">
                           <table className="w-full">
@@ -1149,7 +1485,7 @@ export default function PurchaseWorkspace() {
                       <>
                         <div className="flex items-center justify-between gap-3 mb-1.5">
                           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Monthly Price Summary</div>
-                          <TableExport cols={expDrillMonthly.cols} data={expDrillMonthly.data} filename={`item-drill-monthly-${slug(drillSelected?.item)}`} title={`${drillSelected?.item} — Monthly Price Summary`} metaLines={exportMeta} />
+                          <TableExport cols={expDrillMonthly.cols} data={expDrillMonthly.data} filename={`item-drill-monthly-${slug(drillSelected?.item)}`} title={`${drillSelected?.item} — Monthly Price Summary`} metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'month', valueField: 'qty' }} />
                         </div>
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto mb-4">
                           <table className="min-w-[520px] w-full">
@@ -1188,7 +1524,7 @@ export default function PurchaseWorkspace() {
                                 </button>
                               ))}
                             </div>
-                            <TableExport cols={expDrillPivot.cols} data={expDrillPivot.data} filename={`item-drill-pivot-${slug(drillSelected?.item)}`} title={`${drillSelected?.item} — Vendor × Month Pivot`} metaLines={[...exportMeta, `Measure: ${drillMeasure}`]} landscape />
+                            <TableExport cols={expDrillPivot.cols} data={expDrillPivot.data} filename={`item-drill-pivot-${slug(drillSelected?.item)}`} title={`${drillSelected?.item} — Vendor × Month Pivot`} metaLines={[...exportMeta, `Measure: ${drillMeasure}`]} landscape kpis={reportKpis} companyName={companyName} initials={initials} />
                           </div>
                         </div>
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
@@ -1250,7 +1586,7 @@ export default function PurchaseWorkspace() {
                 </div>
                 <div className="flex items-center justify-between gap-3 mb-1.5">
                   <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">TDS by Vendor</div>
-                  <TableExport cols={expTds.cols} data={expTds.data} filename={`tds-summary-${slug(companyName)}`} title="TDS Summary by Vendor" metaLines={exportMeta} />
+                  <TableExport cols={expTds.cols} data={expTds.data} filename={`tds-summary-${slug(companyName)}`} title="TDS Summary by Vendor" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'vendor', valueField: 'erp' }} />
                 </div>
                 <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
                   <table className="w-full">
@@ -1289,7 +1625,7 @@ export default function PurchaseWorkspace() {
                       <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
                         Vendor Turnover <span className="text-slate-400 font-semibold normal-case ml-1">(click vendor to see items purchased)</span>
                       </div>
-                      <TableExport cols={expVturn.cols} data={expVturn.data} filename={`vendor-turnover-${slug(companyName)}`} title="Vendor Turnover" metaLines={exportMeta} landscape />
+                      <TableExport cols={expVturn.cols} data={expVturn.data} filename={`vendor-turnover-${slug(companyName)}`} title="Vendor Turnover" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'vendor', valueField: 'total' }} />
                     </div>
                     <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
                       <table className="min-w-[720px] w-full">
@@ -1396,7 +1732,7 @@ export default function PurchaseWorkspace() {
                           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
                             Branch Transfer Summary <span className="text-slate-400 font-semibold normal-case ml-1">(excluded from Purchases)</span>
                           </div>
-                          <TableExport cols={expBranchSummary.cols} data={expBranchSummary.data} filename={`branch-summary-${slug(companyName)}`} title="Branch Transfer Summary" metaLines={exportMeta} landscape />
+                          <TableExport cols={expBranchSummary.cols} data={expBranchSummary.data} filename={`branch-summary-${slug(companyName)}`} title="Branch Transfer Summary" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'branch', valueField: 'total' }} />
                         </div>
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto mb-5">
                           <table className="min-w-[720px] w-full">
@@ -1432,7 +1768,7 @@ export default function PurchaseWorkspace() {
                           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
                             Branch Bills <span className="text-slate-400 font-semibold normal-case ml-1">({branchBills.length})</span>
                           </div>
-                          <TableExport cols={expBranchBills.cols} data={expBranchBills.data} filename={`branch-bills-${slug(companyName)}`} title="Branch Bills" metaLines={exportMeta} />
+                          <TableExport cols={expBranchBills.cols} data={expBranchBills.data} filename={`branch-bills-${slug(companyName)}`} title="Branch Bills" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
                         </div>
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
                           <table className="min-w-[640px] w-full">

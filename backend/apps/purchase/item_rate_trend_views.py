@@ -381,6 +381,7 @@ class PurchaseVendorTurnoverView(APIView):
         to = _pd(request.query_params.get('to'))
         cat_key = (request.query_params.get('category') or '').strip().upper()
         want_cat = _CAT_NORMALIZE.get(cat_key, cat_key) if cat_key else None
+        msme = (request.query_params.get('msme') or '').strip().lower()  # ''|msme|non
 
         qs = (VendorBillLine.objects.filter(is_active=True)
               .exclude(bill__status='CANCELLED')
@@ -392,6 +393,11 @@ class PurchaseVendorTurnoverView(APIView):
             qs = qs.filter(bill__bill_date__gte=frm)
         if to:
             qs = qs.filter(bill__bill_date__lte=to)
+        # MSME vendor filter (first-class, like the category filter).
+        if msme == 'msme':
+            qs = qs.filter(bill__vendor__is_msme=True)
+        elif msme == 'non':
+            qs = qs.filter(bill__vendor__is_msme=False)
 
         # Cache product -> normalized category so we resolve each product once.
         cat_cache = {}

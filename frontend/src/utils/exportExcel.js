@@ -43,7 +43,7 @@ export async function exportServerSide(endpoint, rows, fileName = 'export') {
  *   columns appended. Parent rows with no lines still appear once with empty
  *   line cells.
  */
-export default async function exportToExcel(data, columns, fileName = 'export', sheetName = 'Sheet1', lineConfig = null, metaLines = []) {
+export default async function exportToExcel(data, columns, fileName = 'export', sheetName = 'Sheet1', lineConfig = null, metaLines = [], boldRow = null) {
   if (!data || data.length === 0) {
     // The only native alert() left in the app — every other message is a
     // toast, and a browser dialog here both looked foreign and blocked the
@@ -116,14 +116,18 @@ export default async function exportToExcel(data, columns, fileName = 'export', 
   const headers = [...cols.map(c => c.header), ...lineCols.map(c => c.header)];
 
   const rows = [];
+  const boldRowIdx = new Set();   // indices into `rows` that should be bold
   data.forEach(row => {
     const baseCells = cols.map(col => formatVal(row[col.field]));
     const lines = lineConfig ? (row[lineConfig.key] || []) : [];
+    const isBold = typeof boldRow === 'function' && boldRow(row);
     if (!lineConfig || lines.length === 0) {
+      if (isBold) boldRowIdx.add(rows.length);
       rows.push([...baseCells, ...lineCols.map(() => '')]);
     } else {
       lines.forEach(line => {
         const lineCells = lineCols.map(lc => formatVal(line[lc.field]));
+        if (isBold) boldRowIdx.add(rows.length);
         rows.push([...baseCells, ...lineCells]);
       });
     }
@@ -146,9 +150,11 @@ export default async function exportToExcel(data, columns, fileName = 'export', 
   // leave the user staring at a button that did nothing. The realistic failure
   // is a chunk that 404s because the app was redeployed mid-session, which is
   // exactly when a silent no-op is most confusing.
+  // xlsx-js-style is the styled drop-in for SheetJS (same utils API) — used so
+  // the banner, the column-header row, and any flagged parent rows render BOLD.
   let XLSX;
   try {
-    XLSX = await import('xlsx');
+    XLSX = (await import('xlsx-js-style')).default || (await import('xlsx-js-style'));
   } catch {
     toast.error('Could not load the export module. Refresh the page and try again.');
     return;
@@ -161,6 +167,28 @@ export default async function exportToExcel(data, columns, fileName = 'export', 
       ...rows.map(r => String(r[i] || '').length)
     );
     return { wch: Math.min(Math.max(maxLen + 2, 10), 50) };
+  });
+
+  // ── Styling (xlsx-js-style) ──────────────────────────────────────────────
+  // Sheet row layout: [banner rows][spacer][header row][data rows].
+  const bannerN = banner.length;
+  const headerRowR = bannerN ? bannerN + 1 : 0;   // 0-based sheet row of the headers
+  const dataStartR = headerRowR + 1;
+  const ncols = headers.length;
+  const setStyle = (r, c, style) => {
+    const addr = XLSX.utils.encode_cell({ r, c });
+    if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+    ws[addr].s = { ...(ws[addr].s || {}), ...style };
+  };
+  // Banner lines: bold.
+  for (let r = 0; r < bannerN; r++) setStyle(r, 0, { font: { bold: true } });
+  // Column headers: bold on a light fill.
+  for (let c = 0; c < ncols; c++) {
+    setStyle(headerRowR, c, { font: { bold: true }, fill: { fgColor: { rgb: 'EEF2FF' } } });
+  }
+  // Flagged parent rows: bold across all columns.
+  boldRowIdx.forEach(i => {
+    for (let c = 0; c < ncols; c++) setStyle(dataStartR + i, c, { font: { bold: true } });
   });
 
   const wb = XLSX.utils.book_new();
