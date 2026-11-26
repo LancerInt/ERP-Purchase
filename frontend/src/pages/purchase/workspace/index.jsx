@@ -133,6 +133,23 @@ const MSME_OPTS = [
 const CAT_NORMALIZE = { RM: 'RM', PACKING: 'PM', MAIZE: 'RM', BOUGHT_NOTE: 'RM', PM: 'PM', FRUIT: 'FRUIT' };
 const normCat = (raw) => { const k = String(raw || '').toUpperCase(); return CAT_NORMALIZE[k] || k; };
 
+// Color-coded category pill: RM (raw material) = amber, PM (packing) = sky,
+// FRUIT = emerald, anything else = slate. One glance tells the kind apart.
+// Kept within the slate + indigo theme: RM = deep indigo, PM = lighter
+// indigo/violet, FRUIT = slate — distinct shades of the same family rather
+// than clashing colors.
+const CAT_PILL = {
+  RM:    'bg-indigo-600 text-white ring-indigo-600',
+  PM:    'bg-indigo-50 text-indigo-700 ring-indigo-200',
+  FRUIT: 'bg-slate-100 text-slate-700 ring-slate-300',
+};
+function CatPill({ cat }) {
+  const c = normCat(cat);
+  if (!c) return <span className="text-slate-400">—</span>;
+  const cls = CAT_PILL[c] || 'bg-slate-100 text-slate-600 ring-slate-200';
+  return <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ${cls}`}>{c}</span>;
+}
+
 // ── Small presentational helpers (slate/indigo) ──────────────────────
 function Card({ label, value, sub, color, borderColor }) {
   return (
@@ -143,14 +160,16 @@ function Card({ label, value, sub, color, borderColor }) {
     </div>
   );
 }
-function TH({ children, right }) {
-  return <th className={`${right ? 'text-right' : 'text-left'} sticky top-0 z-10 px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-slate-200`}>{children}</th>;
+// A faint vertical divider on every cell except the first, so columns read as
+// separate across every analytics table. `first` drops the left border.
+function TH({ children, right, first }) {
+  return <th className={`${right ? 'text-right' : 'text-left'} sticky top-0 z-10 px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-slate-200 ${first ? '' : 'border-l border-slate-200'}`}>{children}</th>;
 }
-function TD({ children, right, bold, color, clickable, onClick }) {
+function TD({ children, right, bold, color, clickable, onClick, first }) {
   // Numeric (right-aligned) cells read as values, so they default to semibold;
   // an explicit `bold` goes stronger. Keeps every analytics table's figures legible.
   const weight = bold ? 'font-bold' : (right ? 'font-semibold' : '');
-  return <td onClick={onClick} className={`px-2 py-1.5 border-b border-slate-100 text-[11px] ${right ? 'text-right tabular-nums text-slate-800' : ''} ${weight} ${color || ''} ${clickable ? 'text-indigo-600 cursor-pointer hover:underline' : ''}`}>{children}</td>;
+  return <td onClick={onClick} className={`px-2 py-1.5 border-b border-slate-100 ${first ? '' : 'border-l border-slate-100'} text-[11px] ${right ? 'text-right tabular-nums text-slate-800' : ''} ${weight} ${color || ''} ${clickable ? 'text-indigo-600 cursor-pointer hover:underline' : ''}`}>{children}</td>;
 }
 function ComingSoon({ sectionId }) {
   const Icon = SECTION_ICON[sectionId] || Sparkles;
@@ -169,6 +188,18 @@ const fmtExact = (v) => `₹${num(v).toLocaleString('en-IN', { minimumFractionDi
 // Monthly turnover pivot: Purchases / +Debit Notes / −Credit Notes / Net, then
 // an "already excluded" sub-group (Branch Transfers, Freight). `fmt` controls
 // compact (fmtINR) vs exact (fmtExact) rendering.
+// Compact a long branch-entity name to one line: drop legal suffixes like
+// "(India) Pvt Ltd" / "Private Limited" so e.g. "SS Biochem (India) Pvt Ltd -
+// Blre" reads "SS Biochem - Blre". The full name stays in the cell's title.
+function shortBranch(name) {
+  return String(name || '')
+    .replace(/\s*\((India|Bharat)\)\s*/ig, ' ')
+    .replace(/\s*\b(Private Limited|Pvt\.?\s*Ltd\.?|Limited|Ltd\.?|LLP|Inc\.?)\b/ig, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s*-\s*/g, ' - ')
+    .trim() || String(name || '');
+}
+
 function BreakdownPivot({ breakdown, fmt }) {
   const months = breakdown?.months || [];
   const rows = breakdown?.rows || {};
@@ -178,7 +209,7 @@ function BreakdownPivot({ breakdown, fmt }) {
       <td className={`sticky left-0 bg-white px-2 py-1.5 text-[11px] font-semibold border-b border-slate-100 z-10 ${labelCls || 'text-slate-700'}`}>{label}</td>
       {months.map(m => {
         const v = rows[k]?.[m.month];
-        return <td key={m.month} className={`text-right px-2 py-1.5 text-[10px] tabular-nums font-semibold border-b border-l border-slate-100 ${labelCls || 'text-slate-700'}`}>{v ? `${sign || ''}${fmt(v)}` : '—'}</td>;
+        return <td key={m.month} className={`text-right px-2 py-1.5 text-[10px] tabular-nums font-semibold border-b border-l border-slate-200 ${labelCls || 'text-slate-700'}`}>{v ? `${sign || ''}${fmt(v)}` : '—'}</td>;
       })}
       <td className={`text-right px-2 py-1.5 text-[11px] font-bold tabular-nums border-b border-l border-slate-200 ${labelCls || 'text-slate-700'}`}>{rows[k]?.total ? `${sign || ''}${fmt(rows[k].total)}` : '—'}</td>
     </tr>
@@ -193,8 +224,8 @@ function BreakdownPivot({ breakdown, fmt }) {
         </tr></thead>
         <tbody>
           <Row label="Purchases" k="purchases" labelCls="text-slate-800" />
-          <Row label="+ Debit Notes" k="debit_notes" sign="+" labelCls="text-sky-700" />
-          <Row label="− Credit Notes" k="credit_notes" sign="−" labelCls="text-red-600" />
+          <Row label="Debit Notes" k="debit_notes" labelCls="text-sky-700" />
+          <Row label="Credit Notes" k="credit_notes" labelCls="text-red-600" />
           <tr className="bg-indigo-50/60 font-bold">
             <td className="sticky left-0 bg-indigo-50/60 px-2 py-1.5 text-[11px] font-bold text-indigo-800 border-b border-slate-200 z-10">Net Turnover</td>
             {months.map(m => <td key={m.month} className="text-right px-2 py-1.5 text-[10px] tabular-nums font-bold text-indigo-800 border-b border-l border-slate-200">{rows.net?.[m.month] ? fmt(rows.net[m.month]) : '—'}</td>)}
@@ -629,7 +660,13 @@ export default function PurchaseWorkspace() {
   // Period label for export banners — the active preset's label, else the range.
   const periodLabel = useMemo(() => {
     const p = DATE_PRESETS.find(x => x.key === activePeriod);
-    return p ? p.label : `${fmtDate(dateFrom)} — ${fmtDate(dateTo)}`;
+    if (p) return p.label;
+    // Data-driven FY buttons use keys like 'fy2025'; label them from the range.
+    if (String(activePeriod).startsWith('fy')) {
+      const y = _fyYear(new Date(dateFrom));
+      return `FY ${y}-${String(y + 1).slice(2)}`;
+    }
+    return `${fmtDate(dateFrom)} — ${fmtDate(dateTo)}`;
   }, [activePeriod, dateFrom, dateTo]);
   const exportMeta = useMemo(() => [`${companyName} · ${periodLabel}`], [companyName, periodLabel]);
   const slug = (s) => String(s || 'export').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -983,6 +1020,24 @@ export default function PurchaseWorkspace() {
   }, [vendorAct, vendMsme, vendCat]);
   const vendLoading = vendorAct == null;
 
+  // FY buttons shown in the period strip: the current financial year is always
+  // present; any OTHER financial year appears only when real bills fall in it
+  // (derived from vendor first/last bill dates). So a prior FY shows only when
+  // it has data, and a new FY surfaces automatically once next year's bills land.
+  const fyButtons = useMemo(() => {
+    const years = new Set([fy]);                     // current FY always offered
+    (vendorAct?.vendors || []).forEach(v => {
+      [v.first_bill_date, v.last_bill_date].forEach(iso => {
+        if (iso) years.add(_fyYear(new Date(iso)));
+      });
+    });
+    return [...years].sort((a, b) => b - a).map(y => ({
+      key: y === fy ? 'fy' : `fy${y}`,
+      label: `FY ${y}-${String(y + 1).slice(2)}`,
+      from: `${y}-04-01`, to: `${y + 1}-03-31`,
+    }));
+  }, [vendorAct, fy]);
+
   // v_top: vendors with purchases this period, ranked by period_value.
   const vTop = useMemo(() => {
     const rows = vendList.filter(v => v.period_value > 0).sort((a, b) => b.period_value - a.period_value);
@@ -1048,9 +1103,9 @@ export default function PurchaseWorkspace() {
 
   // Export datasets for the Vendors tables.
   const expVTop = useMemo(() => ({
-    cols: [{ field: 'rank', header: '#' }, { field: 'vendor', header: 'Vendor' }, { field: 'category', header: 'Category' },
+    cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'category', header: 'Category' },
       { field: 'value', header: 'Purchase Value' }, { field: 'outstanding', header: 'Outstanding' }, { field: 'pct', header: '% Share' }],
-    data: vTop.rows.map(v => ({ rank: v.rank, vendor: v.vendor_name + (v.is_msme ? ' (MSME)' : ''),
+    data: vTop.rows.map(v => ({ vendor: v.vendor_name + (v.is_msme ? ' (MSME)' : ''),
       category: normCat(v.purchase_category) || '—', value: fmtRup(v.period_value),
       outstanding: fmtRup(v.outstanding), pct: `${v.pct.toFixed(1)}%` })),
   }), [vTop]);
@@ -1230,7 +1285,7 @@ export default function PurchaseWorkspace() {
     const months = breakdown?.months || [];
     const rows = breakdown?.rows || {};
     const cols = [{ field: 'type', header: 'Type' }, ...months.map(m => ({ field: `m_${m.month}`, header: m.label })), { field: 'total', header: 'Total' }];
-    const defs = [['Purchases', 'purchases', ''], ['+ Debit Notes', 'debit_notes', '+'], ['- Credit Notes', 'credit_notes', '-'],
+    const defs = [['Purchases', 'purchases', ''], ['Debit Notes', 'debit_notes', ''], ['Credit Notes', 'credit_notes', ''],
       ['Net Turnover', 'net', ''], ['Branch Transfers', 'branch_transfers', ''], ['Freight / Charges', 'freight', '']];
     const data = defs.map(([label, k, sign]) => {
       const row = { type: label };
@@ -1368,7 +1423,7 @@ export default function PurchaseWorkspace() {
 
   // ── Render ──
   return createPortal(
-    <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col text-[13px] leading-relaxed" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col text-[13px] leading-relaxed">
       {/* ── Top bar ── */}
       <div className="flex items-center gap-2.5 px-4 py-2 bg-white border-b-2 border-slate-200 flex-shrink-0">
         <button onClick={goBack} className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-600 transition"><ChevronLeft size={18} /></button>
@@ -1537,12 +1592,25 @@ export default function PurchaseWorkspace() {
               </>
             )}
             <div className="relative flex items-center gap-1.5">
-              {DATE_PRESETS.filter(p => p.key === 'fy' || p.key === 'pfy' || p.key === 'cm').map(p => (
+              {fyButtons.map(p => (
                 <button key={p.key} type="button" onClick={() => applyPreset(p)}
                   className={`px-2 py-1 rounded text-[10px] font-semibold border transition whitespace-nowrap ${activePeriod === p.key ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-400'}`}>
                   {p.label}
                 </button>
               ))}
+              {/* Month dropdown — pick the current month or any recent one. */}
+              {(() => {
+                const monthPresets = DATE_PRESETS.filter(p => p.key === 'cm' || p.key.startsWith('m'));
+                const isMonth = activePeriod === 'cm' || String(activePeriod).startsWith('m');
+                return (
+                  <select value={isMonth ? activePeriod : ''}
+                    onChange={e => { const p = monthPresets.find(x => x.key === e.target.value); if (p) applyPreset(p); }}
+                    className={`px-2 py-1 rounded text-[10px] font-semibold border transition whitespace-nowrap cursor-pointer focus:outline-none ${isMonth ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-400'}`}>
+                    {!isMonth && <option value="" disabled>Month</option>}
+                    {monthPresets.map(p => <option key={p.key} value={p.key} className="text-slate-700 bg-white">{p.label}</option>)}
+                  </select>
+                );
+              })()}
               <button type="button" onClick={() => setShowDatePicker(v => !v)}
                 className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold border transition whitespace-nowrap ${activePeriod === 'custom' || showDatePicker ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-400'}`}>
                 <Calendar size={11} /> {activePeriod === 'custom' ? `${fmtDate(dateFrom)} — ${fmtDate(dateTo)}` : 'More'}
@@ -1612,7 +1680,7 @@ export default function PurchaseWorkspace() {
                           <tr key={i} className="hover:bg-slate-50">
                             <TD bold>{b.vendor_name}{b.vendor_is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
                             <TD clickable onClick={() => navigate(`/purchase/bills?quick=${b.bill_id}`)}>{b.bill_no || b.vendor_invoice_no || '—'}</TD>
-                            <TD color="text-slate-500">{fmtDate(b.due_date)}</TD>
+                            <TD color="text-slate-800">{fmtDate(b.due_date)}</TD>
                             <TD right color={b.overdue ? 'text-red-600' : 'text-emerald-600'}>{b.overdue ? `${b.daysLate}d late` : `in ${-b.daysLate}d`}</TD>
                             <TD><span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${b.overdue ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{b.overdue ? 'OVERDUE' : 'DUE'}</span></TD>
                             <TD right bold color={b.overdue ? 'text-red-600' : 'text-slate-800'}>{fmtRup(b.amt)}</TD>
@@ -1658,7 +1726,7 @@ export default function PurchaseWorkspace() {
                           <tr key={i} className="hover:bg-slate-50">
                             <TD bold>{b.vendor_name}{b.vendor_is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
                             <TD clickable onClick={() => navigate(`/purchase/bills?quick=${b.bill_id}`)}>{b.bill_no || b.vendor_invoice_no || '—'}</TD>
-                            <TD color="text-slate-500">{fmtDate(b.due_date)}</TD>
+                            <TD color="text-slate-800">{fmtDate(b.due_date)}</TD>
                             <TD right color="text-red-600">{b.daysLate}d</TD>
                             <TD><span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700">{payAged.bandOf(b.daysLate)}</span></TD>
                             <TD right bold color="text-red-600">{fmtRup(b.amt)}</TD>
@@ -1696,9 +1764,9 @@ export default function PurchaseWorkspace() {
                           <tr key={i} className="hover:bg-slate-50">
                             <TD bold>{b.vendor_name}{b.vendor_is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
                             <TD clickable onClick={() => navigate(`/purchase/bills?quick=${b.bill_id}`)}>{b.bill_no || b.vendor_invoice_no || '—'}</TD>
-                            <TD color="text-slate-500">{fmtDate(b.due_date)}</TD>
+                            <TD color="text-slate-800">{fmtDate(b.due_date)}</TD>
                             <TD right color="text-emerald-600">in {-b.daysLate}d</TD>
-                            <TD color="text-slate-500">{normCat(b.purchase_category) || '—'}</TD>
+                            <TD><CatPill cat={b.purchase_category} /></TD>
                             <TD right bold color="text-slate-800">{fmtRup(b.amt)}</TD>
                           </tr>
                         ))}
@@ -1728,19 +1796,18 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>#</TH><TH>Vendor</TH><TH>Category</TH><TH right>Purchase Value</TH><TH right>Outstanding</TH><TH right>% Share</TH></tr></thead>
+                      <thead><tr><TH first>Vendor</TH><TH>Category</TH><TH right>Purchase Value</TH><TH right>Outstanding</TH><TH right>% Share</TH></tr></thead>
                       <tbody>
                         {vTop.rows.map((v, i) => (
                           <tr key={i} className="hover:bg-slate-50">
-                            <TD color="text-slate-400">{v.rank}</TD>
-                            <TD bold>{v.vendor_name}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
-                            <TD color="text-slate-500">{normCat(v.purchase_category) || '—'}</TD>
+                            <TD first bold>{v.vendor_name}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
+                            <TD><CatPill cat={v.purchase_category} /></TD>
                             <TD right bold color="text-indigo-700">{fmtINR(v.period_value)}</TD>
                             <TD right color="text-amber-600">{v.outstanding ? fmtINR(v.outstanding) : '—'}</TD>
                             <TD right color="text-slate-400">{v.pct.toFixed(1)}%</TD>
                           </tr>
                         ))}
-                        {vTop.rows.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-sm">No vendor purchases in this period.</td></tr>}
+                        {vTop.rows.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate-400 text-sm">No vendor purchases in this period.</td></tr>}
                       </tbody>
                     </table>
                   </div>
@@ -1771,8 +1838,8 @@ export default function PurchaseWorkspace() {
                         {vInact.rows.map((v, i) => (
                           <tr key={i} className="hover:bg-slate-50">
                             <TD bold>{v.vendor_name}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
-                            <TD color="text-slate-500">{normCat(v.purchase_category) || '—'}</TD>
-                            <TD color="text-slate-500">{fmtDate(v.last_bill_date)}</TD>
+                            <TD><CatPill cat={v.purchase_category} /></TD>
+                            <TD color="text-slate-800">{fmtDate(v.last_bill_date)}</TD>
                             <TD right color="text-red-600">{v.days_inactive}d</TD>
                             <TD right>{fmtINR(v.lifetime_value)}</TD>
                             <TD right color="text-amber-600">{v.outstanding ? fmtINR(v.outstanding) : '—'}</TD>
@@ -1810,7 +1877,7 @@ export default function PurchaseWorkspace() {
                         {vScore.rows.map((v, i) => (
                           <tr key={i} className="hover:bg-slate-50">
                             <TD bold>{v.vendor_name}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
-                            <TD color="text-slate-500">{normCat(v.purchase_category) || '—'}</TD>
+                            <TD><CatPill cat={v.purchase_category} /></TD>
                             <TD right bold color="text-indigo-700">{fmtINR(v.period_value)}</TD>
                             <TD right>{v.period_bills}</TD>
                             <TD right color={v.return_rate > 5 ? 'text-red-600' : v.return_rate > 2 ? 'text-amber-600' : 'text-slate-500'}>{v.return_rate.toFixed(1)}%</TD>
@@ -1886,7 +1953,7 @@ export default function PurchaseWorkspace() {
                           <tr key={i} className="hover:bg-slate-50">
                             <TD bold>{b.vendor_name}</TD>
                             <TD clickable onClick={() => navigate(`/purchase/bills?quick=${b.bill_id}`)}>{b.bill_no || b.vendor_invoice_no || '—'}</TD>
-                            <TD color="text-slate-500">{fmtDate(b.bill_date)}</TD>
+                            <TD color="text-slate-800">{fmtDate(b.bill_date)}</TD>
                             <TD right color={b.over45 ? 'text-red-600' : 'text-slate-500'}>{b.daysSinceBill == null ? '—' : `${b.daysSinceBill}d`}</TD>
                             <TD right bold color="text-amber-600">{fmtINR(b.balance)}</TD>
                             <TD><span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${b.over45 ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{b.over45 ? 'OVERDUE-45' : 'DUE'}</span></TD>
@@ -1962,8 +2029,8 @@ export default function PurchaseWorkspace() {
                         {vNew.rows.map((v, i) => (
                           <tr key={i} className="hover:bg-slate-50">
                             <TD bold>{v.vendor_name}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
-                            <TD color="text-slate-500">{normCat(v.purchase_category) || '—'}</TD>
-                            <TD color="text-slate-500">{fmtDate(v.first_bill_date)}</TD>
+                            <TD><CatPill cat={v.purchase_category} /></TD>
+                            <TD color="text-slate-800">{fmtDate(v.first_bill_date)}</TD>
                             <TD right>{v.period_bills}</TD>
                             <TD right bold color="text-indigo-700">{fmtINR(v.period_value)}</TD>
                             <TD><span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${v.period_bills > 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{v.period_bills > 1 ? 'ACTIVE' : '1 BILL'}</span></TD>
@@ -2074,7 +2141,7 @@ export default function PurchaseWorkspace() {
                           <div className="w-[40%] max-w-[18px] rounded-t bg-indigo-500" style={{ height: `${(r.billed / trendMax) * 100}%` }} title={`Billed ${fmtINR(r.billed)}`}></div>
                           <div className="w-[40%] max-w-[18px] rounded-t bg-sky-400" style={{ height: `${(r.paid / trendMax) * 100}%` }} title={`Paid ${fmtINR(r.paid)}`}></div>
                         </div>
-                        <div className="text-[9px] text-slate-400 whitespace-nowrap">{r.label}</div>
+                        <div className="text-[9px] font-semibold text-slate-700 whitespace-nowrap">{r.label}</div>
                       </div>
                     ))}
                     {trendRows.length === 0 && <div className="w-full text-center text-slate-400 text-sm self-center">No trend data</div>}
@@ -2086,7 +2153,7 @@ export default function PurchaseWorkspace() {
                 </div>
                 {/* Monthly Turnover Breakdown (taxable, ex-GST) */}
                 <div className="flex items-center justify-between gap-3 mb-1.5">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Monthly Turnover Breakdown <span className="text-slate-400 font-semibold normal-case">(taxable, ex-GST)</span></div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Monthly Turnover Breakdown <span className="text-slate-500 font-semibold normal-case">(taxable, ex-GST)</span></div>
                   <TableExport cols={expTrend.cols} data={expTrend.data} filename={`purchase-trend-${slug(companyName)}`} title="Monthly Turnover Breakdown" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'type', valueField: 'total' }} />
                 </div>
                 {breakdown == null
@@ -2100,7 +2167,7 @@ export default function PurchaseWorkspace() {
                       <button type="button" onClick={() => setShowExact(s => !s)}
                         className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600 hover:text-indigo-700">
                         <ChevronDown size={13} className={`transition-transform ${showExact ? '' : '-rotate-90'}`} />
-                        Detailed figures <span className="text-slate-400 font-semibold normal-case">(exact ₹ for Tally verification)</span>
+                        Detailed figures <span className="text-slate-500 font-semibold normal-case">(exact ₹ for Tally verification)</span>
                       </button>
                       <TableExport cols={expTrendExact.cols} data={expTrendExact.data} filename={`purchase-trend-exact-${slug(companyName)}`} title="Detailed figures (exact ₹)" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'type', valueField: 'total' }} />
                     </div>
@@ -2132,7 +2199,7 @@ export default function PurchaseWorkspace() {
                                 {fmtINR(it.value)}
                               </div>
                             </div>
-                            <div className="w-[50px] shrink-0 text-right text-[10px] text-slate-400 tabular-nums">{it.uom || ''}</div>
+                            <div className="w-[50px] shrink-0 text-right text-[10px] text-slate-500 font-medium tabular-nums">{it.uom || ''}</div>
                           </div>
                         ))}
                       </div>
@@ -2142,7 +2209,7 @@ export default function PurchaseWorkspace() {
 
               <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                 <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-3">
-                  <div className="text-[12px] font-bold text-slate-800">Product Summary <span className="font-medium text-slate-400 text-[11px] ml-1">({itemRows.length} products · click to expand)</span></div>
+                  <div className="text-[12px] font-bold text-slate-800">Product Summary <span className="font-medium text-slate-500 text-[11px] ml-1">({itemRows.length} products · click to expand)</span></div>
                   <TableExport cols={expItems.cols} data={expItems.data} filename={`item-analytics-${slug(companyName)}`} title="Item Analytics — Product Summary" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'product', valueField: 'value' }} />
                 </div>
                 <table className="w-full">
@@ -2165,7 +2232,7 @@ export default function PurchaseWorkspace() {
                               <ChevronDown size={12} className={`inline-block mr-1 text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
                               {r.item}
                             </TD>
-                            <TD color="text-slate-400">{r.uom || '—'}</TD>
+                            <TD color="text-slate-500 font-medium">{r.uom || '—'}</TD>
                             <TD right>{fmtQty(r.qty)}</TD>
                             <TD right>{fmtRup(r.avg)}</TD>
                             <TD right color="text-emerald-600">{min != null ? fmtRup(min) : '—'}</TD>
@@ -2190,7 +2257,7 @@ export default function PurchaseWorkspace() {
                                           {itemMonths.map(m => (
                                             <React.Fragment key={m}>
                                               <th className="sticky top-[22px] z-10 text-right px-2 py-1 text-[8px] font-semibold uppercase text-slate-500 bg-slate-50 border-b-2 border-l border-slate-200 min-w-[52px]">Qty</th>
-                                              <th className="sticky top-[22px] z-10 text-right px-2 py-1 text-[8px] font-semibold uppercase text-slate-500 bg-slate-50 border-b-2 border-slate-200 min-w-[62px]">Rate</th>
+                                              <th className="sticky top-[22px] z-10 text-right px-2 py-1 text-[8px] font-semibold uppercase text-emerald-600 bg-slate-50 border-b-2 border-slate-200 min-w-[62px]">Rate</th>
                                             </React.Fragment>
                                           ))}
                                         </tr>
@@ -2201,13 +2268,13 @@ export default function PurchaseWorkspace() {
                                             <td className={`sticky left-0 px-2 py-1.5 text-[11px] font-semibold border-b border-slate-100 z-10 ${v.cheapest ? 'bg-emerald-50/50' : 'bg-white'}`}>
                                               {v.vendor}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}{v.cheapest && <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wide text-emerald-700">cheapest</span>}
                                             </td>
-                                            <td className="px-2 py-1.5 text-[11px] text-slate-400 border-b border-slate-100">{r.uom || '—'}</td>
+                                            <td className="px-2 py-1.5 text-[11px] text-slate-500 font-medium border-b border-slate-100">{r.uom || '—'}</td>
                                             {itemMonths.map(m => {
                                               const c = v.cells[m];
                                               return (
                                                 <React.Fragment key={m}>
-                                                  <td className="text-right px-2 py-1.5 text-[10px] tabular-nums font-semibold text-slate-700 border-b border-l border-slate-100">{c && c.qty ? fmtQty(c.qty) : <span className="text-slate-300">—</span>}</td>
-                                                  <td className="text-right px-2 py-1.5 text-[10px] tabular-nums text-slate-600 border-b border-slate-100">{c && c.qty ? fmtRup(c.rate || 0) : <span className="text-slate-300">—</span>}</td>
+                                                  <td className="text-right px-2 py-1.5 text-[10px] tabular-nums font-bold text-slate-800 border-b border-l border-slate-100">{c && c.qty ? fmtQty(c.qty) : <span className="text-slate-300">—</span>}</td>
+                                                  <td className="text-right px-2 py-1.5 text-[10px] tabular-nums font-semibold text-emerald-700 border-b border-slate-100">{c && c.qty ? fmtRup(c.rate || 0) : <span className="text-slate-300">—</span>}</td>
                                                 </React.Fragment>
                                               );
                                             })}
@@ -2313,7 +2380,7 @@ export default function PurchaseWorkspace() {
                                         <ChevronDown size={12} className={`inline-block mr-1 text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
                                         {v.vendor}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}{v.cheapest && <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wide text-emerald-700 align-middle">cheapest</span>}
                                       </TD>
-                                      <TD color="text-slate-400">{drillSelected.uom || '—'}</TD>
+                                      <TD color="text-slate-500 font-medium">{drillSelected.uom || '—'}</TD>
                                       <TD right>{fmtQty(v.qty)}</TD>
                                       <TD right color={v.cheapest ? 'text-emerald-700' : ''}>{fmtRup(v.avg)}</TD>
                                       <TD right bold color="text-indigo-700">{fmtINR(v.value)}</TD>
@@ -2337,7 +2404,7 @@ export default function PurchaseWorkspace() {
                                                       <TD clickable onClick={() => navigate(`/purchase/bills?quick=${r.bill_id}`)}>{r.bill_no || '—'}</TD>
                                                       <TD color="text-slate-500">{r.bill_date ? formatDate(r.bill_date) : '—'}</TD>
                                                       <TD right>{fmtQty(r.qty)}</TD>
-                                                      <TD color="text-slate-400">{r.uom || '—'}</TD>
+                                                      <TD color="text-slate-500 font-medium">{r.uom || '—'}</TD>
                                                       <TD right>{fmtRup(r.rate)}</TD>
                                                       <TD right bold color="text-indigo-700">{fmtINR(r.amount)}</TD>
                                                       <TD color="text-slate-500">{r.status || '—'}</TD>
@@ -2492,7 +2559,7 @@ export default function PurchaseWorkspace() {
                             <td className={`sticky left-0 z-10 bg-white px-2 py-1.5 text-[11px] font-semibold border-b border-slate-100 ${mi === 1 ? 'text-emerald-700' : mi === 2 ? 'text-amber-600' : 'text-slate-800'}`}>{metric}</td>
                             {(accPay.monthly || []).map(m => {
                               const val = mi === 0 ? (m.billed ? fmtRup(m.billed) : '—') : mi === 1 ? (m.paid ? fmtRup(m.paid) : '—') : (m.pct != null ? `${m.pct}%` : '—');
-                              return <td key={m.month} className="text-right px-2 py-1.5 text-[10px] tabular-nums font-semibold border-b border-l border-slate-100">{val}</td>;
+                              return <td key={m.month} className="text-right px-2 py-1.5 text-[10px] tabular-nums font-semibold border-b border-l border-slate-200">{val}</td>;
                             })}
                           </tr>
                         ))}
@@ -2551,7 +2618,7 @@ export default function PurchaseWorkspace() {
                         {(accNotes.recent_debit || []).map((r, i) => (
                           <tr key={i} className="hover:bg-slate-50">
                             <TD bold>{r.no}</TD><TD color="text-slate-600">{r.vendor}</TD>
-                            <TD color="text-slate-500">{fmtDate(r.date)}</TD>
+                            <TD color="text-slate-800">{fmtDate(r.date)}</TD>
                             <TD right bold color="text-emerald-700">{fmtRup(r.amount)}</TD>
                           </tr>
                         ))}
@@ -2571,7 +2638,7 @@ export default function PurchaseWorkspace() {
                         {(accNotes.recent_credit || []).map((r, i) => (
                           <tr key={i} className="hover:bg-slate-50">
                             <TD bold>{r.no}</TD><TD color="text-slate-600">{r.vendor}</TD>
-                            <TD color="text-slate-500">{fmtDate(r.date)}</TD>
+                            <TD color="text-slate-800">{fmtDate(r.date)}</TD>
                             <TD right bold color="text-rose-600">{fmtRup(r.amount)}</TD>
                           </tr>
                         ))}
@@ -2684,7 +2751,7 @@ export default function PurchaseWorkspace() {
                   <>
                     <div className="flex items-center justify-between gap-3 mb-1.5">
                       <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                        Vendor Turnover <span className="text-slate-400 font-semibold normal-case ml-1">(click vendor to see items purchased)</span>
+                        Vendor Turnover <span className="text-slate-500 font-semibold normal-case ml-1">(click vendor to see items purchased)</span>
                       </div>
                       <TableExport cols={expVturn.cols} data={expVturn.data} filename={`vendor-turnover-${slug(companyName)}`} title="Vendor Turnover" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'vendor', valueField: 'total' }} />
                     </div>
@@ -2734,7 +2801,7 @@ export default function PurchaseWorkspace() {
                                                 {vturnMonths.map(m => (
                                                   <React.Fragment key={m}>
                                                     <th className="sticky top-[22px] z-10 bg-slate-50 text-right px-2 py-1 text-[8px] font-semibold uppercase text-slate-500 border-b-2 border-l border-slate-200 min-w-[52px]">Qty</th>
-                                                    <th className="sticky top-[22px] z-10 bg-slate-50 text-right px-2 py-1 text-[8px] font-semibold uppercase text-slate-500 border-b-2 border-slate-200 min-w-[62px]">Rate</th>
+                                                    <th className="sticky top-[22px] z-10 bg-slate-50 text-right px-2 py-1 text-[8px] font-semibold uppercase text-emerald-600 border-b-2 border-slate-200 min-w-[62px]">Rate</th>
                                                   </React.Fragment>
                                                 ))}
                                               </tr>
@@ -2743,13 +2810,13 @@ export default function PurchaseWorkspace() {
                                               {v.items.map((it, ii) => (
                                                 <tr key={ii} className="hover:bg-slate-50 border-b border-slate-100">
                                                   <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-medium text-slate-800 z-10">{it.item}</td>
-                                                  <td className="px-2 py-1 text-[10px] text-slate-400">{it.uom || '—'}</td>
+                                                  <td className="px-2 py-1 text-[10px] text-slate-500 font-medium">{it.uom || '—'}</td>
                                                   {vturnMonths.map(m => {
                                                     const md = it.by_month?.[m];
                                                     return (
                                                       <React.Fragment key={m}>
-                                                        <td className="text-right px-2 py-1 text-[10px] tabular-nums font-semibold text-slate-700 border-l border-slate-100">{md && md.qty ? fmtQty(md.qty) : <span className="text-slate-300">—</span>}</td>
-                                                        <td className="text-right px-2 py-1 text-[10px] tabular-nums text-slate-600 border-slate-100">{md && md.qty ? fmtRup(md.value / md.qty) : <span className="text-slate-300">—</span>}</td>
+                                                        <td className="text-right px-2 py-1 text-[10px] tabular-nums font-bold text-slate-800 border-l border-slate-100">{md && md.qty ? fmtQty(md.qty) : <span className="text-slate-300">—</span>}</td>
+                                                        <td className="text-right px-2 py-1 text-[10px] tabular-nums font-semibold text-emerald-700 border-slate-100">{md && md.qty ? fmtRup(md.value / md.qty) : <span className="text-slate-300">—</span>}</td>
                                                       </React.Fragment>
                                                     );
                                                   })}
@@ -2804,21 +2871,21 @@ export default function PurchaseWorkspace() {
                       <>
                         <div className="flex items-center justify-between gap-3 mb-1.5">
                           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                            Branch Transfer Summary <span className="text-slate-400 font-semibold normal-case ml-1">(excluded from Purchases)</span>
+                            Branch Transfer Summary <span className="text-slate-500 font-semibold normal-case ml-1">(excluded from Purchases)</span>
                           </div>
                           <TableExport cols={expBranchSummary.cols} data={expBranchSummary.data} filename={`branch-summary-${slug(companyName)}`} title="Branch Transfer Summary" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'branch', valueField: 'total' }} />
                         </div>
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh] mb-5">
                           <table className="min-w-[720px] w-full">
                             <thead><tr>
-                              <th className="sticky top-0 left-0 z-20 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200">Branch</th>
+                              <th className="sticky top-0 left-0 z-20 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200 min-w-[160px]">Branch</th>
                               {branchMonths.map(m => <th key={m.month} className="sticky top-0 z-10 text-center px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[78px]">{m.label}</th>)}
                               <th className="sticky top-0 z-10 text-right px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total</th>
                             </tr></thead>
                             <tbody>
                               {branchRows.map((b, i) => (
                                 <tr key={i} className="hover:bg-slate-50">
-                                  <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 border-b border-slate-100 z-10">{b.branch}</td>
+                                  <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 border-b border-slate-100 z-10 whitespace-nowrap truncate max-w-[200px]" title={b.branch}>{shortBranch(b.branch)}</td>
                                   {branchMonths.map(m => (
                                     <td key={m.month} className="text-right px-2 py-1 text-[10px] tabular-nums font-semibold border-b border-l border-slate-100">
                                       {b.by_month?.[m.month] ? fmtINR(b.by_month[m.month]) : <span className="text-slate-300">—</span>}
@@ -2840,7 +2907,7 @@ export default function PurchaseWorkspace() {
 
                         <div className="flex items-center justify-between gap-3 mb-1.5">
                           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-                            Branch Bills <span className="text-slate-400 font-semibold normal-case ml-1">({branchBills.length})</span>
+                            Branch Bills <span className="text-slate-500 font-semibold normal-case ml-1">({branchBills.length})</span>
                           </div>
                           <TableExport cols={expBranchBills.cols} data={expBranchBills.data} filename={`branch-bills-${slug(companyName)}`} title="Branch Bills" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
                         </div>
@@ -2859,8 +2926,8 @@ export default function PurchaseWorkspace() {
                                         <ChevronDown size={12} className={`inline-block mr-1 text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
                                         <span className="text-indigo-600 hover:underline" onClick={(e) => { e.stopPropagation(); navigate(`/purchase/bills?quick=${r.bill_id}`); }}>{r.bill_no || '—'}</span>
                                       </TD>
-                                      <TD color="text-slate-500">{fmtDate(r.bill_date)}</TD>
-                                      <TD color="text-slate-600">{r.branch}</TD>
+                                      <TD color="text-slate-800">{fmtDate(r.bill_date)}</TD>
+                                      <TD color="text-slate-600"><span title={r.branch} className="whitespace-nowrap">{shortBranch(r.branch)}</span></TD>
                                       <TD right>{fmtINR(r.taxable)}</TD>
                                       <TD right bold color="text-slate-900">{fmtINR(r.total)}</TD>
                                     </tr>
