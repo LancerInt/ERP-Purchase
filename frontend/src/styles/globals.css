@@ -473,8 +473,21 @@ textarea.input {
   }
 }
 
+/* Centered modal pop-in (e.g. the Bills quick-view popup). */
+@keyframes popIn {
+  from {
+    transform: scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-\[slideInRight_160ms_ease-out\],
+  .animate-\[popIn_140ms_ease-out\],
   .animate-\[fadeIn_120ms_ease-out\] {
     animation: none !important;
   }

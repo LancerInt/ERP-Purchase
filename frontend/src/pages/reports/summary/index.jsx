@@ -33,6 +33,7 @@ import apiClient from '../../../utils/api.js';
 import { categoryChipCls } from '../../../utils/constants.js';
 import { formatCurrency } from '@/utils/formatters';
 import exportToExcel from '../../../utils/exportExcel.js';
+import BillQuickView from '../../purchase/bills/BillQuickView.jsx';
 
 const num = (v) => Number(v) || 0;
 const INR = (v) => formatCurrency(v || 0);
@@ -315,8 +316,7 @@ const ALL_TABS = [
       { id: 'summary', name: 'Top vendors', kind: 'summary', top10: true},
       { id: 'p_topitems', name: 'Top purchased items', kind: 'topitems', side: 'purchase', valueLabel: 'Spend'},
       { id: 'p_category', name: 'By category', kind: 'bars', catOf: (r) => r.purchase_category || 'Unclassified'},
-      { id: 'p_items', name: 'Item qty & rate trend', kind: 'ratetrend', side: 'purchase'},
-      { id: 'p_vendorcmp', name: 'Vendor comparison', kind: 'vendorcmp'},
+      { id: 'p_pivot', name: 'Item × vendor pivot', kind: 'pivot', side: 'purchase'},
       { id: 'p_health', name: 'Bills data-health', kind: 'health'},
     ],
   },
@@ -436,6 +436,8 @@ export default function ReportsSummary() {
   const [cache, setCache] = useState({});
   const [trendData, setTrendData] = useState(null);
   const [cmpData, setCmpData] = useState(null);        // vendor-comparison payload
+  const [pivotData, setPivotData] = useState(null);    // item x vendor x month pivot payload
+  const [quickBillId, setQuickBillId] = useState(null); // open bill popup IN-PAGE (payables/purchase bills)
   const [calData, setCalData] = useState(null);        // payables-calendar payload (ledger-tied, as-of today)
   const [salesForPeriod, setSalesForPeriod] = useState(0);  // sales total for the ratio report
   const [varianceBills, setVarianceBills] = useState(null); // bills across current+prev window
@@ -469,6 +471,7 @@ export default function ReportsSummary() {
   // panels — both get fewer per page; normal tables use the Bills default.
   const rpp = report.kind === 'ratetrend' ? 8
     : report.kind === 'vendorcmp' ? 12
+      : report.kind === 'pivot' ? 12
       : report.kind === 'summary' ? 8   // summary shows a by-month graph below, so keep it short
         : PAGE_SIZE;
   // Cache key = tab + the resolved window, so each period is fetched once and
@@ -581,6 +584,23 @@ export default function ReportsSummary() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report.id, winKey, company]);
 
+  // Item x vendor x month pivot (trend + comparison clubbed). Same endpoint,
+  // mode=pivot, loaded only for the pivot report.
+  useEffect(() => {
+    if (report.kind !== 'pivot') { setPivotData(null); return; }
+    let alive = true; setPivotData(null); setError(null);
+    const params = new URLSearchParams({ side: 'purchase', mode: 'pivot' });
+    const tw = trendWindow();
+    if (tw.from) params.set('from', tw.from);
+    if (tw.to) params.set('to', tw.to);
+    if (company) params.set('company', company);
+    apiClient.get(`/api/purchase/item-rate-trend/?${params.toString()}`)
+      .then(({ data }) => { if (alive) setPivotData(data); })
+      .catch(() => { if (alive) setError('Could not load the item pivot.'); });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report.id, winKey, company]);
+
   // Payables payment calendar — LEDGER-TIED. Fetches the authoritative per-bill
   // balances (vendor outstanding allocated oldest-first) instead of summing the
   // slim list's per-bill balance_due, which ignored on-account payments and
@@ -675,17 +695,17 @@ export default function ReportsSummary() {
   // Item filter: item-trend / top-items / vendor-comparison.
   // Party filter: vendor (purchase) on top-vendors/ageing/vendor-comparison;
   //               customer (sales) on the sales ranked/ageing/collection reports.
-  const showItemFilter = ['ratetrend', 'topitems', 'vendorcmp'].includes(report.kind);
+  const showItemFilter = ['ratetrend', 'topitems', 'vendorcmp', 'pivot'].includes(report.kind);
   const partyLabel = (tabKey === 'sales' || tabKey === 'receivables') ? 'Customer' : 'Vendor';
   const showPartyFilter =
-    (tabKey === 'purchase' && ['summary', 'aged', 'vendorcmp'].includes(report.kind)) ||
+    (tabKey === 'purchase' && ['summary', 'aged', 'vendorcmp', 'pivot'].includes(report.kind)) ||
     (tabKey === 'payables' && ['paycal', 'aged'].includes(report.kind)) ||
     (tabKey === 'receivables' && ['paycal', 'aged'].includes(report.kind)) ||
     (tabKey === 'sales' && ['summary', 'aged', 'collection', 'creditbreach'].includes(report.kind));
   // Category filter — the real purchase categories, on the Purchase tab's
   // row-level reports (not the By-category bars, which are already per category).
   const PURCHASE_CATS = [['RM', 'RM'], ['PACKING', 'Packing'], ['MAIZE', 'Maize'], ['FRUIT', 'Fruit']];
-  const showCatFilter = tabKey === 'purchase' && ['summary', 'aged', 'ratetrend', 'topitems'].includes(report.kind);
+  const showCatFilter = tabKey === 'purchase' && ['summary', 'aged', 'ratetrend', 'topitems', 'pivot'].includes(report.kind);
   // MSME vendor filter — Purchase tab only (the bill row carries vendor_is_msme).
   // Most useful on Payables ageing (45-day MSMED limit), offered on the other
   // vendor-level lists too.
@@ -695,10 +715,10 @@ export default function ReportsSummary() {
 
   // Item options — from the loaded trend/cmp payload (those reports' own data).
   const itemOptions = useMemo(() => {
-    const src = report.kind === 'vendorcmp' ? cmpData : trendData;
+    const src = report.kind === 'vendorcmp' ? cmpData : report.kind === 'pivot' ? pivotData : trendData;
     if (!src || !src.items) return [];
     return [...new Set(src.items.map((it) => it.item).filter(Boolean))].sort();
-  }, [report.kind, trendData, cmpData]);
+  }, [report.kind, trendData, cmpData, pivotData]);
 
   // trend/cmp items after the item-pick filter — used by render AND export.
   const trendItems = useMemo(() => {
@@ -718,6 +738,14 @@ export default function ReportsSummary() {
     }
     return items;
   }, [cmpData, itemPick, partyPick]);
+  const pivotItems = useMemo(() => {
+    if (!pivotData) return [];
+    let items = pivotData.items;
+    if (catPick) items = items.filter((it) => (it.category || '').toUpperCase() === catPick);
+    if (itemPick) items = items.filter((it) => it.item === itemPick);
+    if (partyPick) items = items.filter((it) => (it.vendors || []).some((v) => v.vendor === partyPick));
+    return items;
+  }, [pivotData, itemPick, catPick, partyPick]);
 
   // Party options — vendor/customer names present in the relevant data.
   // filtered rows (company + period + tab filter + branch exclusion + party pick)
@@ -747,16 +775,17 @@ export default function ReportsSummary() {
   // NOT narrowed by the current party pick. Declared after `filtered` so it
   // can reuse the same company/period scope without the party filter.
   const partyOptions = useMemo(() => {
-    if (report.kind === 'vendorcmp') {
-      if (!cmpData || !cmpData.items) return [];
+    if (report.kind === 'vendorcmp' || report.kind === 'pivot') {
+      const src = report.kind === 'pivot' ? pivotData : cmpData;
+      if (!src || !src.items) return [];
       const s = new Set();
-      cmpData.items.forEach((it) => (it.vendors || []).forEach((v) => s.add(v.vendor)));
+      src.items.forEach((it) => (it.vendors || []).forEach((v) => s.add(v.vendor)));
       return [...s].filter(Boolean).sort();
     }
     // Every row-list report (including ageing now) draws from the same windowed
     // `filtered` set, so the options match what's shown.
     return [...new Set(filtered.map((r) => tab.keyOf(r)).filter((n) => n && n !== '—'))].sort();
-  }, [report.kind, cmpData, filtered, tab]);
+  }, [report.kind, cmpData, pivotData, filtered, tab]);
 
   // grouped (original logic, + cumulative concentration)
   const grouped = useMemo(() => {
@@ -845,6 +874,21 @@ export default function ReportsSummary() {
   };
   const withScope = (path) => { const q = scopeQS(); return q ? `${path}${path.includes('?') ? '&' : '?'}${q}` : path; };
   const partyHref = (key) => (tab.link ? withScope(tab.link(key)) : null);
+  // Link straight to ONE bill/invoice's quick-view (?quick=<id>), scoped to the
+  // active company. Falls back to the vendor filter when the row has no id.
+  const billHref = (id, vendorKey) => (id && tab.listRoute
+    ? withScope(`${tab.listRoute}?quick=${encodeURIComponent(id)}`)
+    : partyHref(vendorKey));
+  // Open the bill ON THIS PAGE as a popup (purchase/payables bills carry a real
+  // VendorBill id). Sales invoices have no in-page card, so fall back to opening
+  // the Invoices list at that record. Returns a click handler for a bill link.
+  const canPopBill = tabKey === 'purchase' || tabKey === 'payables';
+  const openBill = (id, vendorKey) => (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (id && canPopBill) { setQuickBillId(id); return; }
+    const h = billHref(id, vendorKey);
+    if (h) navigate(h.replace(window.location.origin, ''));
+  };
   // Each category bar opens that category's actual bills (the Bills page reads
   // ?purchase_category=), scoped to the same company & period — so a click
   // shows the rows behind the number. 'Unclassified' has no category filter, so
@@ -1267,6 +1311,30 @@ export default function ReportsSummary() {
       });
       return { cols, data };
     }
+    if (report.kind === 'pivot' && pivotData) {
+      // Flatten to one row per item x vendor, a Rate column per month + totals.
+      const months = pivotData.months || [];
+      const cols = [
+        { field: 'item', header: 'Item' },
+        { field: 'vendor', header: 'Vendor' },
+        ...months.map((m) => ({ field: `m_${m}`, header: monthShort(m) })),
+        { field: 'avg_rate', header: 'Avg rate' },
+        { field: 'total_qty', header: 'Total qty' },
+        { field: 'cheapest', header: 'Cheapest?' },
+      ];
+      const data = [];
+      pivotItems.forEach((it) => {
+        it.vendors.forEach((v, i) => {
+          const row = { item: i === 0 ? it.item : '', vendor: v.vendor };
+          months.forEach((m) => { const c = v.cells[m]; row[`m_${m}`] = c && c.rate != null ? c.rate.toFixed(2) : ''; });
+          row.avg_rate = v.avg_rate != null ? v.avg_rate.toFixed(2) : '';
+          row.total_qty = num(v.total_qty).toFixed(2);
+          row.cheapest = v.vendor === it.cheapest_vendor ? 'cheapest' : '';
+          data.push(row);
+        });
+      });
+      return { cols, data };
+    }
     return { cols: [], data: [] };
   };
   const bannerLines = () => {
@@ -1282,7 +1350,7 @@ export default function ReportsSummary() {
   const doPdf = () => {
     const { cols, data } = buildExport();
     if (!data.length) return;
-    const landscape = report.kind === 'aged' || report.kind === 'ratetrend' || report.kind === 'moneytrend';
+    const landscape = report.kind === 'aged' || report.kind === 'ratetrend' || report.kind === 'moneytrend' || report.kind === 'pivot';
     const chartSvg = report.kind === 'moneytrend' ? (document.querySelector('#trendChart svg')?.outerHTML || '') : '';
     const thead = `<tr>${cols.map((c, i) => `<th style="text-align:${i === 0 ? 'left' : 'right'}">${c.header}</th>`).join('')}</tr>`;
     const tbody = data.map((r) => `<tr>${cols.map((c, i) => `<td style="text-align:${i === 0 ? 'left' : 'right'}">${r[c.field] ?? ''}</td>`).join('')}</tr>`).join('');
@@ -1590,7 +1658,12 @@ export default function ReportsSummary() {
                                       {bills.length === 0 && <tr><td colSpan={5} className="px-2 py-3 text-center text-xs text-slate-400">No open bills.</td></tr>}
                                       {bills.map((b, i) => (
                                         <tr key={i} className="hover:bg-white">
-                                          <td className="px-2 py-1 font-medium text-slate-700">{b.no}</td>
+                                          <td className="px-2 py-1 font-medium text-slate-700">
+                                            {(b._r && (b._r.id || b._r.bill_id)) ? (
+                                              <a href={billHref(b._r.id || b._r.bill_id, r._key) || '#'} className="text-blue-600 hover:underline"
+                                                onClick={openBill(b._r.id || b._r.bill_id, r._key)}>{b.no}</a>
+                                            ) : b.no}
+                                          </td>
                                           <td className="px-2 py-1 text-slate-500">{b.date || '—'}</td>
                                           <td className="px-2 py-1 text-slate-500">{b.due || '—'}</td>
                                           <td className="px-2 py-1 text-right tabular-nums text-rose-600">{INR(b.out)}</td>
@@ -1715,8 +1788,8 @@ export default function ReportsSummary() {
                                       {!inflow && it.msme && <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full text-indigo-700 bg-indigo-50 border border-indigo-200">MSME</span>}
                                     </td>
                                     <td className="px-4 py-2">
-                                      <a href={partyHref(it.vendor) || '#'} className="text-blue-600 font-semibold hover:underline"
-                                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); const h = partyHref(it.vendor); if (h) navigate(h.replace(window.location.origin, '')); }}>{it.no}</a>
+                                      <a href={billHref(it.id, it.vendor) || '#'} className="text-blue-600 font-semibold hover:underline"
+                                        onClick={openBill(it.id, it.vendor)}>{it.no}</a>
                                     </td>
                                     {showCat && <td className="px-4 py-2">{it.cat ? <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${catTone(it.cat)}`}>{catLabel(it.cat)}</span> : <span className="text-slate-300">—</span>}</td>}
                                     <td className="px-4 py-2 text-slate-500">{it.date || '—'}</td>
@@ -2257,8 +2330,100 @@ export default function ReportsSummary() {
                 </div>
               )
           )}
+
+          {/* ── ITEM × VENDOR PIVOT (rate trend + vendor comparison clubbed) ── */}
+          {report.kind === 'pivot' && (
+            !pivotData
+              ? <div className="py-16 text-center text-slate-400">Loading item pivot…</div>
+              : (
+                <div className="border border-slate-200 rounded-xl shadow-sm bg-white overflow-hidden">
+                  {pivotItems.length === 0 && <div className="px-3 py-10 text-center text-sm text-slate-400">No items bought from more than one vendor in this window.</div>}
+                  {pageSlice(pivotItems, page, rpp).map((it) => {
+                    const open = openCmp === it.item;
+                    const months = pivotData.months || [];
+                    const spread = it.spread_pct != null ? Number(it.spread_pct) : null;
+                    const chg = it.change_pct != null ? Number(it.change_pct) : null;
+                    return (
+                      <div key={it.item} className="border-t border-slate-100 first:border-t-0">
+                        {/* collapsed row: item + category + #vendors + cheapest + spread + trend */}
+                        <div className={`flex items-center gap-3 px-4 py-2.5 text-[13px] cursor-pointer select-none ${open ? 'bg-blue-50/40' : 'hover:bg-slate-50'}`}
+                          onClick={() => setOpenCmp(open ? null : it.item)}>
+                          <span className={`text-slate-400 transition-transform ${open ? 'rotate-90 text-blue-600' : ''}`}>▶</span>
+                          <span className="font-semibold text-slate-800">{it.item}</span>
+                          {it.uom && <span className="text-slate-400 text-xs">{it.uom}</span>}
+                          {it.category && <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border ${catChipCls(it.category)}`}>{it.category}</span>}
+                          <span className="ml-auto text-[12px] text-slate-500">{it.vendors.length} vendors</span>
+                          {it.cheapest_vendor && <span className="text-[12px] text-emerald-700 font-medium hidden sm:inline">cheapest: {it.cheapest_vendor}</span>}
+                          {spread != null && spread > 0 && <span className={`text-[11px] font-semibold ${spread > 50 ? 'text-rose-600' : 'text-amber-600'}`}>spread {spread.toFixed(0)}%</span>}
+                          {chg != null && <span className={`text-[11px] font-semibold ${chg < 0 ? 'text-emerald-700' : chg > 0 ? 'text-rose-600' : 'text-slate-400'}`}>{chg > 0 ? '▲' : chg < 0 ? '▼' : ''} {Math.abs(chg).toFixed(1)}%</span>}
+                        </div>
+                        {/* expanded: vendor (rows) × month (cols) rate grid + month-avg trend */}
+                        {open && (
+                          <div className="bg-slate-50/60 border-t border-dashed border-slate-200 overflow-x-auto">
+                            <table className="w-full text-[13px] min-w-[560px]">
+                              <thead><tr className="text-[11px] uppercase tracking-wide text-slate-500">
+                                <th className="px-5 py-1.5 text-left font-semibold sticky left-0 bg-slate-50/60">Vendor</th>
+                                {months.map((m) => <th key={m} className="px-3 py-1.5 text-right font-semibold whitespace-nowrap">{monthShort(m)}</th>)}
+                                <th className="px-3 py-1.5 text-right font-semibold">Avg rate</th>
+                                <th className="px-5 py-1.5 text-right font-semibold">Total qty</th>
+                              </tr></thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {it.vendors.map((v) => {
+                                  const isCheapest = v.vendor === it.cheapest_vendor;
+                                  return (
+                                    <tr key={v.vendor} className={isCheapest ? 'bg-emerald-50/50' : 'hover:bg-white'}>
+                                      <td className={`px-5 py-1.5 font-medium text-slate-800 sticky left-0 ${isCheapest ? 'bg-emerald-50/50' : 'bg-slate-50/60'}`}>
+                                        {v.vendor}{isCheapest && <span className="ml-2 text-[10px] uppercase tracking-wide text-emerald-700 font-bold">cheapest</span>}
+                                      </td>
+                                      {months.map((m) => {
+                                        const c = v.cells[m];
+                                        return (
+                                          <td key={m} className="px-3 py-1.5 text-right tabular-nums text-slate-700">
+                                            {c && c.rate != null
+                                              ? <span title={c.qty != null ? `Qty ${Number(c.qty).toLocaleString('en-IN')}` : ''}>₹{Number(c.rate).toFixed(2)}</span>
+                                              : <span className="text-slate-300">—</span>}
+                                          </td>
+                                        );
+                                      })}
+                                      <td className={`px-3 py-1.5 text-right tabular-nums font-semibold ${isCheapest ? 'text-emerald-700' : 'text-slate-700'}`}>{v.avg_rate != null ? `₹${Number(v.avg_rate).toFixed(2)}` : '—'}</td>
+                                      <td className="px-5 py-1.5 text-right tabular-nums text-slate-600">{num(v.total_qty).toLocaleString('en-IN')}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot><tr className="bg-white border-t border-slate-200 text-[12px] font-semibold text-slate-600">
+                                <td className="px-5 py-1.5 text-left sticky left-0 bg-white">Month avg</td>
+                                {months.map((m) => {
+                                  const a = it.month_avg ? it.month_avg[m] : null;
+                                  return <td key={m} className="px-3 py-1.5 text-right tabular-nums">{a && a.rate != null ? `₹${Number(a.rate).toFixed(2)}` : '—'}</td>;
+                                })}
+                                <td className={`px-3 py-1.5 text-right tabular-nums ${chg == null ? 'text-slate-400' : chg < 0 ? 'text-emerald-700' : 'text-rose-600'}`} colSpan={2}>
+                                  {chg == null ? '—' : `${chg > 0 ? '▲' : '▼'} ${Math.abs(chg).toFixed(1)}%`}
+                                </td>
+                              </tr></tfoot>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <Pager page={page} setPage={setPage} total={pivotItems.length} size={rpp} />
+                </div>
+              )
+          )}
         </ListState>
       </div>
+
+      {/* Bill popup — opens IN-PAGE when a bill number is clicked (payables). */}
+      {quickBillId && (
+        <BillQuickView
+          id={quickBillId}
+          canEdit={false}
+          onClose={() => setQuickBillId(null)}
+          onOpenFull={(id) => navigate(`/purchase/bills/${id}`)}
+          onEdit={(id) => navigate(`/purchase/bills/${id}`)}
+        />
+      )}
     </MainLayout>
   );
 }

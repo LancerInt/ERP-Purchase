@@ -58,7 +58,98 @@ class PurchaseItemRateTrendView(APIView):
 
         if mode == 'vendor-comparison':
             return Response(self._vendor_comparison(qs))
+        if mode == 'pivot':
+            return Response(self._pivot(qs))
         return Response(self._rate_trend(qs))
+
+    # ── item × vendor × month pivot (trend + comparison in one grid) ──────────
+    def _pivot(self, qs):
+        # Clubs the rate/qty trend and the vendor comparison. Per item:
+        #   - months[]                      (aligned column list)
+        #   - vendors[]: each with a per-month {rate, qty} cell, its own
+        #     total_qty / total_value / avg_rate, and a cheapest flag
+        #   - month_avg{month: {rate, qty}} (qty-weighted, across vendors) and
+        #     change_pct (first->last rated month) — the trend row
+        # Only items bought from 2+ vendors are kept (same rule as the vendor
+        # comparison — a single-vendor item has nothing to pivot).
+        from collections import Counter
+        months_seen = set()
+        # item -> vendor -> month -> [qty, value]
+        acc = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [Z, Z])))
+        uom_votes = defaultdict(Counter)
+        pid_of = {}
+        for ln in qs:
+            name = (ln.product.product_name if ln.product_id else (ln.description or '')).strip() or '—'
+            vend = (ln.bill.vendor.vendor_name if (ln.bill_id and ln.bill.vendor_id) else '—')
+            if not (ln.bill_id and ln.bill.bill_date):
+                continue
+            qty = Decimal(str(ln.quantity or 0))
+            val = Decimal(str(ln.amount or 0))
+            ym = ln.bill.bill_date.strftime('%Y-%m')
+            months_seen.add(ym)
+            cell = acc[name][vend][ym]
+            cell[0] += qty
+            cell[1] += val
+            if ln.uom:
+                uom_votes[name][ln.uom.strip().upper()] += 1
+            if ln.product_id and name not in pid_of:
+                pid_of[name] = ln.product_id
+
+        months = sorted(months_seen)
+        items = []
+        for name, vends in acc.items():
+            if len(vends) < 2:
+                continue  # only multi-vendor items are worth a pivot
+            vendors = []
+            # month -> [qty, value] rolled up across vendors, for the trend row.
+            month_roll = defaultdict(lambda: [Z, Z])
+            for vend, by_month in vends.items():
+                vq = Z; vv = Z
+                cells = {}
+                for ym in months:
+                    q, v = by_month.get(ym, (Z, Z))
+                    cells[ym] = {
+                        'rate': round(float(v / q), 2) if q else None,
+                        'qty': float(q) if q else None,
+                    }
+                    vq += q; vv += v
+                    mr = month_roll[ym]
+                    mr[0] += q; mr[1] += v
+                vendors.append({
+                    'vendor': vend,
+                    'total_qty': str(vq),
+                    'total_value': str(vv),
+                    'avg_rate': round(float(vv / vq), 2) if vq else None,
+                    'cells': cells,
+                })
+            # cheapest = lowest overall avg rate; sort vendors cheapest-first.
+            vendors.sort(key=lambda x: (x['avg_rate'] is None, x['avg_rate'] or 0))
+            cheapest = next((v['vendor'] for v in vendors if v['avg_rate'] is not None), None)
+            month_avg = {}
+            for ym in months:
+                q, v = month_roll[ym]
+                month_avg[ym] = {
+                    'rate': round(float(v / q), 2) if q else None,
+                    'qty': float(q) if q else None,
+                }
+            rated = [month_avg[ym]['rate'] for ym in months if month_avg[ym]['rate'] is not None]
+            change_pct = round((rated[-1] - rated[0]) / rated[0] * 100, 2) if (len(rated) >= 2 and rated[0]) else None
+            # price spread across vendors (max avg - min avg) / min avg.
+            avgs = [v['avg_rate'] for v in vendors if v['avg_rate'] is not None]
+            spread_pct = round((max(avgs) - min(avgs)) / min(avgs) * 100, 2) if (len(avgs) >= 2 and min(avgs)) else None
+            pid = pid_of.get(name)
+            items.append({
+                'item': name,
+                'uom': (uom_votes[name].most_common(1)[0][0] if uom_votes[name] else ''),
+                'category': self._product_category(pid) if pid else '',
+                'cheapest_vendor': cheapest,
+                'spread_pct': spread_pct,
+                'change_pct': change_pct,
+                'vendors': vendors,
+                'month_avg': month_avg,
+            })
+        items.sort(key=lambda x: x['item'].lower())
+        return {'items': items, 'months': months}
 
     # ── item qty & rate trend + top items ───────────────────────────────────
     def _rate_trend(self, qs):

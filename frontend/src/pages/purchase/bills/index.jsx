@@ -869,28 +869,19 @@ export default function VendorBillList({ expenseOnly = false } = {}) {
     outstanding: sumOf('balance_due'),
   };
 
-  // When a row is opened, show the quick-view as a normal in-layout page (the
-  // sidebar stays, no backdrop) with a Back button, instead of an overlay card.
-  if (quickId) {
-    return (
-      <MainLayout>
-        <div className="p-2 sm:p-3">
-          <BillQuickView
-            id={quickId}
-            inline
-            showBack
-            canEdit={canEdit('Vendor Bill')}
-            onClose={closeQuick}
-            onOpenFull={(id) => navigate(`/purchase/bills/${id}`)}
-            onEdit={(id) => navigate(`/purchase/bills/${id}`)}
-          />
-        </div>
-      </MainLayout>
-    );
-  }
-
   return (
     <MainLayout>
+      {/* A clicked/linked bill opens as a slide-in popup OVER the list (backdrop
+          dims the page, Esc or click-off closes), not a separate full page. */}
+      {quickId && (
+        <BillQuickView
+          id={quickId}
+          canEdit={canEdit('Vendor Bill')}
+          onClose={closeQuick}
+          onOpenFull={(id) => navigate(`/purchase/bills/${id}`)}
+          onEdit={(id) => navigate(`/purchase/bills/${id}`)}
+        />
+      )}
       {linkMode && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm">
           <span className="text-indigo-800">🔗 <b>Linking freight {linkFreightNo || ''}</b> — click a bill below to attach the freight to it.</span>
