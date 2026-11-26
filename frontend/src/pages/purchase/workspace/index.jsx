@@ -16,7 +16,7 @@ import {
   Shield, RotateCcw, Clock, Users as UsersIcon, Star,
   UserX, UserPlus, Target, BarChart3, ArrowLeftRight,
   Loader2, X, Calendar, Sparkles, Check, Building2, GitBranch,
-  FileSpreadsheet, FileText,
+  FileSpreadsheet, FileText, Award,
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import apiClient from '../../../utils/api.js';
@@ -92,8 +92,10 @@ const NAV_GROUPS = [
   { title: 'Vendors', items: [
     { id: 'v_top',    label: 'Top Vendors',     icon: Star },
     { id: 'v_inact',  label: 'Inactive',        icon: UserX },
-    { id: 'v_new',    label: 'New Vendors',     icon: UserPlus },
-    { id: 'v_conc',   label: 'Concentration',   icon: Target },
+    { id: 'v_score',  label: 'Scorecard',       icon: Award },
+    { id: 'v_single', label: 'Single-Source Risk', icon: AlertTriangle },
+    { id: 'v_msme',   label: 'MSME Compliance', icon: Shield },
+    { id: 'v_price',  label: 'Price Watch',     icon: TrendingUp },
   ]},
   { title: 'Accounts', items: [
     { id: 'ac_pay',   label: 'Payment Efficiency', icon: Clock },
@@ -106,7 +108,7 @@ const SECTION_TITLES = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_TITLES[it.id] = it.label; }));
 const SECTION_ICON = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_ICON[it.id] = it.icon; }));
-const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'pa_drill', 'pa_vturn', 'pa_branch', 'ac_tds', 'pay_week', 'pay_aged', 'pay_up', 'v_top', 'v_inact', 'v_new', 'v_conc']);
+const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'pa_drill', 'pa_vturn', 'pa_branch', 'ac_tds', 'pay_week', 'pay_aged', 'pay_up', 'v_top', 'v_inact', 'v_score', 'v_single', 'v_msme', 'v_price', 'ac_pay', 'ac_cndn', 'ac_gst']);
 
 // Purchase categories for the Item Drill-down filter: chip label -> category code.
 // Categories match the normalized values product_category() returns:
@@ -550,6 +552,7 @@ export default function PurchaseWorkspace() {
   const [vendorAct, setVendorAct] = useState(null); // vendor-activity (Vendors group)
   const [vendMsme, setVendMsme] = useState('');     // '' | msme | non (Vendors sections)
   const [vendCat, setVendCat] = useState('');       // '' | RM | PM | FRUIT (Vendors sections)
+  const [accounts, setAccounts] = useState(null);   // accounts-summary (Accounts group)
 
   // ── Item Analytics UI state ──
   const [itemCat, setItemCat] = useState('');       // category filter (''=All)
@@ -635,7 +638,7 @@ export default function PurchaseWorkspace() {
     const cp = company ? `company=${company}&` : '';
     const win = `${cp}from=${dateFrom}&to=${dateTo}`;
     const fyParam = String(_fyYear(new Date(dateFrom)));
-    setBreakdown(null); setDrillPivot(null); setBranchTx(null);
+    setBreakdown(null); setDrillPivot(null); setBranchTx(null); setAccounts(null);
     Promise.all([
       apiClient.get(`/api/purchase/dashboard/?${cp}period=custom&from=${dateFrom}&to=${dateTo}`).then(r => r.data).catch(() => null),
       apiClient.get(`/api/purchase/dashboard/analytics/?${win}`).then(r => r.data?.mom_trend || []).catch(() => []),
@@ -644,9 +647,10 @@ export default function PurchaseWorkspace() {
       apiClient.get(`/api/purchase/monthly-breakdown/?${win}`).then(r => r.data).catch(() => null),
       apiClient.get(`/api/purchase/item-rate-trend/?side=purchase&mode=pivot&include_single=1&${win}`).then(r => r.data).catch(() => null),
       apiClient.get(`/api/purchase/branch-transfers/?${win}`).then(r => r.data).catch(() => null),
-    ]).then(([d, t, it, td, bd, pv, bt]) => {
+      apiClient.get(`/api/purchase/accounts-summary/?${win}`).then(r => r.data).catch(() => null),
+    ]).then(([d, t, it, td, bd, pv, bt, ac]) => {
       if (!alive) return;
-      setDash(d); setTrend(t || []); setItems(it || []); setTds(td); setBreakdown(bd); setDrillPivot(pv); setBranchTx(bt);
+      setDash(d); setTrend(t || []); setItems(it || []); setTds(td); setBreakdown(bd); setDrillPivot(pv); setBranchTx(bt); setAccounts(ac);
     }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [company, dateFrom, dateTo]);
@@ -805,7 +809,7 @@ export default function PurchaseWorkspace() {
     const total = num(drillPivotItem.vendors.reduce((s, v) => s + num(v.total_value), 0));
     return drillPivotItem.vendors
       .map(v => ({
-        vendor: v.vendor, qty: num(v.total_qty), value: num(v.total_value),
+        vendor: v.vendor, is_msme: !!v.is_msme, qty: num(v.total_qty), value: num(v.total_value),
         avg: v.avg_rate != null ? num(v.avg_rate) : (num(v.total_qty) > 0 ? num(v.total_value) / num(v.total_qty) : 0),
         cells: v.cells || {},
         pct: total > 0 ? (num(v.total_value) / total) * 100 : 0,
@@ -1068,6 +1072,109 @@ export default function PurchaseWorkspace() {
       pct: `${t.pct.toFixed(1)}%`, cum: `${t.cumPct.toFixed(1)}%`, avg: fmtRup(t.avg) })),
   }), [vConc]);
 
+  // ── v_score: vendor reliability scorecard (return rate + inactivity). ──
+  const scoreOf = (v) => {
+    const r = num(v.return_rate), d = v.days_inactive == null ? 0 : v.days_inactive;
+    if (r > 5 || d > 90) return 'POOR';
+    if (r > 2 || d > 60) return 'FAIR';
+    return 'GOOD';
+  };
+  const vScore = useMemo(() => {
+    const rows = vendList.filter(v => v.period_value > 0 || v.lifetime_value > 0)
+      .map(v => ({ ...v, score: scoreOf(v), return_rate: num(v.return_rate) }))
+      .sort((a, b) => b.period_value - a.period_value);
+    const avgRet = rows.length ? rows.reduce((s, v) => s + v.return_rate, 0) / rows.length : 0;
+    const flagged = rows.filter(v => v.score === 'POOR').length;
+    return { rows, count: rows.length, avgRet, flagged };
+  }, [vendList]);
+  const expVScore = useMemo(() => ({
+    cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'category', header: 'Category' }, { field: 'value', header: 'Purchase Value' },
+      { field: 'bills', header: 'Bills' }, { field: 'ret', header: 'Return Rate' }, { field: 'outstanding', header: 'Outstanding' }, { field: 'score', header: 'Score' }],
+    data: vScore.rows.map(v => ({ vendor: v.vendor_name + (v.is_msme ? ' (MSME)' : ''), category: normCat(v.purchase_category) || '—',
+      value: fmtRup(v.period_value), bills: v.period_bills, ret: `${v.return_rate.toFixed(1)}%`,
+      outstanding: fmtRup(v.outstanding), score: v.score })),
+  }), [vScore]);
+
+  // ── v_single: items bought from exactly ONE vendor (supply risk). ──
+  const vSingle = useMemo(() => {
+    const items = (drillPivot?.items || [])
+      .filter(it => (it.vendors || []).length === 1)
+      .filter(it => !vendCat || normCat(it.category) === vendCat)
+      .map(it => {
+        const v = it.vendors[0];
+        return { item: it.item, category: normCat(it.category) || '—', vendor: v.vendor,
+          is_msme: !!v.is_msme, qty: num(v.total_qty), value: num(v.total_value), uom: it.uom || '' };
+      })
+      .sort((a, b) => b.value - a.value);
+    const exposed = items.reduce((s, i) => s + i.value, 0);
+    const totalAll = (drillPivot?.items || []).reduce((s, it) => s + (it.vendors || []).reduce((t, v) => t + num(v.total_value), 0), 0);
+    return { items, count: items.length, exposed, pct: totalAll > 0 ? (exposed / totalAll) * 100 : 0 };
+  }, [drillPivot, vendCat]);
+  const expVSingle = useMemo(() => ({
+    cols: [{ field: 'item', header: 'Item' }, { field: 'category', header: 'Category' }, { field: 'vendor', header: 'Sole Vendor' },
+      { field: 'qty', header: 'Qty' }, { field: 'value', header: 'Value' }],
+    data: vSingle.items.map(i => ({ item: i.item, category: i.category, vendor: i.vendor + (i.is_msme ? ' (MSME)' : ''),
+      qty: fmtQty(i.qty), value: fmtRup(i.value) })),
+  }), [vSingle]);
+
+  // ── v_msme: MSME payables aged vs the 45-day MSMED limit (§43B(h)). ──
+  const vMsme = useMemo(() => {
+    const bills = (payCal?.bills || []).filter(b => b.vendor_is_msme === true)
+      .map(b => {
+        const d = b.bill_date ? Math.floor((Date.now() - new Date(b.bill_date).getTime()) / 86400000) : null;
+        return { ...b, daysSinceBill: d, over45: d != null && d > 45 };
+      })
+      .sort((a, b) => (b.daysSinceBill || 0) - (a.daysSinceBill || 0));
+    const total = bills.reduce((s, b) => s + num(b.balance), 0);
+    const over = bills.filter(b => b.over45);
+    const overTotal = over.reduce((s, b) => s + num(b.balance), 0);
+    const vendors = new Set(bills.map(b => b.vendor_name)).size;
+    return { bills, vendors, total, overTotal, overCount: over.length };
+  }, [payCal]);
+  const expVMsme = useMemo(() => ({
+    cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'bill', header: 'Bill' }, { field: 'date', header: 'Bill Date' },
+      { field: 'days', header: 'Days Since Bill' }, { field: 'balance', header: 'Balance' }, { field: 'status', header: 'Status' }],
+    data: vMsme.bills.map(b => ({ vendor: b.vendor_name, bill: b.bill_no || b.vendor_invoice_no || '—',
+      date: fmtDate(b.bill_date), days: b.daysSinceBill == null ? '—' : `${b.daysSinceBill}d`,
+      balance: fmtRup(b.balance), status: b.over45 ? 'OVERDUE-45' : 'DUE' })),
+  }), [vMsme]);
+
+  // ── v_price: multi-vendor items with price creep / overpay vs cheapest. ──
+  const vPrice = useMemo(() => {
+    const items = (drillPivot?.items || [])
+      .filter(it => (it.vendors || []).length > 1)
+      .filter(it => !vendCat || normCat(it.category) === vendCat)
+      .map(it => {
+        const vendors = it.vendors || [];
+        const rated = vendors.filter(v => v.avg_rate != null);
+        const cheapRate = rated.length ? Math.min(...rated.map(v => num(v.avg_rate))) : 0;
+        const overpay = vendors.reduce((s, v) => {
+          if (v.avg_rate == null) return s;
+          return s + Math.max(0, (num(v.avg_rate) - cheapRate)) * num(v.total_qty);
+        }, 0);
+        const curAvg = (() => {
+          const tq = vendors.reduce((s, v) => s + num(v.total_qty), 0);
+          const tv = vendors.reduce((s, v) => s + num(v.total_value), 0);
+          return tq > 0 ? tv / tq : 0;
+        })();
+        return { item: it.item, category: normCat(it.category) || '—', curAvg,
+          change_pct: it.change_pct, spread_pct: it.spread_pct, cheapest: it.cheapest_vendor || '—', overpay };
+      })
+      .sort((a, b) => b.overpay - a.overpay);
+    const rising = items.filter(i => num(i.change_pct) > 0).length;
+    const changes = items.filter(i => i.change_pct != null).map(i => num(i.change_pct));
+    const avgChange = changes.length ? changes.reduce((s, c) => s + c, 0) / changes.length : 0;
+    const saving = items.reduce((s, i) => s + i.overpay, 0);
+    return { items, rising, avgChange, saving, count: items.length };
+  }, [drillPivot, vendCat]);
+  const expVPrice = useMemo(() => ({
+    cols: [{ field: 'item', header: 'Item' }, { field: 'category', header: 'Category' }, { field: 'avg', header: 'Current Avg' },
+      { field: 'change', header: 'Change %' }, { field: 'spread', header: 'Spread %' }, { field: 'cheapest', header: 'Cheapest Vendor' }, { field: 'overpay', header: 'Overpay' }],
+    data: vPrice.items.map(i => ({ item: i.item, category: i.category, avg: fmtRup(i.curAvg),
+      change: i.change_pct == null ? '—' : `${num(i.change_pct) > 0 ? '▲' : '▼'} ${Math.abs(num(i.change_pct)).toFixed(1)}%`,
+      spread: i.spread_pct == null ? '—' : `${num(i.spread_pct).toFixed(1)}%`, cheapest: i.cheapest, overpay: fmtRup(i.overpay) })),
+  }), [vPrice]);
+
   // ── Export datasets (cols + flat rows) per table ──
   // Top Vendors
   const expTopVendors = useMemo(() => ({
@@ -1198,6 +1305,46 @@ export default function PurchaseWorkspace() {
     data: tdsRows.map(r => ({ vendor: r.vendor, section: r.section || '', rate: `${num(r.rate_pct).toFixed(2)}%`,
       base: fmtRup(num(r.fy_aggregate)), erp: fmtRup(num(r.erp_tds)), tally: fmtRup(num(r.tally_tds)), diff: fmtRup(num(r.difference)) })),
   }), [tdsRows]);
+
+  // ── Accounts group (Payment Efficiency / Credit-Debit Notes / GST) ──
+  const acc = accounts || null;
+  const accGst = acc?.gst || {};
+  const accNotes = acc?.notes || {};
+  const accPay = acc?.payment || {};
+  // Payment Efficiency — month-wise billed/paid/% pivot + slowest payers.
+  const expPayTrend = useMemo(() => {
+    const months = accPay.monthly || [];
+    const cols = [{ field: 'metric', header: 'Metric' }, ...months.map(m => ({ field: `m_${m.month}`, header: m.label }))];
+    const row = (metric, pick) => { const r = { metric }; months.forEach(m => { r[`m_${m.month}`] = pick(m); }); return r; };
+    return { cols, data: [
+      row('Billed', m => m.billed ? fmtRup(m.billed) : ''),
+      row('Paid', m => m.paid ? fmtRup(m.paid) : ''),
+      row('Payment %', m => m.pct != null ? `${m.pct}%` : '—'),
+    ] };
+  }, [accPay.monthly]);
+  const expSlowest = useMemo(() => ({
+    cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'outstanding', header: 'Outstanding' },
+      { field: 'overdue', header: 'Overdue' }, { field: 'rating', header: 'Rating' }],
+    data: (accPay.slowest || []).map(r => ({ vendor: r.vendor, outstanding: fmtRup(r.outstanding),
+      overdue: r.overdue ? fmtRup(r.overdue) : '—', rating: r.rating })),
+  }), [accPay.slowest]);
+  // Credit/Debit Notes — recent lists.
+  const expDebitNotes = useMemo(() => ({
+    cols: [{ field: 'no', header: 'No' }, { field: 'vendor', header: 'Vendor' }, { field: 'date', header: 'Date' }, { field: 'amount', header: 'Amount' }],
+    data: (accNotes.recent_debit || []).map(r => ({ no: r.no, vendor: r.vendor, date: r.date ? fmtDate(r.date) : '', amount: fmtRup(r.amount) })),
+  }), [accNotes.recent_debit]);
+  const expCreditNotes = useMemo(() => ({
+    cols: [{ field: 'no', header: 'No' }, { field: 'vendor', header: 'Vendor' }, { field: 'date', header: 'Date' }, { field: 'amount', header: 'Amount' }],
+    data: (accNotes.recent_credit || []).map(r => ({ no: r.no, vendor: r.vendor, date: r.date ? fmtDate(r.date) : '', amount: fmtRup(r.amount) })),
+  }), [accNotes.recent_credit]);
+  // GST — monthly pivot.
+  const expGstMonthly = useMemo(() => ({
+    cols: [{ field: 'month', header: 'Month' }, { field: 'cgst', header: 'CGST' }, { field: 'sgst', header: 'SGST' },
+      { field: 'igst', header: 'IGST' }, { field: 'total', header: 'Total GST' }],
+    data: (accGst.monthly || []).map(m => ({ month: m.label, cgst: fmtRup(m.cgst), sgst: fmtRup(m.sgst),
+      igst: fmtRup(m.igst), total: fmtRup(m.total_gst) })),
+  }), [accGst.monthly]);
+  const cnPctOfPurchases = num(accNotes.credit_total) && totalPurchase ? (num(accNotes.credit_total) / totalPurchase * 100) : 0;
 
   // Branch Transfers — summary (branch × month) + bills
   const expBranchSummary = useMemo(() => ({
@@ -1372,16 +1519,18 @@ export default function PurchaseWorkspace() {
                 </select>
               </>
             )}
-            {(activeSection === 'v_top' || activeSection === 'v_inact' || activeSection === 'v_new' || activeSection === 'v_conc') && (
+            {['v_top', 'v_inact', 'v_score', 'v_single', 'v_price'].includes(activeSection) && (
               <>
                 <select value={vendCat} onChange={e => setVendCat(e.target.value)}
                   className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[150px]">
                   {DRILL_CATS.map(c => <option key={c.key || 'all'} value={c.key}>{c.key ? c.label : 'All Categories'}</option>)}
                 </select>
-                <select value={vendMsme} onChange={e => setVendMsme(e.target.value)}
-                  className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[130px]">
-                  {MSME_OPTS.map(o => <option key={o.key || 'all'} value={o.key}>{o.label}</option>)}
-                </select>
+                {['v_top', 'v_inact', 'v_score'].includes(activeSection) && (
+                  <select value={vendMsme} onChange={e => setVendMsme(e.target.value)}
+                    className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[130px]">
+                    {MSME_OPTS.map(o => <option key={o.key || 'all'} value={o.key}>{o.label}</option>)}
+                  </select>
+                )}
               </>
             )}
             <div className="relative flex items-center gap-1.5">
@@ -1635,6 +1784,158 @@ export default function PurchaseWorkspace() {
               )
             )}
 
+            {/* ===== Vendors · Scorecard ===== */}
+            {!loading && activeSection === 'v_score' && (
+              vendLoading ? (
+                <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span></div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                    <Card label="Vendors Scored" value={vScore.count} sub="with purchase history" />
+                    <Card label="Avg Return Rate" value={`${vScore.avgRet.toFixed(1)}%`} sub="debit notes / purchases" color="text-amber-600" borderColor="border-amber-400" />
+                    <Card label="Good Vendors" value={vScore.rows.filter(v => v.score === 'GOOD').length} sub="low return · recent" color="text-emerald-600" borderColor="border-emerald-400" />
+                    <Card label="Flagged" value={vScore.flagged} sub="return >5% or 90d+ idle" color="text-red-600" borderColor="border-red-400" />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Vendor reliability scorecard</div>
+                    <TableExport cols={expVScore.cols} data={expVScore.data} filename={`vendors-scorecard-${slug(companyName)}`} title="Vendor Scorecard" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'vendor', valueField: 'value' }} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>Vendor</TH><TH>Category</TH><TH right>Purchase Value</TH><TH right>Bills</TH><TH right>Return Rate</TH><TH right>Outstanding</TH><TH>Score</TH></tr></thead>
+                      <tbody>
+                        {vScore.rows.map((v, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <TD bold>{v.vendor_name}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
+                            <TD color="text-slate-500">{normCat(v.purchase_category) || '—'}</TD>
+                            <TD right bold color="text-indigo-700">{fmtINR(v.period_value)}</TD>
+                            <TD right>{v.period_bills}</TD>
+                            <TD right color={v.return_rate > 5 ? 'text-red-600' : v.return_rate > 2 ? 'text-amber-600' : 'text-slate-500'}>{v.return_rate.toFixed(1)}%</TD>
+                            <TD right color="text-amber-600">{v.outstanding ? fmtINR(v.outstanding) : '—'}</TD>
+                            <TD><span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${v.score === 'POOR' ? 'bg-rose-50 text-rose-700' : v.score === 'FAIR' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{v.score}</span></TD>
+                          </tr>
+                        ))}
+                        {vScore.rows.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate-400 text-sm">No vendors to score in this period.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* ===== Vendors · Single-Source Risk ===== */}
+            {!loading && activeSection === 'v_single' && (
+              drillPivot == null ? (
+                <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span></div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+                    <Card label="Single-Source Items" value={vSingle.count} sub="one vendor only" color="text-red-600" borderColor="border-red-400" />
+                    <Card label="Spend Exposed" value={fmtINR(vSingle.exposed)} sub="value at risk" color="text-amber-600" borderColor="border-amber-400" />
+                    <Card label="% of Purchases" value={`${vSingle.pct.toFixed(1)}%`} sub="single-sourced" color="text-indigo-700" borderColor="border-indigo-400" />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Items bought from a single vendor</div>
+                    <TableExport cols={expVSingle.cols} data={expVSingle.data} filename={`single-source-${slug(companyName)}`} title="Single-Source Risk" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'item', valueField: 'value' }} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>Item</TH><TH>Category</TH><TH>Sole Vendor</TH><TH right>Qty</TH><TH right>Value</TH></tr></thead>
+                      <tbody>
+                        {vSingle.items.map((i, k) => (
+                          <tr key={k} className="hover:bg-slate-50">
+                            <TD bold>{i.item}</TD>
+                            <TD color="text-slate-500">{i.category}</TD>
+                            <TD>{i.vendor}{i.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
+                            <TD right>{fmtQty(i.qty)}<span className="text-slate-400 ml-0.5">{i.uom}</span></TD>
+                            <TD right bold color="text-amber-600">{fmtINR(i.value)}</TD>
+                          </tr>
+                        ))}
+                        {vSingle.items.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate-400 text-sm">No single-source items — every item has 2+ vendors.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* ===== Vendors · MSME Compliance ===== */}
+            {!loading && activeSection === 'v_msme' && (
+              payCal == null ? (
+                <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span></div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                    <Card label="MSME Vendors Owed" value={vMsme.vendors} sub="with open bills" />
+                    <Card label="Total MSME Payable" value={fmtINR(vMsme.total)} color="text-amber-600" borderColor="border-amber-400" />
+                    <Card label="Overdue > 45 days" value={fmtINR(vMsme.overTotal)} sub="§43B(h) exposure" color="text-red-600" borderColor="border-red-400" />
+                    <Card label="Bills Past 45d" value={vMsme.overCount} sub="non-deductible risk" color="text-red-600" />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">MSME payables vs the 45-day MSMED limit</div>
+                    <TableExport cols={expVMsme.cols} data={expVMsme.data} filename={`msme-compliance-${slug(companyName)}`} title="MSME Compliance (45-day)" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>Vendor</TH><TH>Bill</TH><TH>Bill Date</TH><TH right>Days Since Bill</TH><TH right>Balance</TH><TH>Status</TH></tr></thead>
+                      <tbody>
+                        {vMsme.bills.map((b, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <TD bold>{b.vendor_name}</TD>
+                            <TD clickable onClick={() => navigate(`/purchase/bills?quick=${b.bill_id}`)}>{b.bill_no || b.vendor_invoice_no || '—'}</TD>
+                            <TD color="text-slate-500">{fmtDate(b.bill_date)}</TD>
+                            <TD right color={b.over45 ? 'text-red-600' : 'text-slate-500'}>{b.daysSinceBill == null ? '—' : `${b.daysSinceBill}d`}</TD>
+                            <TD right bold color="text-amber-600">{fmtINR(b.balance)}</TD>
+                            <TD><span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${b.over45 ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{b.over45 ? 'OVERDUE-45' : 'DUE'}</span></TD>
+                          </tr>
+                        ))}
+                        {vMsme.bills.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-sm">No open MSME payables.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* ===== Vendors · Price Watch ===== */}
+            {!loading && activeSection === 'v_price' && (
+              drillPivot == null ? (
+                <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span></div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                    <Card label="Items Rising" value={vPrice.rising} sub="price up vs start" color="text-red-600" borderColor="border-red-400" />
+                    <Card label="Avg Price Change" value={`${vPrice.avgChange > 0 ? '▲' : vPrice.avgChange < 0 ? '▼' : ''} ${Math.abs(vPrice.avgChange).toFixed(1)}%`} color={vPrice.avgChange > 0 ? 'text-red-600' : 'text-emerald-600'} />
+                    <Card label="Potential Saving" value={fmtINR(vPrice.saving)} sub="vs cheapest vendor" color="text-emerald-600" borderColor="border-emerald-400" />
+                    <Card label="Multi-Vendor Items" value={vPrice.count} sub="comparable" />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Price watch — rate creep & overpay</div>
+                    <TableExport cols={expVPrice.cols} data={expVPrice.data} filename={`price-watch-${slug(companyName)}`} title="Price Watch" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'item', valueField: 'overpay' }} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>Item</TH><TH>Category</TH><TH right>Current Avg</TH><TH right>Change %</TH><TH right>Spread %</TH><TH>Cheapest Vendor</TH><TH right>Overpay</TH></tr></thead>
+                      <tbody>
+                        {vPrice.items.map((i, k) => (
+                          <tr key={k} className="hover:bg-slate-50">
+                            <TD bold>{i.item}</TD>
+                            <TD color="text-slate-500">{i.category}</TD>
+                            <TD right>{fmtRup(i.curAvg)}</TD>
+                            <TD right color={i.change_pct == null ? 'text-slate-400' : num(i.change_pct) > 0 ? 'text-red-600' : 'text-emerald-600'}>{i.change_pct == null ? '—' : `${num(i.change_pct) > 0 ? '▲' : '▼'} ${Math.abs(num(i.change_pct)).toFixed(1)}%`}</TD>
+                            <TD right color="text-slate-500">{i.spread_pct == null ? '—' : `${num(i.spread_pct).toFixed(1)}%`}</TD>
+                            <TD color="text-emerald-700">{i.cheapest}</TD>
+                            <TD right bold color="text-amber-600">{i.overpay > 0 ? fmtINR(i.overpay) : '—'}</TD>
+                          </tr>
+                        ))}
+                        {vPrice.items.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate-400 text-sm">No multi-vendor items to compare.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
             {/* ===== Vendors · New Vendors ===== */}
             {!loading && activeSection === 'v_new' && (
               vendLoading ? (
@@ -1808,6 +2109,34 @@ export default function PurchaseWorkspace() {
 
             {/* ===== Item Analytics ===== */}
             {!loading && activeSection === 'pa_item' && (
+              <div className="space-y-4">
+                {/* Top items purchased — a ranked highlight above the table. */}
+                {itemRows.length > 0 && (() => {
+                  const top = [...itemRows].sort((a, b) => b.value - a.value).slice(0, 6);
+                  const maxV = top[0]?.value || 1;
+                  return (
+                    <div className="bg-white rounded-lg border border-slate-300 shadow-sm px-4 py-3">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-700 mb-2.5">Top items purchased</div>
+                      <div className="space-y-1.5">
+                        {top.map((it, i) => (
+                          <div key={it.item} className="flex items-center gap-3">
+                            <div className="w-[170px] shrink-0 text-right text-[11px] font-semibold text-slate-700 truncate">
+                              <span className="text-slate-400 mr-1 tabular-nums">{i + 1}</span>{it.item}
+                            </div>
+                            <div className="flex-1 min-w-0 h-5 bg-slate-100 rounded overflow-hidden">
+                              <div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded flex items-center px-2 text-[9px] font-bold text-white whitespace-nowrap"
+                                style={{ width: `${Math.max((it.value / maxV) * 100, 6)}%`, minWidth: '54px' }}>
+                                {fmtINR(it.value)}
+                              </div>
+                            </div>
+                            <div className="w-[50px] shrink-0 text-right text-[10px] text-slate-400 tabular-nums">{it.uom || ''}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
               <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                 <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-3">
                   <div className="text-[12px] font-bold text-slate-800">Product Summary <span className="font-medium text-slate-400 text-[11px] ml-1">({itemRows.length} products · click to expand)</span></div>
@@ -1910,6 +2239,7 @@ export default function PurchaseWorkspace() {
                   </tbody>
                 </table>
               </div>
+              </div>
             )}
 
             {/* ===== Item Drill-down ===== */}
@@ -1960,7 +2290,7 @@ export default function PurchaseWorkspace() {
                                       className={`cursor-pointer hover:bg-slate-50 ${open ? 'bg-indigo-50/60' : v.cheapest ? 'bg-emerald-50/50' : ''}`}>
                                       <TD bold>
                                         <ChevronDown size={12} className={`inline-block mr-1 text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
-                                        {v.vendor}{v.cheapest && <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wide text-emerald-700 align-middle">cheapest</span>}
+                                        {v.vendor}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}{v.cheapest && <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wide text-emerald-700 align-middle">cheapest</span>}
                                       </TD>
                                       <TD color="text-slate-400">{drillSelected.uom || '—'}</TD>
                                       <TD right>{fmtQty(v.qty)}</TD>
@@ -2080,7 +2410,7 @@ export default function PurchaseWorkspace() {
                                 const rowTotal = drillMeasure === 'qty' ? v.qty : drillMeasure === 'value' ? v.value : v.avg;
                                 return (
                                   <tr key={i} className="hover:bg-slate-50">
-                                    <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 border-b border-slate-100 z-10">{v.vendor}</td>
+                                    <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 border-b border-slate-100 z-10">{v.vendor}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</td>
                                     {drillMonths.map(m => <td key={m} className="text-right px-2 py-1 text-[10px] tabular-nums border-b border-l border-slate-100">{fmtCell(cellVal(v.cells[m]))}</td>)}
                                     <td className="text-right px-2 py-1 text-[11px] font-bold tabular-nums text-indigo-700 border-b border-l border-slate-200">{fmtCell(rowTotal)}</td>
                                   </tr>
@@ -2108,6 +2438,182 @@ export default function PurchaseWorkspace() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* ===== Payment Efficiency ===== */}
+            {!loading && activeSection === 'ac_pay' && (
+              acc == null ? (
+                <div className="flex items-center justify-center py-24 text-slate-400">
+                  <Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span>
+                </div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                    <Card label="DPO (Days Payable Outstanding)" value={`${num(accPay.dpo)}d`} color="text-amber-600" borderColor="border-amber-400" />
+                    <Card label="Payment Rate" value={`${num(accPay.payment_rate)}%`} sub="Paid / Billed" color="text-emerald-600" borderColor="border-emerald-400" />
+                    <Card label="Outstanding" value={fmtRup(num(accPay.outstanding))} color="text-amber-600" borderColor="border-amber-400" />
+                    <Card label="Overdue" value={fmtRup(num(accPay.overdue))} color="text-rose-600" borderColor="border-rose-400" />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Month-wise Payment Trend</div>
+                    <TableExport cols={expPayTrend.cols} data={expPayTrend.data} filename={`payment-trend-${slug(companyName)}`} title="Month-wise Payment Trend" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh] mb-5">
+                    <table className="min-w-[640px] w-full">
+                      <thead><tr>
+                        <th className="sticky top-0 left-0 z-20 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200">Metric</th>
+                        {(accPay.monthly || []).map(m => <th key={m.month} className="sticky top-0 z-10 bg-slate-100 text-right px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-l border-slate-200 min-w-[88px]">{m.label}</th>)}
+                      </tr></thead>
+                      <tbody>
+                        {['Billed', 'Paid', 'Payment %'].map((metric, mi) => (
+                          <tr key={metric} className="hover:bg-slate-50">
+                            <td className={`sticky left-0 z-10 bg-white px-2 py-1.5 text-[11px] font-semibold border-b border-slate-100 ${mi === 1 ? 'text-emerald-700' : mi === 2 ? 'text-amber-600' : 'text-slate-800'}`}>{metric}</td>
+                            {(accPay.monthly || []).map(m => {
+                              const val = mi === 0 ? (m.billed ? fmtRup(m.billed) : '—') : mi === 1 ? (m.paid ? fmtRup(m.paid) : '—') : (m.pct != null ? `${m.pct}%` : '—');
+                              return <td key={m.month} className="text-right px-2 py-1.5 text-[10px] tabular-nums border-b border-l border-slate-100">{val}</td>;
+                            })}
+                          </tr>
+                        ))}
+                        {(accPay.monthly || []).length === 0 && <tr><td className="text-center py-8 text-slate-400 text-sm" colSpan={1}>No data</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Slowest Payers</div>
+                    <TableExport cols={expSlowest.cols} data={expSlowest.data} filename={`slowest-payers-${slug(companyName)}`} title="Slowest Payers" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'vendor', valueField: 'outstanding' }} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>Vendor</TH><TH right>Outstanding</TH><TH right>Overdue</TH><TH>Rating</TH></tr></thead>
+                      <tbody>
+                        {(accPay.slowest || []).map((r, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <TD bold>{r.vendor}</TD>
+                            <TD right color="text-amber-600">{fmtRup(r.outstanding)}</TD>
+                            <TD right color={r.overdue ? 'text-rose-600' : 'text-slate-300'}>{r.overdue ? fmtRup(r.overdue) : '—'}</TD>
+                            <TD><span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${r.rating === 'POOR' ? 'bg-rose-50 text-rose-700' : r.rating === 'FAIR' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{r.rating}</span></TD>
+                          </tr>
+                        ))}
+                        {(accPay.slowest || []).length === 0 && <tr><td colSpan={4} className="text-center py-8 text-slate-400 text-sm">No open payables</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* ===== Credit / Debit Notes ===== */}
+            {!loading && activeSection === 'ac_cndn' && (
+              acc == null ? (
+                <div className="flex items-center justify-center py-24 text-slate-400">
+                  <Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span>
+                </div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                    <Card label="Credit Notes" value={fmtRup(num(accNotes.credit_total))} sub={`${num(accNotes.credit_count)} notes`} color="text-rose-600" borderColor="border-rose-400" />
+                    <Card label="Debit Notes" value={fmtRup(num(accNotes.debit_total))} sub={`${num(accNotes.debit_count)} notes`} color="text-emerald-600" borderColor="border-emerald-400" />
+                    <Card label="Net Adjustment" value={fmtRup(num(accNotes.net_adjustment))} sub="DN − CN" color={num(accNotes.net_adjustment) < 0 ? 'text-rose-600' : 'text-slate-800'} borderColor="border-indigo-400" />
+                    <Card label="CN as % of Purchases" value={`${cnPctOfPurchases.toFixed(1)}%`} sub="Target < 2%" color="text-indigo-700" borderColor="border-sky-400" />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Recent Debit Notes</div>
+                    <TableExport cols={expDebitNotes.cols} data={expDebitNotes.data} filename={`debit-notes-${slug(companyName)}`} title="Recent Debit Notes" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh] mb-5">
+                    <table className="w-full">
+                      <thead><tr><TH>No</TH><TH>Vendor</TH><TH>Date</TH><TH right>Amount</TH></tr></thead>
+                      <tbody>
+                        {(accNotes.recent_debit || []).map((r, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <TD bold>{r.no}</TD><TD color="text-slate-600">{r.vendor}</TD>
+                            <TD color="text-slate-500">{fmtDate(r.date)}</TD>
+                            <TD right bold color="text-emerald-700">{fmtRup(r.amount)}</TD>
+                          </tr>
+                        ))}
+                        {(accNotes.recent_debit || []).length === 0 && <tr><td colSpan={4} className="text-center py-8 text-slate-400 text-sm">No debit notes this period</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-rose-700">Recent Credit Notes</div>
+                    <TableExport cols={expCreditNotes.cols} data={expCreditNotes.data} filename={`credit-notes-${slug(companyName)}`} title="Recent Credit Notes" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>No</TH><TH>Vendor</TH><TH>Date</TH><TH right>Amount</TH></tr></thead>
+                      <tbody>
+                        {(accNotes.recent_credit || []).map((r, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <TD bold>{r.no}</TD><TD color="text-slate-600">{r.vendor}</TD>
+                            <TD color="text-slate-500">{fmtDate(r.date)}</TD>
+                            <TD right bold color="text-rose-600">{fmtRup(r.amount)}</TD>
+                          </tr>
+                        ))}
+                        {(accNotes.recent_credit || []).length === 0 && <tr><td colSpan={4} className="text-center py-8 text-slate-400 text-sm">No credit notes this period</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* ===== GST Summary ===== */}
+            {!loading && activeSection === 'ac_gst' && (
+              acc == null ? (
+                <div className="flex items-center justify-center py-24 text-slate-400">
+                  <Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span>
+                </div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
+                    <Card label="Ex-GST (Taxable)" value={fmtINR(num(accGst.exgst))} color="text-slate-800" borderColor="border-indigo-400" />
+                    <Card label="Total GST" value={fmtINR(num(accGst.total_gst))} color="text-indigo-700" borderColor="border-indigo-400" />
+                    <Card label="Incl. GST" value={fmtINR(num(accGst.inclgst))} sub="Total invoice value" color="text-emerald-600" borderColor="border-emerald-400" />
+                  </div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">GST Breakup</div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
+                    <Card label="CGST" value={fmtRup(num(accGst.cgst))} color="text-slate-800" borderColor="border-sky-400" />
+                    <Card label="SGST" value={fmtRup(num(accGst.sgst))} color="text-slate-800" borderColor="border-sky-400" />
+                    <Card label="IGST" value={fmtRup(num(accGst.igst))} color="text-slate-800" borderColor="border-sky-400" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    <Card label="Other Charges" value={fmtRup(num(accGst.charges))} sub="Freight / testing" color="text-amber-600" borderColor="border-amber-400" />
+                    <Card label="Round Off" value={fmtRup(num(accGst.round_off))} color="text-slate-800" borderColor="border-slate-300" />
+                  </div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Debit / Credit Notes</div>
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    <Card label="Debit Notes" value={fmtRup(num(accGst.debit_notes))} color="text-emerald-700" borderColor="border-emerald-400" />
+                    <Card label="Credit Notes" value={fmtRup(num(accGst.credit_notes))} color="text-rose-600" borderColor="border-rose-400" />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Monthly GST Pivot</div>
+                    <TableExport cols={expGstMonthly.cols} data={expGstMonthly.data} filename={`gst-monthly-${slug(companyName)}`} title="Monthly GST Pivot" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'month', valueField: 'total' }} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>Month</TH><TH right>CGST</TH><TH right>SGST</TH><TH right>IGST</TH><TH right>Total GST</TH></tr></thead>
+                      <tbody>
+                        {(accGst.monthly || []).map((m, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <TD bold>{m.label}</TD>
+                            <TD right>{m.cgst ? fmtRup(m.cgst) : '—'}</TD>
+                            <TD right>{m.sgst ? fmtRup(m.sgst) : '—'}</TD>
+                            <TD right>{m.igst ? fmtRup(m.igst) : '—'}</TD>
+                            <TD right bold color="text-indigo-700">{m.total_gst ? fmtRup(m.total_gst) : '—'}</TD>
+                          </tr>
+                        ))}
+                        {(accGst.monthly || []).length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate-400 text-sm">No GST data for this period</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
             )}
 
             {/* ===== TDS Summary ===== */}

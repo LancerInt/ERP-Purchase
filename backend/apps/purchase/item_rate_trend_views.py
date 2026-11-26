@@ -96,6 +96,7 @@ class PurchaseItemRateTrendView(APIView):
         acc = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [Z, Z])))
         uom_votes = defaultdict(Counter)
         pid_of = {}
+        msme_of = {}   # vendor name -> is_msme (for the MSME pill in the drill)
         for ln in qs:
             name = (ln.product.product_name if ln.product_id else (ln.description or '')).strip() or '—'
             vend = (ln.bill.vendor.vendor_name if (ln.bill_id and ln.bill.vendor_id) else '—')
@@ -112,6 +113,8 @@ class PurchaseItemRateTrendView(APIView):
                 uom_votes[name][ln.uom.strip().upper()] += 1
             if ln.product_id and name not in pid_of:
                 pid_of[name] = ln.product_id
+            if vend not in msme_of and ln.bill_id and ln.bill.vendor_id:
+                msme_of[vend] = bool(getattr(ln.bill.vendor, 'is_msme', False))
 
         months = sorted(months_seen)
         items = []
@@ -135,6 +138,7 @@ class PurchaseItemRateTrendView(APIView):
                     mr[0] += q; mr[1] += v
                 vendors.append({
                     'vendor': vend,
+                    'is_msme': msme_of.get(vend, False),
                     'total_qty': str(vq),
                     'total_value': str(vv),
                     'avg_rate': round(float(vv / vq), 2) if vq else None,
