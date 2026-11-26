@@ -327,3 +327,113 @@ class PurchaseItemVendorBillsView(APIView):
             'item': item, 'vendor': vendor, 'rows': rows,
             'total_qty': float(tot_qty), 'total_value': float(tot_val),
         })
+
+
+# The Item Drill-down's category chips use these raw keys; product_category()
+# normalizes them (MAIZE/BOUGHT_NOTE -> RM, PACKING -> PM), so a chip's key is
+# mapped through the same table before comparison, keeping the dropdown both
+# consistent with that filter AND actually matching the normalized category.
+_CAT_NORMALIZE = {'RM': 'RM', 'PACKING': 'PM', 'MAIZE': 'RM', 'BOUGHT_NOTE': 'RM',
+                  'PM': 'PM', 'FRUIT': 'FRUIT'}
+
+
+class PurchaseVendorTurnoverView(APIView):
+    """Vendor turnover pivot — vendor × month billed value, each vendor drilling
+    into the items it supplied. The purchase analogue of the Sales Customer
+    Turnover section.
+
+    GET /api/purchase/vendor-turnover/?company=&from=&to=&category=<optional>
+
+    Same keying + base scope as the item-rate-trend view (VendorBillLine,
+    non-cancelled bills, company + date window; item = product.product_name or
+    description; vendor = bill.vendor.vendor_name; month = bill_date %Y-%m).
+    `category` filters to lines whose product's dominant purchase category
+    (product_category(), normalized RM/PM/FRUIT) matches.
+    """
+    permission_classes = [IsAuthenticated]
+    module_name = 'Consolidated Report'
+
+    def get(self, request):
+        from .models import VendorBillLine
+        from .stock_views import product_category
+
+        company = (request.query_params.get('company') or '').strip() or None
+        frm = _pd(request.query_params.get('from'))
+        to = _pd(request.query_params.get('to'))
+        cat_key = (request.query_params.get('category') or '').strip().upper()
+        want_cat = _CAT_NORMALIZE.get(cat_key, cat_key) if cat_key else None
+
+        qs = (VendorBillLine.objects.filter(is_active=True)
+              .exclude(bill__status='CANCELLED')
+              .select_related('bill', 'bill__vendor', 'product'))
+        if company:
+            qs = qs.filter(bill__vendor__company_id=company)
+        if frm:
+            qs = qs.filter(bill__bill_date__gte=frm)
+        if to:
+            qs = qs.filter(bill__bill_date__lte=to)
+
+        # Cache product -> normalized category so we resolve each product once.
+        cat_cache = {}
+
+        def _cat(pid):
+            if pid not in cat_cache:
+                cat_cache[pid] = (product_category(pid) or '').upper() if pid else ''
+            return cat_cache[pid]
+
+        months_seen = set()
+        # vendor -> { 'vendor_id', 'by_month': {ym: value}, 'items': {item: {...}} }
+        vendors = {}
+        for ln in qs:
+            bill = ln.bill
+            if not (bill and bill.bill_date):
+                continue
+            pid = ln.product_id
+            if want_cat is not None and _cat(pid) != want_cat:
+                continue
+            vend = (bill.vendor.vendor_name if bill.vendor_id else '—')
+            vid = str(bill.vendor_id) if bill.vendor_id else None
+            item = (ln.product.product_name if pid else (ln.description or '')).strip() or '—'
+            ym = bill.bill_date.strftime('%Y-%m')
+            months_seen.add(ym)
+            qty = Decimal(str(ln.quantity or 0))
+            val = Decimal(str(ln.amount or 0))
+
+            v = vendors.get(vend)
+            if v is None:
+                v = vendors[vend] = {'vendor_id': vid, 'by_month': defaultdict(lambda: Z), 'items': {}}
+            v['by_month'][ym] += val
+            it = v['items'].get(item)
+            if it is None:
+                it = v['items'][item] = {'uom': ln.uom or '', 'by_month': defaultdict(lambda: [Z, Z])}
+            cell = it['by_month'][ym]
+            cell[0] += qty
+            cell[1] += val
+            if ln.uom and not it['uom']:
+                it['uom'] = ln.uom
+
+        months = sorted(months_seen)
+        out = []
+        for name, v in vendors.items():
+            v_total = sum(v['by_month'].values())
+            by_month = {ym: float(v['by_month'][ym]) for ym in months if v['by_month'].get(ym)}
+            by_month['total'] = float(v_total)
+            items = []
+            for iname, it in v['items'].items():
+                tq = sum(c[0] for c in it['by_month'].values())
+                tv = sum(c[1] for c in it['by_month'].values())
+                items.append({
+                    'item': iname, 'uom': it['uom'],
+                    'by_month': {ym: {'qty': float(it['by_month'][ym][0]), 'value': float(it['by_month'][ym][1])}
+                                 for ym in months if it['by_month'].get(ym)},
+                    'total_qty': float(tq), 'total_value': float(tv),
+                })
+            items.sort(key=lambda x: x['total_value'], reverse=True)
+            out.append({
+                'vendor': name, 'vendor_id': v['vendor_id'],
+                'by_month': by_month, '_total': float(v_total), 'items': items,
+            })
+        out.sort(key=lambda x: x['_total'], reverse=True)
+        for v in out:
+            v.pop('_total', None)
+        return Response({'months': months, 'vendors': out})

@@ -103,14 +103,17 @@ const SECTION_TITLES = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_TITLES[it.id] = it.label; }));
 const SECTION_ICON = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_ICON[it.id] = it.icon; }));
-const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'pa_drill', 'ac_tds']);
+const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'pa_drill', 'pa_vturn', 'ac_tds']);
 
 // Purchase categories for the Item Drill-down filter: chip label -> category code.
+// Categories match the normalized values product_category() returns:
+// RM (incl. Maize/Bought-note), PM (Packing), FRUIT. Keys equal those values so
+// the drill-down's `it.category === drillCat` filter matches directly, and the
+// vendor-turnover endpoint (which also normalizes) gets the same key.
 const DRILL_CATS = [
   { key: '', label: 'All' },
   { key: 'RM', label: 'RM' },
-  { key: 'PACKING', label: 'Packing' },
-  { key: 'MAIZE', label: 'Maize' },
+  { key: 'PM', label: 'Packing' },
   { key: 'FRUIT', label: 'Fruit' },
 ];
 
@@ -225,6 +228,11 @@ export default function PurchaseWorkspace() {
   const [drillOpenVendor, setDrillOpenVendor] = useState(null); // expanded vendor row
   const [drillVendorBills, setDrillVendorBills] = useState({});  // {vendor: {loading, rows}}, keyed per item+vendor
 
+  // ── Vendor Turnover UI state ──
+  const [vturn, setVturn] = useState(null);         // vendor-turnover payload
+  const [vturnCat, setVturnCat] = useState('');     // category filter (''=All)
+  const [vturnOpen, setVturnOpen] = useState(null); // expanded vendor name
+
   const applyPreset = (p) => { setDateFrom(p.from); setDateTo(p.to); setActivePeriod(p.key); setShowDatePicker(false); };
 
   // Expand a vendor row in the Item Drill-down -> that vendor's bills for the item.
@@ -286,6 +294,18 @@ export default function PurchaseWorkspace() {
     }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [company, dateFrom, dateTo]);
+
+  // ── Vendor Turnover — its own fetch (also keyed on the category filter) ──
+  useEffect(() => {
+    let alive = true;
+    setVturn(null); setVturnOpen(null);
+    const cp = company ? `company=${company}&` : '';
+    const catP = vturnCat ? `&category=${encodeURIComponent(vturnCat)}` : '';
+    apiClient.get(`/api/purchase/vendor-turnover/?${cp}from=${dateFrom}&to=${dateTo}${catP}`)
+      .then(r => { if (alive) setVturn(r.data || { months: [], vendors: [] }); })
+      .catch(() => { if (alive) setVturn({ months: [], vendors: [] }); });
+    return () => { alive = false; };
+  }, [company, dateFrom, dateTo, vturnCat]);
 
   // ── Derived top-level figures (KPI strip + profile) ──
   const stats = dash?.stats || {};
@@ -408,6 +428,20 @@ export default function PurchaseWorkspace() {
   // ── TDS rows ──
   const tdsRows = useMemo(() => (tds?.rows || []).slice(0, 40), [tds]);
 
+  // ── Vendor Turnover derivations ──
+  const vturnMonths = vturn?.months || [];
+  const vturnVendors = vturn?.vendors || [];
+  // Per-month and grand totals for the footer row.
+  const vturnTotals = useMemo(() => {
+    const byMonth = {}; let grand = 0;
+    vturnMonths.forEach(m => { byMonth[m] = 0; });
+    vturnVendors.forEach(v => {
+      vturnMonths.forEach(m => { byMonth[m] += num(v.by_month?.[m]); });
+      grand += num(v.by_month?.total);
+    });
+    return { byMonth, grand };
+  }, [vturnVendors, vturnMonths]);
+
   // ── Render ──
   return createPortal(
     <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col text-[13px] leading-relaxed" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -514,6 +548,13 @@ export default function PurchaseWorkspace() {
         <div className="flex-1 min-w-0 flex flex-col">
           <div className="px-5 py-2.5 bg-white border-b border-slate-200 flex items-center justify-between gap-3 flex-shrink-0">
             <h2 className="text-base font-bold text-slate-900 shrink-0">{sectionTitle}</h2>
+            <div className="flex items-center gap-2.5 ml-auto">
+            {activeSection === 'pa_vturn' && (
+              <select value={vturnCat} onChange={e => { setVturnCat(e.target.value); setVturnOpen(null); }}
+                className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100">
+                {DRILL_CATS.map(c => <option key={c.key || 'all'} value={c.key}>{c.key ? c.label : 'All Categories'}</option>)}
+              </select>
+            )}
             <div className="relative flex items-center gap-1.5">
               {DATE_PRESETS.filter(p => p.key === 'fy' || p.key === 'pfy' || p.key === 'cm').map(p => (
                 <button key={p.key} type="button" onClick={() => applyPreset(p)}
@@ -555,6 +596,7 @@ export default function PurchaseWorkspace() {
                   </div>
                 </div>
               )}
+            </div>
             </div>
           </div>
 
@@ -893,6 +935,102 @@ export default function PurchaseWorkspace() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            )}
+
+            {/* ===== Vendor Turnover ===== */}
+            {!loading && activeSection === 'pa_vturn' && (
+              <div>
+                {vturn == null ? (
+                  <div className="flex items-center justify-center py-24 text-slate-400">
+                    <Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span>
+                  </div>
+                ) : vturnVendors.length === 0 ? (
+                  <div className="text-center py-16 text-slate-400 text-sm">No vendor turnover in this period{vturnCat ? ' for this category' : ''}.</div>
+                ) : (
+                  <>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                      Vendor Turnover <span className="text-slate-400 font-semibold normal-case ml-1">(click vendor to see items purchased)</span>
+                    </div>
+                    <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
+                      <table className="min-w-[720px] w-full">
+                        <thead><tr>
+                          <th className="sticky left-0 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200 z-10">Vendor</th>
+                          {vturnMonths.map(m => <th key={m} className="text-center px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[70px]">{monthLabel(m)}</th>)}
+                          <th className="text-right px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total</th>
+                        </tr></thead>
+                        <tbody>
+                          {vturnVendors.map((v, i) => {
+                            const open = vturnOpen === v.vendor;
+                            return (
+                              <React.Fragment key={i}>
+                                <tr onClick={() => setVturnOpen(open ? null : v.vendor)}
+                                  className={`cursor-pointer hover:bg-slate-50 ${open ? 'bg-indigo-50/60' : ''}`}>
+                                  <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 border-b border-slate-100 z-10">
+                                    <span className="flex items-center gap-1">
+                                      <ChevronDown size={11} className={`text-slate-400 transition-transform flex-shrink-0 ${open ? '' : '-rotate-90'}`} />
+                                      <span className="hover:underline">{v.vendor}</span>
+                                    </span>
+                                  </td>
+                                  {vturnMonths.map(m => (
+                                    <td key={m} className="text-right px-2 py-1 text-[10px] tabular-nums border-b border-l border-slate-100">
+                                      {v.by_month?.[m] ? fmtINR(v.by_month[m]) : <span className="text-slate-300">—</span>}
+                                    </td>
+                                  ))}
+                                  <td className="text-right px-2 py-1 text-[11px] font-bold tabular-nums text-indigo-700 border-b border-l border-slate-200">{fmtINR(v.by_month?.total)}</td>
+                                </tr>
+                                {open && (
+                                  <tr><td colSpan={vturnMonths.length + 2} className="p-0">
+                                    <div className="bg-slate-50 border-t border-b border-slate-200 px-4 py-3">
+                                      <div className="text-[10px] font-bold text-slate-600 uppercase mb-2">Items Purchased</div>
+                                      {(v.items || []).length > 0 ? (
+                                        <div className="bg-white rounded-md border border-slate-200 overflow-x-auto">
+                                          <table className="min-w-[640px] w-full">
+                                            <thead><tr>
+                                              <th className="sticky left-0 bg-slate-100 text-left px-2 py-1 text-[9px] font-bold uppercase text-indigo-700 z-10">Product</th>
+                                              <th className="text-left px-2 py-1 text-[9px] font-bold uppercase text-indigo-700">UOM</th>
+                                              {vturnMonths.map(m => <th key={m} className="text-center px-2 py-1 text-[9px] font-bold uppercase text-indigo-700 border-l border-slate-200 min-w-[72px]">{monthLabel(m)}</th>)}
+                                              <th className="text-right px-2 py-1 text-[9px] font-extrabold uppercase text-indigo-700 border-l border-slate-200">Total Qty</th>
+                                              <th className="text-right px-2 py-1 text-[9px] font-extrabold uppercase text-indigo-700 border-l border-slate-200">Total Value</th>
+                                            </tr></thead>
+                                            <tbody>
+                                              {v.items.map((it, ii) => (
+                                                <tr key={ii} className="hover:bg-slate-50 border-b border-slate-100">
+                                                  <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-medium text-slate-800 z-10">{it.item}</td>
+                                                  <td className="px-2 py-1 text-[10px] text-slate-400">{it.uom || '—'}</td>
+                                                  {vturnMonths.map(m => {
+                                                    const md = it.by_month?.[m];
+                                                    return <td key={m} className="text-center px-2 py-1 text-[10px] tabular-nums border-l border-slate-100">
+                                                      {md ? <><span className="font-medium text-slate-700">{fmtQty(md.qty)}</span><span className="text-slate-400 text-[9px]"> · {md.qty > 0 ? fmtRup(md.value / md.qty).replace('₹', '') : '—'}</span></> : <span className="text-slate-300">—</span>}
+                                                    </td>;
+                                                  })}
+                                                  <td className="text-right px-2 py-1 text-[10px] font-bold tabular-nums text-slate-700 border-l border-slate-200">{fmtQty(it.total_qty)}</td>
+                                                  <td className="text-right px-2 py-1 text-[10px] font-bold tabular-nums text-indigo-700 border-l border-slate-200">{fmtINR(it.total_value)}</td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      ) : <div className="text-[11px] text-slate-400 italic">No item detail for this vendor.</div>}
+                                    </div>
+                                  </td></tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                          {/* Totals row */}
+                          <tr className="bg-slate-50 font-bold">
+                            <td className="sticky left-0 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700 border-t border-slate-200 z-10">Total · {vturnVendors.length} vendors</td>
+                            {vturnMonths.map(m => (
+                              <td key={m} className="text-right px-2 py-1 text-[10px] tabular-nums font-bold text-slate-700 border-t border-l border-slate-200">{vturnTotals.byMonth[m] ? fmtINR(vturnTotals.byMonth[m]) : '—'}</td>
+                            ))}
+                            <td className="text-right px-2 py-1 text-[11px] font-extrabold tabular-nums text-indigo-800 border-t border-l border-slate-200">{fmtINR(vturnTotals.grand)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
