@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ExternalLink, Pencil, ChevronLeft } from 'lucide-react';
+import { X, ExternalLink, Pencil, ChevronLeft, FileText, Image as ImageIcon } from 'lucide-react';
 import StatusBadge from '../../../components/common/StatusBadge';
 import apiClient from '../../../utils/api.js';
 import { formatDate, formatCurrency } from '@/utils/formatters';
@@ -47,10 +47,21 @@ export function billSource(row) {
   return { inTally, bornInErp, origin, sync };
 }
 
+// Pretty label for an attachment's category code (falls back to the raw code).
+const ATT_LABEL = {
+  INVOICE: 'Invoice', BILL: 'Invoice', RATE_PROOF: 'Rate proof',
+  WEIGHMENT: 'Weighment', TRANSPORT: 'Transport', RECEIPT: 'Receipt',
+  VOICE_NOTE: 'Voice note', DEVIATION_PROOF: 'Deviation', OTHER: 'File',
+};
+const attLabel = (c) => ATT_LABEL[(c || '').toUpperCase()] || (c ? c.replace(/_/g, ' ') : 'File');
+const isImageFile = (name = '', type = '') =>
+  /^image\//i.test(type) || /\.(png|jpe?g|gif|webp|bmp|heic)$/i.test(name);
+
 export default function BillQuickView({ id, onClose, onOpenFull, onEdit, canEdit, inline = false, showBack = false }) {
   const [bill, setBill] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [attachments, setAttachments] = useState([]);
 
   useEffect(() => {
     if (!id) return undefined;
@@ -58,10 +69,16 @@ export default function BillQuickView({ id, onClose, onOpenFull, onEdit, canEdit
     setLoading(true);
     setError(null);
     setBill(null);
+    setAttachments([]);
     apiClient.get(`/api/purchase/bills/${id}/`)
       .then(({ data }) => { if (alive) setBill(data); })
       .catch(() => { if (alive) setError('Could not load this bill.'); })
       .finally(() => { if (alive) setLoading(false); });
+    // Uploaded attachments for this bill (invoice scan, weighment slip, …).
+    // A failure here is non-fatal: the card still shows without the strip.
+    apiClient.get(`/api/purchase/attachments/?module=BILL&record_id=${id}`)
+      .then(({ data }) => { if (alive) setAttachments(Array.isArray(data) ? data : (data?.results || [])); })
+      .catch(() => { /* no attachments strip */ });
     return () => { alive = false; };
   }, [id]);
 
@@ -81,27 +98,49 @@ export default function BillQuickView({ id, onClose, onOpenFull, onEdit, canEdit
   const num = (v) => Number(v) || 0;
   const bal = num(bill?.balance_due);
 
+  // All files to show: uploaded attachments + any scanned invoice photos.
+  const files = [
+    ...attachments.map((a) => ({
+      key: `att-${a.id}`, url: a.file_url || a.file,
+      name: a.file_name || 'File', category: a.category,
+      isImage: isImageFile(a.file_name, a.file_type),
+    })),
+    ...((bill?.zoho_photos || []).map((p, i) => {
+      const url = typeof p === 'string' ? p : (p.url || p.file_url || p.file || '');
+      const name = (typeof p === 'object' && (p.name || p.file_name)) || `Invoice scan ${i + 1}`;
+      return { key: `scan-${i}`, url, name, category: 'INVOICE', isImage: isImageFile(name, '') || /\.(png|jpe?g|webp)/i.test(url) };
+    })),
+  ].filter((f) => f.url);
+
   const Row = ({ label, value, strong, tone }) => (
     <div className="flex items-center justify-between py-1">
-      <span className="text-[12px] text-slate-500">{label}</span>
-      <span className={`tabular-nums ${strong ? 'text-[13px] font-bold' : 'text-[12px] font-medium'} ${tone || 'text-slate-800'}`}>{value}</span>
+      <span className={`${strong ? 'text-[12.5px] font-bold text-slate-800' : 'text-[12px] font-semibold text-slate-600'}`}>{label}</span>
+      <span className={`tabular-nums ${strong ? 'text-[13px] font-bold' : 'text-[12px] font-semibold'} ${tone || 'text-slate-900'}`}>{value}</span>
+    </div>
+  );
+
+  // Label / value row for the left detail ledger (dashed separators).
+  const KV = ({ k, v, tone }) => (
+    <div className="flex items-start justify-between gap-3 py-1 border-b border-dashed border-slate-100 last:border-b-0">
+      <span className="text-[12px] font-semibold text-slate-600 shrink-0">{k}</span>
+      <span className={`text-[12px] font-bold text-right min-w-0 ${tone || 'text-slate-900'}`}>{v}</span>
     </div>
   );
 
   const shell = (
-    <div className={inline ? '' : 'fixed inset-0 z-[70] print:hidden'}>
+    <div className={inline ? '' : 'fixed inset-0 z-[70] print:hidden flex items-start sm:items-center justify-center p-3 sm:p-6'}>
       {/* Backdrop — click anywhere off the card to close. */}
       {!inline && (
         <button
           aria-label="Close bill"
           onClick={onClose}
-          className="absolute inset-0 bg-slate-900/40 animate-[fadeIn_120ms_ease-out]"
+          className="absolute inset-0 bg-slate-900/50 animate-[fadeIn_120ms_ease-out]"
         />
       )}
-      {/* Panel */}
+      {/* Panel — centered modal popup */}
       <aside className={inline
         ? 'bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden'
-        : 'absolute right-0 top-0 h-full w-full max-w-3xl bg-white shadow-2xl border-l border-slate-200 flex flex-col animate-[slideInRight_160ms_ease-out]'}>
+        : 'relative w-full max-w-3xl max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-[popIn_140ms_ease-out]'}>
         {/* Header */}
         <div className="shrink-0 border-b border-slate-200 px-4 py-3">
           <div className="flex items-start justify-between gap-3">
@@ -112,15 +151,25 @@ export default function BillQuickView({ id, onClose, onOpenFull, onEdit, canEdit
               </button>
             )}
             <div className="min-w-0">
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">Purchase bill</p>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Purchase bill</p>
               <h2 className="text-base font-bold text-slate-900 truncate">
                 {bill?.vendor_invoice_no || bill?.bill_no || (loading ? 'Loading…' : 'Bill')}
               </h2>
               {bill && (
-                <p className="text-[12px] text-slate-500 mt-0.5">
-                  {bill.bill_date ? formatDate(bill.bill_date) : '—'}
-                  {bill.tally_voucher_type ? <> · {bill.tally_voucher_type}</> : null}
-                </p>
+                <div className="mt-1 flex items-center flex-wrap gap-x-2 gap-y-1">
+                  <span className="text-[12.5px] font-bold text-slate-800">{bill.vendor_name || '—'}</span>
+                  {bill.company_name && (
+                    <span className="inline-flex items-center rounded border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-bold text-sky-700">{bill.company_name}</span>
+                  )}
+                  {bill.vendor_is_msme && (
+                    <span className="inline-flex items-center rounded border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700">MSME</span>
+                  )}
+                  {src?.origin && <Chip {...src.origin} />}
+                  {bill.purchase_category_display && (
+                    <span className="inline-flex items-center rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">{bill.purchase_category_display}</span>
+                  )}
+                  {src?.sync && <Chip {...src.sync} />}
+                </div>
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -130,66 +179,42 @@ export default function BillQuickView({ id, onClose, onOpenFull, onEdit, canEdit
               </button>
             </div>
           </div>
-          {src && (src.origin || src.sync) && (
-            <div className="mt-2 flex items-center gap-1.5">
-              {src.origin && <Chip {...src.origin} />}
-              {src.sync && <Chip {...src.sync} />}
-            </div>
-          )}
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
-          {loading && <p className="text-sm text-slate-400">Loading bill…</p>}
-          {error && <p className="text-sm text-rose-600">{error}</p>}
+        {/* Body — two-column ledger: details on the left, money + files on the right. */}
+        <div className="flex-1 overflow-y-auto">
+          {loading && <p className="text-sm text-slate-400 px-4 py-3">Loading bill…</p>}
+          {error && <p className="text-sm text-rose-600 px-4 py-3">{error}</p>}
 
           {bill && (
-            <>
-              {/* Parties */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                <div className="col-span-2">
-                  <p className="text-[11px] text-slate-400">Vendor</p>
-                  <p className="text-[13px] font-semibold text-slate-900">{bill.vendor_name || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-slate-400">Category</p>
-                  <p className="text-[12px] font-medium text-slate-700">{bill.purchase_category_display || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-slate-400">Warehouse</p>
-                  <p className="text-[12px] font-medium text-slate-700">{bill.warehouse_name || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-slate-400">Supply</p>
-                  <p className="text-[12px] font-medium text-slate-700">{SUPPLY_LABEL[supply] || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-[11px] text-slate-400">Due date</p>
-                  <p className="text-[12px] font-medium text-slate-700">{bill.due_date ? formatDate(bill.due_date) : '—'}</p>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[1.25fr_1fr]">
+              {/* LEFT — details + line items */}
+              <div className="px-4 py-2.5 border-b sm:border-b-0 sm:border-r border-slate-100">
+                <KV k="Bill date" v={bill.bill_date ? formatDate(bill.bill_date) : '—'} />
+                <KV k="Due date" v={bill.due_date ? formatDate(bill.due_date) : '—'} />
+                <KV k="Warehouse" v={bill.warehouse_name || '—'} />
+                <KV k="Supply" v={SUPPLY_LABEL[supply] || '—'} />
                 {(bill.po_no || bill.receipt_no) && (
-                  <div className="col-span-2 flex gap-4">
-                    {bill.po_no && <span className="text-[12px] text-slate-500">PO: <span className="font-medium text-slate-700">{bill.po_no}</span></span>}
-                    {bill.receipt_no && <span className="text-[12px] text-slate-500">Receipt: <span className="font-medium text-slate-700">{bill.receipt_no}</span></span>}
-                  </div>
+                  <KV k={bill.po_no ? 'PO' : 'Receipt'} v={bill.po_no || bill.receipt_no} />
                 )}
-              </div>
+                <KV k="ERP no." v={`${bill.bill_no || '—'}${bill.created_at ? ` · ${formatDate(bill.created_at)}` : ''}`} />
+                <KV k="Tally" v={src?.inTally ? (bill.tally_voucher_type || 'Synced') : 'Not synced'}
+                  tone={src?.inTally ? 'text-teal-700' : 'text-slate-500'} />
 
-              {/* Line items */}
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-slate-400 mb-1.5">Line items</p>
+                {/* Line items */}
+                <p className="text-[10px] uppercase tracking-wide text-slate-500 font-bold mt-3 mb-1.5">Line items</p>
                 {lines.length === 0 ? (
                   <p className="text-[12px] text-slate-400 italic">No line items.</p>
                 ) : (
                   <div className="overflow-hidden rounded-lg border border-slate-200">
-                    <table className="w-full text-[12px]">
+                    <table className="w-full text-[11.5px]">
                       <thead>
-                        <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 text-slate-500">
-                          <th className="text-left font-medium px-2 py-1.5">Item</th>
-                          <th className="text-right font-medium px-2 py-1.5">Qty</th>
-                          <th className="text-right font-medium px-2 py-1.5">Rate</th>
-                          <th className="text-right font-medium px-2 py-1.5">Tax%</th>
-                          <th className="text-right font-medium px-2 py-1.5">Amount</th>
+                        <tr className="bg-slate-50 text-slate-500">
+                          <th className="text-left font-semibold px-2 py-1">Item</th>
+                          <th className="text-right font-semibold px-2 py-1">Qty</th>
+                          <th className="text-right font-semibold px-2 py-1 whitespace-nowrap">Unit price</th>
+                          <th className="text-right font-semibold px-2 py-1">Tax%</th>
+                          <th className="text-right font-semibold px-2 py-1">Amount</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -197,16 +222,14 @@ export default function BillQuickView({ id, onClose, onOpenFull, onEdit, canEdit
                           const tax = Number(l.tax_percent) > 0 ? Number(l.tax_percent) : Number(l.effective_tax_percent) || 0;
                           return (
                             <tr key={l.id || i} className="text-slate-700">
-                              <td className="px-2 py-1.5">
-                                <span className="font-medium text-slate-800">{l.item_name || l.product_name || l.description || '—'}</span>
-                              </td>
-                              <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">
+                              <td className="px-2 py-1 font-medium text-slate-800">{l.item_name || l.product_name || l.description || '—'}</td>
+                              <td className="px-2 py-1 text-right tabular-nums whitespace-nowrap">
                                 {l.quantity != null ? Number(l.quantity).toLocaleString('en-IN', { maximumFractionDigits: 3 }) : '—'}
                                 {l.uom ? <span className="text-slate-400 ml-0.5">{l.uom}</span> : null}
                               </td>
-                              <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{l.rate != null ? formatCurrency(l.rate) : '—'}</td>
-                              <td className="px-2 py-1.5 text-right tabular-nums">{tax ? `${tax}%${l.tax_percent_derived ? '*' : ''}` : '—'}</td>
-                              <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap font-medium">{l.amount != null ? formatCurrency(l.amount) : '—'}</td>
+                              <td className="px-2 py-1 text-right tabular-nums whitespace-nowrap">{l.rate != null ? formatCurrency(l.rate) : '—'}</td>
+                              <td className="px-2 py-1 text-right tabular-nums whitespace-nowrap">{tax ? `${tax}%${l.tax_percent_derived ? '*' : ''}` : '—'}</td>
+                              <td className="px-2 py-1 text-right tabular-nums whitespace-nowrap font-medium">{l.amount != null ? formatCurrency(l.amount) : '—'}</td>
                             </tr>
                           );
                         })}
@@ -216,13 +239,13 @@ export default function BillQuickView({ id, onClose, onOpenFull, onEdit, canEdit
                 )}
               </div>
 
-              {/* Totals */}
-              <div className="rounded-lg border border-slate-200 px-3 py-2">
+              {/* RIGHT — Amount block + Attachments */}
+              <div className="px-4 py-2.5 bg-slate-50/60">
+                <p className="text-[10px] uppercase tracking-wide text-slate-500 font-bold mb-1">Amount</p>
                 <Row label="Taxable value" value={formatCurrency(bill.subtotal)} />
                 {num(bill.discount_amount) > 0 && <Row label="Discount" value={`- ${formatCurrency(bill.discount_amount)}`} />}
                 {/* GST split by place of supply: CGST+SGST intra-state, IGST
-                    inter-state. Falls back to the combined figure only when the
-                    supply type can't be read (gst_split.basis === 'unknown'). */}
+                    inter-state. Combined figure only when supply is unknown. */}
                 {num(bill.tax_amount) > 0 && (
                   bill.gst_split?.basis === 'intra' ? (
                     <>
@@ -241,28 +264,30 @@ export default function BillQuickView({ id, onClose, onOpenFull, onEdit, canEdit
                 <Row label="Invoice total" value={formatCurrency(bill.total_amount)} strong />
                 <Row label="Paid" value={formatCurrency(bill.amount_paid)} tone="text-emerald-600" />
                 <Row label="Outstanding" value={formatCurrency(bill.balance_due)} strong tone={bal > 0 ? 'text-rose-600' : 'text-slate-800'} />
-              </div>
 
-              {/* Where it lives — ERP vs Tally, the reference's two record cards. */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg border border-indigo-200 bg-indigo-50/50 px-3 py-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-700 mb-1">ERP record</p>
-                  <p className="text-[12px] text-slate-700">No. <span className="font-medium">{bill.bill_no || '—'}</span></p>
-                  <p className="text-[12px] text-slate-700">Entered <span className="font-medium">{bill.created_at ? formatDate(bill.created_at) : '—'}</span></p>
-                </div>
-                <div className={`rounded-lg border px-3 py-2 ${src?.inTally ? 'border-teal-200 bg-teal-50/50' : 'border-slate-200 bg-slate-50'}`}>
-                  <p className={`text-[10px] font-semibold uppercase tracking-wide mb-1 ${src?.inTally ? 'text-teal-700' : 'text-slate-400'}`}>Tally record</p>
-                  {src?.inTally ? (
-                    <>
-                      <p className="text-[12px] text-slate-700">Type <span className="font-medium">{bill.tally_voucher_type || 'Purchase'}</span></p>
-                      <p className="text-[11px] text-slate-500 break-all">GUID {String(bill.tally_guid).slice(0, 18)}…</p>
-                    </>
-                  ) : (
-                    <p className="text-[12px] text-slate-400">Not in Tally yet</p>
-                  )}
-                </div>
+                {/* Attachments — inside the right column, under the money.
+                    Hidden entirely when the bill carries no files. */}
+                {files.length > 0 && (
+                  <div className="mt-2.5 pt-2.5 border-t border-slate-200">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500 font-bold mb-1.5 flex items-center gap-1.5">
+                      Attachments
+                      <span className="text-indigo-600 bg-indigo-50 rounded-full px-1.5 text-[10px] font-bold">{files.length}</span>
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      {files.map((f) => (
+                        <a key={f.key} href={f.url} target="_blank" rel="noopener noreferrer"
+                          className="group flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11.5px] font-medium text-slate-700 hover:border-indigo-400 hover:text-indigo-700">
+                          {f.isImage ? <ImageIcon size={13} className="text-slate-400 group-hover:text-indigo-500 shrink-0" />
+                            : <FileText size={13} className="text-slate-400 group-hover:text-indigo-500 shrink-0" />}
+                          <span className="truncate flex-1 min-w-0">{f.name}</span>
+                          <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 bg-slate-50 rounded px-1 shrink-0">{attLabel(f.category)}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </>
+            </div>
           )}
         </div>
 

@@ -33,6 +33,7 @@ import apiClient from '../../../utils/api.js';
 import { categoryChipCls } from '../../../utils/constants.js';
 import { formatCurrency } from '@/utils/formatters';
 import exportToExcel from '../../../utils/exportExcel.js';
+import BillQuickView from '../../purchase/bills/BillQuickView.jsx';
 
 const num = (v) => Number(v) || 0;
 const INR = (v) => formatCurrency(v || 0);
@@ -436,6 +437,7 @@ export default function ReportsSummary() {
   const [trendData, setTrendData] = useState(null);
   const [cmpData, setCmpData] = useState(null);        // vendor-comparison payload
   const [pivotData, setPivotData] = useState(null);    // item x vendor x month pivot payload
+  const [quickBillId, setQuickBillId] = useState(null); // open bill popup IN-PAGE (payables/purchase bills)
   const [calData, setCalData] = useState(null);        // payables-calendar payload (ledger-tied, as-of today)
   const [salesForPeriod, setSalesForPeriod] = useState(0);  // sales total for the ratio report
   const [varianceBills, setVarianceBills] = useState(null); // bills across current+prev window
@@ -877,6 +879,16 @@ export default function ReportsSummary() {
   const billHref = (id, vendorKey) => (id && tab.listRoute
     ? withScope(`${tab.listRoute}?quick=${encodeURIComponent(id)}`)
     : partyHref(vendorKey));
+  // Open the bill ON THIS PAGE as a popup (purchase/payables bills carry a real
+  // VendorBill id). Sales invoices have no in-page card, so fall back to opening
+  // the Invoices list at that record. Returns a click handler for a bill link.
+  const canPopBill = tabKey === 'purchase' || tabKey === 'payables';
+  const openBill = (id, vendorKey) => (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (id && canPopBill) { setQuickBillId(id); return; }
+    const h = billHref(id, vendorKey);
+    if (h) navigate(h.replace(window.location.origin, ''));
+  };
   // Each category bar opens that category's actual bills (the Bills page reads
   // ?purchase_category=), scoped to the same company & period — so a click
   // shows the rows behind the number. 'Unclassified' has no category filter, so
@@ -1649,7 +1661,7 @@ export default function ReportsSummary() {
                                           <td className="px-2 py-1 font-medium text-slate-700">
                                             {(b._r && (b._r.id || b._r.bill_id)) ? (
                                               <a href={billHref(b._r.id || b._r.bill_id, r._key) || '#'} className="text-blue-600 hover:underline"
-                                                onClick={(e) => { e.preventDefault(); const h = billHref(b._r.id || b._r.bill_id, r._key); if (h) navigate(h.replace(window.location.origin, '')); }}>{b.no}</a>
+                                                onClick={openBill(b._r.id || b._r.bill_id, r._key)}>{b.no}</a>
                                             ) : b.no}
                                           </td>
                                           <td className="px-2 py-1 text-slate-500">{b.date || '—'}</td>
@@ -1777,7 +1789,7 @@ export default function ReportsSummary() {
                                     </td>
                                     <td className="px-4 py-2">
                                       <a href={billHref(it.id, it.vendor) || '#'} className="text-blue-600 font-semibold hover:underline"
-                                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); const h = billHref(it.id, it.vendor); if (h) navigate(h.replace(window.location.origin, '')); }}>{it.no}</a>
+                                        onClick={openBill(it.id, it.vendor)}>{it.no}</a>
                                     </td>
                                     {showCat && <td className="px-4 py-2">{it.cat ? <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${catTone(it.cat)}`}>{catLabel(it.cat)}</span> : <span className="text-slate-300">—</span>}</td>}
                                     <td className="px-4 py-2 text-slate-500">{it.date || '—'}</td>
@@ -2401,6 +2413,17 @@ export default function ReportsSummary() {
           )}
         </ListState>
       </div>
+
+      {/* Bill popup — opens IN-PAGE when a bill number is clicked (payables). */}
+      {quickBillId && (
+        <BillQuickView
+          id={quickBillId}
+          canEdit={false}
+          onClose={() => setQuickBillId(null)}
+          onOpenFull={(id) => navigate(`/purchase/bills/${id}`)}
+          onEdit={(id) => navigate(`/purchase/bills/${id}`)}
+        />
+      )}
     </MainLayout>
   );
 }

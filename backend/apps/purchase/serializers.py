@@ -4848,6 +4848,10 @@ class VendorBillSerializer(FieldPermissionMixin, serializers.ModelSerializer):
     field_permission_module = 'Vendor Bill'
     bill_lines = VendorBillLineSerializer(many=True, required=False)
     vendor_name = serializers.CharField(source='vendor.vendor_name', read_only=True, default='')
+    # Owning company (SS Biochem / United Agro) and the vendor's MSME flag, so
+    # the quick-view card can show which company a bill belongs to + an MSME tag.
+    company_name = serializers.CharField(source='vendor.company.legal_name', read_only=True, default='')
+    vendor_is_msme = serializers.BooleanField(source='vendor.is_msme', read_only=True, default=False)
     po_no = serializers.SerializerMethodField()
     receipt_no = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
@@ -5034,7 +5038,7 @@ class VendorBillSerializer(FieldPermissionMixin, serializers.ModelSerializer):
         from .models import VendorBill
         model = VendorBill
         fields = [
-            'id', 'bill_no', 'vendor', 'vendor_name', 'vendor_invoice_no',
+            'id', 'bill_no', 'vendor', 'vendor_name', 'company_name', 'vendor_is_msme', 'vendor_invoice_no',
             'bill_date', 'due_date', 'purchase_order', 'po_no',
             'receipt_advice', 'receipt_no',
             'subtotal', 'discount_amount', 'tax_amount', 'gst_split', 'tds_amount',
