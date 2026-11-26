@@ -432,9 +432,7 @@ export const ROLE_ITEM_WHITELIST = {
   'office management (purchase)': [
     { section: 'purchase', items: [
       '/purchase/dashboard',               // Analytics (Purchase Analytics)
-      '/purchase/vendor-insights',         // Vendor Insights
       '/purchase/bills',                   // Bills
-      '/purchase/payment-entries',         // Payment Entries
       '/reports/summary?tab=purchase',     // Purchase Report
     ] },
   ],

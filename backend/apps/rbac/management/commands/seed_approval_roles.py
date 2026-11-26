@@ -98,13 +98,10 @@ ROLE_GRID = {
     'Office Management (Purchase)': {
         # Sidebar-item module names (nav `module` props).
         'Purchase Analytics': VIEW,   # Analytics item
-        'Vendor Insights':    VIEW,   # Vendor Insights item
         'Vendor Bill':        VIEW,   # Bills item
-        'Payment Entries':    VIEW,   # Payment Entries item
         'Reports':            VIEW,   # Purchase Report item
         # Underlying data / endpoint modules the pages read.
         'Purchase Dashboard': VIEW,
-        'Payment Made':       VIEW,
         'Vendor':             VIEW,
         'Vendor Ledger':      VIEW,
         'Consolidated Report': VIEW,
