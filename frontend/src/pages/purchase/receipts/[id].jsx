@@ -22,11 +22,23 @@ import { getApiErrorMessage } from '@/utils/formHelpers';
 // Roles allowed to approve a Receipt Advice.
 const RECEIPT_APPROVE_ROLES = new Set(['admin', 'administrator', 'purchase manager']);
 
+const TOLERANCE_CATEGORIES = new Set(['RAW_MATERIAL', 'PACKING_MATERIAL', 'FRUIT', 'MAIZE']);
+const TOLERANCE_MIN_QTY = 10;
+const TOLERANCE_PCT = 5;
+
+const isWithinTolerance = (category, invoiced, received) => {
+  if (!TOLERANCE_CATEGORIES.has((category || '').toUpperCase())) return false;
+  if (!invoiced || invoiced <= TOLERANCE_MIN_QTY) return false;
+  const diffPct = Math.abs(invoiced - received) / invoiced * 100;
+  return diffPct <= TOLERANCE_PCT;
+};
+
 const emptyReceiptLine = {
   _isNew: true, product: '', po_line: '', quantity_received: '', uom: 'KG', batch_no: '', godown_location: '', remarks: '', is_debit_note: false,
   // Optional physical-measurement fields persisted on ReceiptLine.
   // Blank = NULL in the DB; never coerced to 0.
   length: '', breadth: '', width: '', weight: '',
+  category: '',
 };
 const emptyPackingLine = {
   _isNew: true, packaging_sku: '', quantity: '', net_quantity: '', uom: 'PCS', condition: 'NEW',
@@ -258,7 +270,7 @@ export default function ReceiptAdviceDetail() {
         receipt_lines: buildNestedPayload(editLines, [
           'line_no', 'product', 'po_line', 'quantity_received', 'net_quantity', 'uom', 'batch_no', 'expiry_date',
           'godown_location', 'extra_commission', 'agent_commission', 'remarks', 'is_debit_note',
-          'length', 'breadth', 'width', 'weight',
+          'length', 'breadth', 'width', 'weight', 'category',
         ]).map(l => ({
           ...l,
           godown_location: l.godown_location || null,
@@ -351,6 +363,7 @@ export default function ReceiptAdviceDetail() {
           breadth: l.breadth ?? null,
           width:   l.width   ?? null,
           weight:  l.weight  ?? null,
+          category: l.category || '',
         })),
       };
       const res = await apiClient.patch(`/api/purchase/receipts/${id}/`, payload);
@@ -885,8 +898,12 @@ export default function ReceiptAdviceDetail() {
                             const net = parseFloat(line.net_quantity);
                             if (!rcvd || isNaN(net)) return <span className="text-slate-400">-</span>;
                             const diff = Math.round((rcvd - net) * 100) / 100;
-                            const cls = diff > 0 ? 'text-red-600' : diff < 0 ? 'text-amber-600' : 'text-emerald-600';
-                            return <span className={`font-medium ${cls}`}>{diff.toFixed(2)}</span>;
+                            if (diff === 0) return <span className="font-medium text-emerald-600">0.00</span>;
+                            const cat = line.category || line.po_line_category || '';
+                            const within = isWithinTolerance(cat, rcvd, net);
+                            const cls = within ? 'text-blue-500' : diff > 0 ? 'text-red-600' : 'text-amber-600';
+                            const label = within ? `${diff.toFixed(2)} (ok)` : diff.toFixed(2);
+                            return <span className={`font-medium ${cls}`} title={within ? `Within ±${TOLERANCE_PCT}% tolerance for ${cat.replace('_', ' ')}` : ''}>{label}</span>;
                           })()}
                         </td>
                         {!isLineHidden('is_debit_note') && (

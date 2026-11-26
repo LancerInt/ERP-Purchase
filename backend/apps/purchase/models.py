@@ -1964,6 +1964,37 @@ class ReceiptLine(BaseModel):
         validators=[MinValueValidator(Decimal('0.00'))],
         help_text='Optional per-unit weight, recorded at receipt time.',
     )
+    category = models.CharField(
+        max_length=80, blank=True, default='',
+        help_text=(
+            "Line category (RAW_MATERIAL, PACKING_MATERIAL, FRUIT, MAIZE, etc.). "
+            "Auto-populated from po_line.category on save when blank."
+        ),
+    )
+
+    TOLERANCE_CATEGORIES = {'RAW_MATERIAL', 'PACKING_MATERIAL', 'FRUIT', 'MAIZE'}
+    TOLERANCE_MIN_QTY = Decimal('10')
+    TOLERANCE_PCT = Decimal('5')
+
+    @property
+    def has_qty_tolerance(self):
+        return self.category.upper() in self.TOLERANCE_CATEGORIES
+
+    def qty_within_tolerance(self):
+        """Check if net_quantity is within ±5% of quantity_received.
+        Returns (is_within, diff_pct) or (True, 0) when not applicable."""
+        if self.net_quantity is None:
+            return True, Decimal('0')
+        invoiced = self.quantity_received or Decimal('0')
+        received = self.net_quantity
+        if invoiced <= Decimal('0'):
+            return True, Decimal('0')
+        if not self.has_qty_tolerance:
+            return invoiced == received, Decimal('0')
+        if invoiced <= self.TOLERANCE_MIN_QTY:
+            return invoiced == received, Decimal('0')
+        diff_pct = abs(invoiced - received) / invoiced * 100
+        return diff_pct <= self.TOLERANCE_PCT, diff_pct
 
     class Meta:
         ordering = ['receipt', 'line_no']

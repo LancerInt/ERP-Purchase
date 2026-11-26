@@ -44,6 +44,8 @@ function normaliseUom(value) {
 const GOODS_SUB_TYPES = [
   ['RAW_MATERIAL', 'Raw Material'],
   ['PACKING_MATERIAL', 'Packing Material'],
+  ['FRUIT', 'Fruit'],
+  ['MAIZE', 'Maize'],
   ['FINISHED_GOOD', 'Finished Good'],
   ['SEMI_FINISHED', 'Semi Finished'],
   ['TRADED_PRODUCTS', 'Traded Products'],

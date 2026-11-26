@@ -21,7 +21,7 @@ from rbac.permissions import HasModulePermission, check_permission
 from core.mixins import WarehouseScopedQuerysetMixin
 from .scoping import user_allowed_requirement_types, scope_by_requirement_type
 from rbac.models import AuditLog, UserRoleAssignment
-from notifications.services import notify_user, notify_approvers
+from notifications.services import notify_user, notify_approvers, notify_users
 
 from .models import (
     PurchaseRequest, PRLine, PRApprovalTrail, RFQHeader, QuoteResponse, QuoteLine,
@@ -4042,6 +4042,72 @@ class ReceiptAdviceViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet):
             }
         return Response(data)
 
+    def _notify_qty_difference(self, receipt):
+        """Send notifications to Office Management and Purchase Manager roles
+        when any receipt line has a qty difference (invoiced vs net)."""
+        from rbac.models import ERPRole, UserRoleAssignment
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        diff_lines = []
+        for line in receipt.receipt_lines.filter(is_active=True):
+            if line.net_quantity is None:
+                continue
+            invoiced = line.quantity_received or Decimal('0')
+            received = line.net_quantity
+            if invoiced != received:
+                product_name = ''
+                if line.product_id:
+                    product_name = getattr(line.product, 'product_name', '') or ''
+                within, diff_pct = line.qty_within_tolerance()
+                diff_lines.append({
+                    'product': product_name or f'Line #{line.line_no}',
+                    'invoiced': invoiced,
+                    'received': received,
+                    'within': within,
+                    'diff_pct': diff_pct,
+                    'category': line.category,
+                })
+
+        if not diff_lines:
+            return
+
+        lines_summary = []
+        for dl in diff_lines:
+            status = 'within tolerance' if dl['within'] else 'OUTSIDE tolerance'
+            lines_summary.append(
+                f"  {dl['product']}: invoiced {dl['invoiced']:g}, "
+                f"received {dl['received']:g} ({status})"
+            )
+
+        message = (
+            f"Receipt {receipt.receipt_advice_no} has quantity differences:\n"
+            + '\n'.join(lines_summary)
+        )
+
+        role_names = ['Office Management', 'Office Management (Purchase)',
+                      'Purchase Manager']
+        role_ids = list(
+            ERPRole.objects.filter(name__in=role_names, is_active=True)
+            .values_list('id', flat=True)
+        )
+        if role_ids:
+            user_ids = list(
+                UserRoleAssignment.objects.filter(role_id__in=role_ids)
+                .values_list('user_id', flat=True)
+            )
+            users = User.objects.filter(id__in=user_ids, is_active=True)
+            has_outside = any(not dl['within'] for dl in diff_lines)
+            notify_users(
+                list(users),
+                title=f'Qty difference on {receipt.receipt_advice_no}',
+                message=message,
+                link=f'/purchase/receipts/{receipt.id}',
+                category='receipt_qty',
+                level='warning' if has_outside else 'info',
+                actor=self.request.user,
+            )
+
     def perform_create(self, serializer):
         # This override doesn't call super().perform_create(), so enforce the
         # warehouse write-scope explicitly before saving.
@@ -4049,6 +4115,7 @@ class ReceiptAdviceViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet):
         receipt = serializer.save()
         self._check_po_completion(receipt)
         self._auto_create_debit_note_from_receipt(receipt)
+        self._notify_qty_difference(receipt)
 
     def create(self, request, *args, **kwargs):
         """Standard DRF create + tag the response with any auto-generated
@@ -4063,6 +4130,7 @@ class ReceiptAdviceViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet):
         is_debit_note onto the lines after the receipt already exists."""
         receipt = serializer.save()
         self._auto_create_debit_note_from_receipt(receipt)
+        self._notify_qty_difference(receipt)
 
     def update(self, request, *args, **kwargs):
         response = super().update(request, *args, **kwargs)

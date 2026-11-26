@@ -2124,6 +2124,9 @@ class ReceiptLineSerializer(FieldPermissionMixin, serializers.ModelSerializer):
     po_line_info = serializers.SerializerMethodField()
     po_unit_price = serializers.DecimalField(source='po_line.unit_price', max_digits=18, decimal_places=4, read_only=True, allow_null=True)
     po_gst = serializers.DecimalField(source='po_line.gst', max_digits=5, decimal_places=2, read_only=True, allow_null=True)
+    po_line_category = serializers.CharField(source='po_line.category', read_only=True, default='')
+    qty_within_tolerance = serializers.SerializerMethodField()
+    has_qty_tolerance = serializers.BooleanField(read_only=True)
     # UOM of the linked PR line — walked through po_line → linked_pr_line
     # so the receipt form can conditionally show the Density input for
     # liquid receipts (LTR) without an extra fetch.
@@ -2146,9 +2149,10 @@ class ReceiptLineSerializer(FieldPermissionMixin, serializers.ModelSerializer):
             'is_debit_note',
             'rate', 'gst_percentage',
             'length', 'breadth', 'width', 'weight',
+            'category', 'po_line_category', 'qty_within_tolerance', 'has_qty_tolerance',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'quantity_in_litres']
+        read_only_fields = ['created_at', 'updated_at', 'quantity_in_litres', 'has_qty_tolerance']
         extra_kwargs = {
             'product': {'required': False, 'allow_null': True},
             'service_catalogue': {'required': False, 'allow_null': True},
@@ -2171,6 +2175,7 @@ class ReceiptLineSerializer(FieldPermissionMixin, serializers.ModelSerializer):
             'width': {'required': False, 'allow_null': True},
             'weight': {'required': False, 'allow_null': True},
             'specific_gravity': {'required': False, 'allow_null': True},
+            'category': {'required': False, 'allow_blank': True},
         }
 
     def get_machinery_name(self, obj):
@@ -2206,8 +2211,18 @@ class ReceiptLineSerializer(FieldPermissionMixin, serializers.ModelSerializer):
             return obj.product.sku_code or ''
         return ''
 
+    def get_qty_within_tolerance(self, obj):
+        within, diff_pct = obj.qty_within_tolerance()
+        return {'within': within, 'diff_pct': float(diff_pct)}
+
     def validate(self, attrs):
         """Enforce exactly-one-of (product, machinery, service_catalogue)."""
+        # Auto-populate category from po_line when not explicitly set
+        if not attrs.get('category'):
+            po_line = attrs.get('po_line')
+            if po_line and hasattr(po_line, 'category'):
+                attrs['category'] = po_line.category or ''
+
         instance = getattr(self, 'instance', None)
         product = attrs.get('product', getattr(instance, 'product', None) if instance else None)
         service = attrs.get('service_catalogue', getattr(instance, 'service_catalogue', None) if instance else None)

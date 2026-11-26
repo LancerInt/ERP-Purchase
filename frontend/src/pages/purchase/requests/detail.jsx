@@ -98,9 +98,11 @@ export default function PurchaseRequestDetailPage() {
   const GOODS_CATEGORY_CHOICES = [
     { value: 'RAW_MATERIAL', label: 'Raw Material' },
     { value: 'PACKING_MATERIAL', label: 'Packing Material' },
+    { value: 'FRUIT', label: 'Fruit' },
+    { value: 'MAIZE', label: 'Maize' },
     { value: 'FINISHED_GOODS', label: 'FINISHED_GOOD' },
   ];
-  const CATEGORY_LABEL = { RAW_MATERIAL: 'Raw Material', PACKING_MATERIAL: 'Packing Material', FINISHED_GOODS: 'FINISHED_GOOD' };
+  const CATEGORY_LABEL = { RAW_MATERIAL: 'Raw Material', PACKING_MATERIAL: 'Packing Material', FRUIT: 'Fruit', MAIZE: 'Maize', FINISHED_GOODS: 'FINISHED_GOOD' };
 
   // Filter product options for Goods lines by the selected category.
   // Maps our two-option category to the corresponding goods_sub_type values on Product.

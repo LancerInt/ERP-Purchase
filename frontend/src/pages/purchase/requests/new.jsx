@@ -46,6 +46,8 @@ const fmtStock = (v, uom) => {
 const GOODS_CATEGORY_CHOICES = [
   { value: 'RAW_MATERIAL', label: 'Raw Material', source: 'PRODUCT' },
   { value: 'PACKING_MATERIAL', label: 'Packing Material', source: 'PRODUCT' },
+  { value: 'FRUIT', label: 'Fruit', source: 'PRODUCT' },
+  { value: 'MAIZE', label: 'Maize', source: 'PRODUCT' },
   { value: 'FINISHED_GOODS', label: 'Finished Goods', source: 'PRODUCT' },
 ];
 
