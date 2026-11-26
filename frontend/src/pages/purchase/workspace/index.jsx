@@ -106,7 +106,7 @@ const SECTION_TITLES = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_TITLES[it.id] = it.label; }));
 const SECTION_ICON = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_ICON[it.id] = it.icon; }));
-const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'pa_drill', 'pa_vturn', 'pa_branch', 'ac_tds', 'pay_week', 'pay_aged', 'pay_up']);
+const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'pa_drill', 'pa_vturn', 'pa_branch', 'ac_tds', 'pay_week', 'pay_aged', 'pay_up', 'v_top', 'v_inact', 'v_new', 'v_conc']);
 
 // Purchase categories for the Item Drill-down filter: chip label -> category code.
 // Categories match the normalized values product_category() returns:
@@ -547,6 +547,9 @@ export default function PurchaseWorkspace() {
   const [payCal, setPayCal] = useState(null);       // payables-calendar (live as-of-today snapshot)
   const [payMsme, setPayMsme] = useState('');       // '' | msme | non (Payables sections)
   const [payCat, setPayCat] = useState('');         // '' | RM | PM | FRUIT (Payables sections)
+  const [vendorAct, setVendorAct] = useState(null); // vendor-activity (Vendors group)
+  const [vendMsme, setVendMsme] = useState('');     // '' | msme | non (Vendors sections)
+  const [vendCat, setVendCat] = useState('');       // '' | RM | PM | FRUIT (Vendors sections)
 
   // ── Item Analytics UI state ──
   const [itemCat, setItemCat] = useState('');       // category filter (''=All)
@@ -671,6 +674,17 @@ export default function PurchaseWorkspace() {
       .catch(() => { if (alive) setPayCal({ bills: [] }); });
     return () => { alive = false; };
   }, [company]);
+
+  // ── Vendor activity — the Vendors group (Top / Inactive / New / Concentration) ──
+  useEffect(() => {
+    let alive = true;
+    setVendorAct(null);
+    const cp = company ? `company=${company}&` : '';
+    apiClient.get(`/api/purchase/vendor-activity/?${cp}from=${dateFrom}&to=${dateTo}`)
+      .then(r => { if (alive) setVendorAct(r.data || { vendors: [] }); })
+      .catch(() => { if (alive) setVendorAct({ vendors: [] }); });
+    return () => { alive = false; };
+  }, [company, dateFrom, dateTo]);
 
   // ── Derived top-level figures (KPI strip + profile) ──
   const stats = dash?.stats || {};
@@ -949,6 +963,110 @@ export default function PurchaseWorkspace() {
     data: payUp.rows.map(b => ({ vendor: b.vendor_name, invoice: b.bill_no || b.vendor_invoice_no || '',
       due: fmtDate(b.due_date), dueIn: `in ${-b.daysLate}d`, category: normCat(b.purchase_category), outstanding: fmtRup(b.amt) })),
   }), [payUp]);
+
+  // ── Vendors group derivations (from the vendor-activity endpoint) ──
+  // The filtered vendor list (Category + MSME header filters) feeds all 4
+  // sections. period_value/period_bills are windowed; first/last/lifetime/
+  // outstanding/days_inactive are all-time.
+  const vendList = useMemo(() => {
+    const vs = vendorAct?.vendors || [];
+    return vs
+      .filter(v => !vendMsme || (vendMsme === 'msme' ? v.is_msme : !v.is_msme))
+      .filter(v => !vendCat || normCat(v.purchase_category) === vendCat);
+  }, [vendorAct, vendMsme, vendCat]);
+  const vendLoading = vendorAct == null;
+
+  // v_top: vendors with purchases this period, ranked by period_value.
+  const vTop = useMemo(() => {
+    const rows = vendList.filter(v => v.period_value > 0).sort((a, b) => b.period_value - a.period_value);
+    const total = rows.reduce((s, v) => s + v.period_value, 0);
+    const top10 = rows.slice(0, 10).reduce((s, v) => s + v.period_value, 0);
+    const repeat = rows.filter(v => v.period_bills > 1).length;
+    return {
+      rows: rows.map((v, i) => ({ ...v, rank: i + 1, pct: total > 0 ? (v.period_value / total) * 100 : 0 })),
+      total, top10, count: rows.length,
+      avg: rows.length ? total / rows.length : 0,
+      repeatRate: rows.length ? (repeat / rows.length) * 100 : 0,
+    };
+  }, [vendList]);
+
+  // v_inact: vendors with no bill in 30+ days, risk-banded.
+  const vInact = useMemo(() => {
+    const rows = vendList.filter(v => v.days_inactive != null && v.days_inactive >= 30)
+      .sort((a, b) => b.days_inactive - a.days_inactive);
+    const riskOf = (d) => (d >= 90 ? 'HIGH' : d >= 60 ? 'MEDIUM' : 'LOW');
+    const c90 = rows.filter(v => v.days_inactive >= 90);
+    const c60 = rows.filter(v => v.days_inactive >= 60 && v.days_inactive < 90);
+    const c30 = rows.filter(v => v.days_inactive >= 30 && v.days_inactive < 60);
+    return {
+      rows: rows.map(v => ({ ...v, risk: riskOf(v.days_inactive) })),
+      c90: c90.length, c60: c60.length, c30: c30.length,
+      lostValue: c90.reduce((s, v) => s + v.lifetime_value, 0),
+    };
+  }, [vendList]);
+
+  // v_new: vendors whose FIRST bill falls inside the window.
+  const vNew = useMemo(() => {
+    const inWin = (iso) => iso && iso >= dateFrom && iso <= dateTo;
+    const rows = vendList.filter(v => inWin(v.first_bill_date)).sort((a, b) => b.period_value - a.period_value);
+    const value = rows.reduce((s, v) => s + v.period_value, 0);
+    const multi = rows.filter(v => v.period_bills > 1).length;
+    return {
+      rows, count: rows.length, value,
+      avg: rows.length ? value / rows.length : 0,
+      multiRate: rows.length ? (multi / rows.length) * 100 : 0,
+    };
+  }, [vendList, dateFrom, dateTo]);
+
+  // v_conc: revenue concentration over period_value (tiers + cumulative).
+  const vConc = useMemo(() => {
+    const ranked = vendList.filter(v => v.period_value > 0).sort((a, b) => b.period_value - a.period_value);
+    const total = ranked.reduce((s, v) => s + v.period_value, 0) || 1;
+    const sumRange = (a, b) => ranked.slice(a, b).reduce((s, v) => s + v.period_value, 0);
+    const TIERS = [['Top 5', 0, 5, 'indigo'], ['6-10', 5, 10, 'amber'], ['11-20', 10, 20, 'sky'],
+      ['21-50', 20, 50, 'emerald'], ['Others', 50, ranked.length, 'slate']];
+    let cum = 0;
+    const tiers = TIERS.map(([label, a, b, tone]) => {
+      const n = Math.max(0, Math.min(b, ranked.length) - a);
+      const val = sumRange(a, b);
+      cum += val;
+      return { label, tone, count: n, value: val, pct: (val / total) * 100, cumPct: (cum / total) * 100,
+        avg: n ? val / n : 0 };
+    }).filter(t => t.count > 0 || t.label === 'Top 5');
+    const pctOf = (b) => (sumRange(0, b) / total) * 100;
+    const top5 = pctOf(5);
+    return { tiers, total, top5, top10: pctOf(10), top20: pctOf(20),
+      risk: top5 > 40 ? 'HIGH' : top5 > 25 ? 'MEDIUM' : 'LOW' };
+  }, [vendList]);
+
+  // Export datasets for the Vendors tables.
+  const expVTop = useMemo(() => ({
+    cols: [{ field: 'rank', header: '#' }, { field: 'vendor', header: 'Vendor' }, { field: 'category', header: 'Category' },
+      { field: 'value', header: 'Purchase Value' }, { field: 'outstanding', header: 'Outstanding' }, { field: 'pct', header: '% Share' }],
+    data: vTop.rows.map(v => ({ rank: v.rank, vendor: v.vendor_name + (v.is_msme ? ' (MSME)' : ''),
+      category: normCat(v.purchase_category) || '—', value: fmtRup(v.period_value),
+      outstanding: fmtRup(v.outstanding), pct: `${v.pct.toFixed(1)}%` })),
+  }), [vTop]);
+  const expVInact = useMemo(() => ({
+    cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'category', header: 'Category' }, { field: 'last', header: 'Last Bill' },
+      { field: 'days', header: 'Days Inactive' }, { field: 'lifetime', header: 'Lifetime Value' }, { field: 'outstanding', header: 'Outstanding' }, { field: 'risk', header: 'Risk' }],
+    data: vInact.rows.map(v => ({ vendor: v.vendor_name, category: normCat(v.purchase_category) || '—',
+      last: fmtDate(v.last_bill_date), days: `${v.days_inactive}d`, lifetime: fmtRup(v.lifetime_value),
+      outstanding: fmtRup(v.outstanding), risk: v.risk })),
+  }), [vInact]);
+  const expVNew = useMemo(() => ({
+    cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'category', header: 'Category' }, { field: 'first', header: 'First Bill' },
+      { field: 'bills', header: 'Bills' }, { field: 'value', header: 'Value' }, { field: 'status', header: 'Status' }],
+    data: vNew.rows.map(v => ({ vendor: v.vendor_name, category: normCat(v.purchase_category) || '—',
+      first: fmtDate(v.first_bill_date), bills: v.period_bills, value: fmtRup(v.period_value),
+      status: v.period_bills > 1 ? 'ACTIVE' : '1 BILL' })),
+  }), [vNew]);
+  const expVConc = useMemo(() => ({
+    cols: [{ field: 'tier', header: 'Tier' }, { field: 'vendors', header: 'Vendors' }, { field: 'value', header: 'Value' },
+      { field: 'pct', header: '% of total' }, { field: 'cum', header: 'Cumulative %' }, { field: 'avg', header: 'Avg / Vendor' }],
+    data: vConc.tiers.map(t => ({ tier: t.label, vendors: t.count, value: fmtRup(t.value),
+      pct: `${t.pct.toFixed(1)}%`, cum: `${t.cumPct.toFixed(1)}%`, avg: fmtRup(t.avg) })),
+  }), [vConc]);
 
   // ── Export datasets (cols + flat rows) per table ──
   // Top Vendors
@@ -1254,6 +1372,18 @@ export default function PurchaseWorkspace() {
                 </select>
               </>
             )}
+            {(activeSection === 'v_top' || activeSection === 'v_inact' || activeSection === 'v_new' || activeSection === 'v_conc') && (
+              <>
+                <select value={vendCat} onChange={e => setVendCat(e.target.value)}
+                  className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[150px]">
+                  {DRILL_CATS.map(c => <option key={c.key || 'all'} value={c.key}>{c.key ? c.label : 'All Categories'}</option>)}
+                </select>
+                <select value={vendMsme} onChange={e => setVendMsme(e.target.value)}
+                  className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[130px]">
+                  {MSME_OPTS.map(o => <option key={o.key || 'all'} value={o.key}>{o.label}</option>)}
+                </select>
+              </>
+            )}
             <div className="relative flex items-center gap-1.5">
               {DATE_PRESETS.filter(p => p.key === 'fy' || p.key === 'pfy' || p.key === 'cm').map(p => (
                 <button key={p.key} type="button" onClick={() => applyPreset(p)}
@@ -1421,6 +1551,175 @@ export default function PurchaseWorkspace() {
                           </tr>
                         ))}
                         {payUp.rows.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-sm">No upcoming payables.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* ===== Vendors · Top Vendors (by purchase value) ===== */}
+            {!loading && activeSection === 'v_top' && (
+              vendLoading ? (
+                <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span></div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                    <Card label="Vendors This Period" value={vTop.count} sub="with purchases" />
+                    <Card label="Top 10 Value" value={fmtINR(vTop.top10)} sub={vTop.total > 0 ? `${((vTop.top10 / vTop.total) * 100).toFixed(0)}% of total` : ''} color="text-indigo-700" borderColor="border-indigo-400" />
+                    <Card label="Avg per Vendor" value={fmtINR(vTop.avg)} color="text-slate-700" />
+                    <Card label="Repeat Rate" value={`${vTop.repeatRate.toFixed(0)}%`} sub="ordered >1" color="text-emerald-600" borderColor="border-emerald-400" />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Top vendors by purchase value</div>
+                    <TableExport cols={expVTop.cols} data={expVTop.data} filename={`vendors-top-${slug(companyName)}`} title="Top Vendors by Purchase Value" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'vendor', valueField: 'value' }} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>#</TH><TH>Vendor</TH><TH>Category</TH><TH right>Purchase Value</TH><TH right>Outstanding</TH><TH right>% Share</TH></tr></thead>
+                      <tbody>
+                        {vTop.rows.map((v, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <TD color="text-slate-400">{v.rank}</TD>
+                            <TD bold>{v.vendor_name}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
+                            <TD color="text-slate-500">{normCat(v.purchase_category) || '—'}</TD>
+                            <TD right bold color="text-indigo-700">{fmtINR(v.period_value)}</TD>
+                            <TD right color="text-amber-600">{v.outstanding ? fmtINR(v.outstanding) : '—'}</TD>
+                            <TD right color="text-slate-400">{v.pct.toFixed(1)}%</TD>
+                          </tr>
+                        ))}
+                        {vTop.rows.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-sm">No vendor purchases in this period.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* ===== Vendors · Inactive ===== */}
+            {!loading && activeSection === 'v_inact' && (
+              vendLoading ? (
+                <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span></div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                    <Card label="90+ Days Inactive" value={vInact.c90} sub="no bill in 3+ months" color="text-red-600" borderColor="border-red-400" />
+                    <Card label="60-90 Days" value={vInact.c60} sub="slowing down" color="text-amber-600" borderColor="border-amber-400" />
+                    <Card label="30-60 Days" value={vInact.c30} sub="monitor" color="text-sky-600" borderColor="border-sky-400" />
+                    <Card label="Lost Value" value={fmtINR(vInact.lostValue)} sub="lifetime of 90+ inactive" color="text-red-600" />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Inactive vendors (no recent bills)</div>
+                    <TableExport cols={expVInact.cols} data={expVInact.data} filename={`vendors-inactive-${slug(companyName)}`} title="Inactive Vendors" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>Vendor</TH><TH>Category</TH><TH>Last Bill</TH><TH right>Days Inactive</TH><TH right>Lifetime Value</TH><TH right>Outstanding</TH><TH>Risk</TH></tr></thead>
+                      <tbody>
+                        {vInact.rows.map((v, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <TD bold>{v.vendor_name}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
+                            <TD color="text-slate-500">{normCat(v.purchase_category) || '—'}</TD>
+                            <TD color="text-slate-500">{fmtDate(v.last_bill_date)}</TD>
+                            <TD right color="text-red-600">{v.days_inactive}d</TD>
+                            <TD right>{fmtINR(v.lifetime_value)}</TD>
+                            <TD right color="text-amber-600">{v.outstanding ? fmtINR(v.outstanding) : '—'}</TD>
+                            <TD><span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${v.risk === 'HIGH' ? 'bg-rose-50 text-rose-700' : v.risk === 'MEDIUM' ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700'}`}>{v.risk}</span></TD>
+                          </tr>
+                        ))}
+                        {vInact.rows.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate-400 text-sm">No inactive vendors.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* ===== Vendors · New Vendors ===== */}
+            {!loading && activeSection === 'v_new' && (
+              vendLoading ? (
+                <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span></div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                    <Card label="New This Period" value={vNew.count} sub="first bill in period" color="text-emerald-600" borderColor="border-emerald-400" />
+                    <Card label="Value From New" value={fmtINR(vNew.value)} color="text-indigo-700" borderColor="border-indigo-400" />
+                    <Card label="Avg First-Period" value={fmtINR(vNew.avg)} color="text-slate-700" />
+                    <Card label="Multi-Bill Rate" value={`${vNew.multiRate.toFixed(0)}%`} sub="billed >1" color="text-emerald-600" />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">New vendors this period</div>
+                    <TableExport cols={expVNew.cols} data={expVNew.data} filename={`vendors-new-${slug(companyName)}`} title="New Vendors" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>Vendor</TH><TH>Category</TH><TH>First Bill</TH><TH right>Bills</TH><TH right>Value</TH><TH>Status</TH></tr></thead>
+                      <tbody>
+                        {vNew.rows.map((v, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <TD bold>{v.vendor_name}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
+                            <TD color="text-slate-500">{normCat(v.purchase_category) || '—'}</TD>
+                            <TD color="text-slate-500">{fmtDate(v.first_bill_date)}</TD>
+                            <TD right>{v.period_bills}</TD>
+                            <TD right bold color="text-indigo-700">{fmtINR(v.period_value)}</TD>
+                            <TD><span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${v.period_bills > 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{v.period_bills > 1 ? 'ACTIVE' : '1 BILL'}</span></TD>
+                          </tr>
+                        ))}
+                        {vNew.rows.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-sm">No new vendors in this period.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* ===== Vendors · Concentration ===== */}
+            {!loading && activeSection === 'v_conc' && (
+              vendLoading ? (
+                <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span></div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                    <Card label="Top 5 Vendors" value={`${vConc.top5.toFixed(0)}%`} sub="of total purchases" color="text-red-600" borderColor="border-red-400" />
+                    <Card label="Top 10 Vendors" value={`${vConc.top10.toFixed(0)}%`} sub="of total" color="text-amber-600" borderColor="border-amber-400" />
+                    <Card label="Top 20 Vendors" value={`${vConc.top20.toFixed(0)}%`} sub="of total" color="text-indigo-700" borderColor="border-indigo-400" />
+                    <Card label="Risk Level" value={vConc.risk} sub="Top 5 > 40% = concentrated" color={vConc.risk === 'HIGH' ? 'text-red-600' : vConc.risk === 'MEDIUM' ? 'text-amber-600' : 'text-emerald-600'} />
+                  </div>
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-2">Purchase concentration</div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm p-3 mb-4 space-y-1.5">
+                    {vConc.tiers.map((t, i) => {
+                      const barBg = t.tone === 'indigo' ? 'bg-indigo-500' : t.tone === 'amber' ? 'bg-amber-500' : t.tone === 'sky' ? 'bg-sky-500' : t.tone === 'emerald' ? 'bg-emerald-500' : 'bg-slate-400';
+                      return (
+                        <div key={i} className="flex items-center gap-2">
+                          <div className="w-[120px] text-right text-[10px] font-semibold text-slate-600 shrink-0">{t.label} <span className="text-slate-400">({t.count})</span></div>
+                          <div className="flex-1 h-5 bg-slate-100 rounded overflow-hidden min-w-0">
+                            <div className={`h-full ${barBg} rounded flex items-center px-2 text-[9px] font-bold text-white whitespace-nowrap`} style={{ width: `${Math.max(t.pct, 4)}%`, minWidth: '64px' }}>
+                              {fmtINR(t.value)} ({t.pct.toFixed(0)}%)
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Tier breakdown</div>
+                    <TableExport cols={expVConc.cols} data={expVConc.data} filename={`vendors-concentration-${slug(companyName)}`} title="Vendor Concentration" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'tier', valueField: 'value' }} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
+                    <table className="w-full">
+                      <thead><tr><TH>Tier</TH><TH right>Vendors</TH><TH right>Value</TH><TH right>% of total</TH><TH right>Cumulative %</TH><TH right>Avg / Vendor</TH></tr></thead>
+                      <tbody>
+                        {vConc.tiers.map((t, i) => (
+                          <tr key={i} className="hover:bg-slate-50">
+                            <TD bold>{t.label}</TD>
+                            <TD right>{t.count}</TD>
+                            <TD right bold color="text-indigo-700">{fmtINR(t.value)}</TD>
+                            <TD right>{t.pct.toFixed(1)}%</TD>
+                            <TD right color="text-slate-500">{t.cumPct.toFixed(1)}%</TD>
+                            <TD right>{fmtINR(t.avg)}</TD>
+                          </tr>
+                        ))}
+                        {vConc.tiers.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-sm">No vendor purchases in this period.</td></tr>}
                       </tbody>
                     </table>
                   </div>

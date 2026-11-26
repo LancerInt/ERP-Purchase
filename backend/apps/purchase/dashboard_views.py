@@ -3431,6 +3431,105 @@ class PaidByCategoryView(APIView):
         })
 
 
+class PurchaseVendorActivityView(APIView):
+    """GET /api/purchase/vendor-activity/?company=&from=&to=
+
+    Per-vendor purchase activity — the data behind the workspace Vendors group
+    (Top Vendors / Inactive / New Vendors / Concentration). Mirrors the Sales
+    Customers sections for the purchase side.
+
+    Each vendor carries BOTH scopes:
+      - period_value / period_bills : ex-GST taxable + bill count IN [from,to]
+        (Top Vendors, New Vendors, Concentration).
+      - first_bill_date / last_bill_date / days_inactive / lifetime_value /
+        outstanding : ALL-TIME (so Inactive = no bill in 30/60/90d and New =
+        first bill inside the window both work regardless of the chosen period).
+
+    Scope reuses PurchaseDashboardView._bill_qs + the Total-Purchase exclusions
+    (CANCELLED / OPENING / is_expense / _EXPENSE_CATS / journal / branch
+    transfers / duplicate re-imports) so the figures reconcile with the tiles.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, HasModulePermission]
+    module_name = 'Purchase Dashboard'
+    alternate_modules = ['Purchase Analytics', 'Vendor Insights']
+
+    @staticmethod
+    def _purchase_bills(company_id):
+        """Real-purchase bills for a company (no vendor/date filter) — the same
+        universe _total_purchase sums, so every vendor aggregate reconciles."""
+        return (PurchaseDashboardView._bill_qs(company_id, None)
+                .exclude(tally_guid__startswith='OPENING')
+                .exclude(status='CANCELLED')
+                .exclude(is_expense=True)
+                .exclude(purchase_category__in=_EXPENSE_CATS)
+                .exclude(tally_voucher_type__icontains='journal'))
+
+    def get(self, request, *args, **kwargs):
+        from collections import Counter, defaultdict
+        from django.db.models import Max
+        company_id = request.query_params.get('company') or None
+        frm = request.query_params.get('from')
+        to = request.query_params.get('to')
+        start, end, label = PurchaseDashboardView._resolve_range('custom', frm, to)
+        today = timezone.localdate()
+
+        base = self._purchase_bills(company_id)
+        # Drop duplicate re-imports once, up front (same read-time dedup as the
+        # tiles), so no vendor total double-counts a '-N' collision bill.
+        dups = _cached_dup_bill_ids(base)
+        if dups:
+            base = base.exclude(id__in=dups)
+
+        # ALL-TIME per vendor: first/last bill, lifetime ex-GST value, bill count,
+        # and outstanding (Σ total_amount − Σ amount_paid, since balance_due is a
+        # property not a column).
+        life = (base.values('vendor_id', 'vendor__vendor_name', 'vendor__is_msme')
+                .annotate(first_bill=Min('bill_date'), last_bill=Max('bill_date'),
+                          lifetime_value=Sum('subtotal'), bill_count=Count('id'),
+                          billed=Sum('total_amount'), paid=Sum('amount_paid')))
+
+        # WINDOWED per vendor: ex-GST value + bill count inside [start, end].
+        win = (base.filter(bill_date__gte=start, bill_date__lte=end)
+               .values('vendor_id')
+               .annotate(period_value=Sum('subtotal'), period_bills=Count('id')))
+        win_by = {r['vendor_id']: r for r in win}
+
+        # Dominant purchase_category per vendor (simple majority over its bills).
+        cat_counter = defaultdict(Counter)
+        for r in base.exclude(purchase_category='').values('vendor_id', 'purchase_category'):
+            cat_counter[r['vendor_id']][r['purchase_category']] += 1
+
+        vendors = []
+        for r in life:
+            vid = r['vendor_id']
+            w = win_by.get(vid, {})
+            last_bill = r['last_bill']
+            outstanding = (r['billed'] or _ZERO) - (r['paid'] or _ZERO)
+            cat = cat_counter[vid].most_common(1)[0][0] if cat_counter.get(vid) else ''
+            vendors.append({
+                'vendor_id': str(vid) if vid else None,
+                'vendor_name': r['vendor__vendor_name'] or '(unknown)',
+                'is_msme': bool(r['vendor__is_msme']),
+                'purchase_category': cat,
+                'period_value': _money(w.get('period_value')),
+                'period_bills': w.get('period_bills', 0) or 0,
+                'outstanding': _money(outstanding if outstanding > 0 else _ZERO),
+                'first_bill_date': r['first_bill'].isoformat() if r['first_bill'] else None,
+                'last_bill_date': last_bill.isoformat() if last_bill else None,
+                'lifetime_value': _money(r['lifetime_value']),
+                'days_inactive': (today - last_bill).days if last_bill else None,
+            })
+
+        vendors.sort(key=lambda v: v['period_value'], reverse=True)
+        return Response({
+            'as_of': today.isoformat(),
+            'period': {'label': label, 'from': start.isoformat(), 'to': end.isoformat()},
+            'company_id': company_id,
+            'vendors': vendors,
+        })
+
+
 class PurchasePayablesCalendarView(APIView):
     """GET /api/purchase/payables-calendar/?company=<uuid>&vendor=<uuid>&msme=true|false
 
