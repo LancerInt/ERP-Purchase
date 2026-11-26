@@ -1,6 +1,5 @@
-import CustomSelect from "@/components/ui/CustomSelect";
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   Search,
@@ -9,9 +8,7 @@ import {
   XCircle,
   Star,
   FileText,
-  Download,
   AlertTriangle,
-  ChevronRight,
   Truck,
   CreditCard,
   Package,
@@ -19,47 +16,29 @@ import {
   List,
   BarChart3,
   Trash2,
-  RefreshCw,
   Send,
+  Eye,
+  X,
 } from 'lucide-react';
+import CustomSelect from "@/components/ui/CustomSelect";
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
-import DataTable from '../../../components/common/DataTable';
 import StatusBadge from '../../../components/common/StatusBadge';
 import ProductsCell from '../../../components/common/ProductsCell';
 import MobileListCards from '../components/MobileListCards';
 import ListState from '@/components/common/ListState.jsx';
-import { Eye } from 'lucide-react';
 import apiClient, { getErrorMessage } from '../../../utils/api.js';
 import { formatCurrency, formatDate, formatNumber } from '../../../utils/formatters.js';
 import useApiData from '../../../hooks/useApiData.js';
-import useLookup from '../../../hooks/useLookup.js';
 import usePermissions from '../../../hooks/usePermissions.js';
 import useFieldPermissions from '../../../hooks/useFieldPermissions.js';
-import UnifiedFilterPanel, { useUnifiedFilter } from '../components/UnifiedFilterPanel';
 import { confirm } from '@/components/common/confirm';
-
-const FILTER_FIELDS = [
-  { value: 'evaluation_id', label: 'Evaluation ID', type: 'text' },
-  { value: 'rfq_no', label: 'RFQ', type: 'text' },
-  { value: 'evaluation_date', label: 'Evaluation Date', type: 'date' },
-  { value: 'evaluated_by_name', label: 'Evaluated By', type: 'text' },
-  { value: 'recommended_vendor_name', label: 'Recommended Vendor', type: 'text' },
-  { value: 'approval_status', label: 'Approval Status', type: 'select', options: [
-    { value: 'Pending', label: 'Pending' }, { value: 'Approved', label: 'Approved' }, { value: 'Rejected', label: 'Rejected' },
-  ]},
-];
+import exportToExcel from '../../../utils/exportExcel.js';
 
 export default function QuoteEvaluationPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { canCreate, canExport } = usePermissions();
-
-  // Tab state - default to dashboard
   const [activeTab, setActiveTab] = useState('dashboard');
-  // Lifted so the Evaluation List's Filters button can sit on the same
-  // row as the tab switcher (saves a row, esp. on mobile).
-  const [showListFilters, setShowListFilters] = useState(false);
 
   return (
     <MainLayout>
@@ -75,8 +54,7 @@ export default function QuoteEvaluationPage() {
         }}
       />
 
-      {/* Tab Switcher — on the Evaluation List tab the Filters button
-          sits on this same row (right) instead of a separate row below. */}
+      {/* Tab Switcher */}
       <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6">
         <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
           <button
@@ -102,31 +80,27 @@ export default function QuoteEvaluationPage() {
             Evaluation List
           </button>
         </div>
-        {activeTab === 'list' && (
-          <button
-            onClick={() => setShowListFilters((v) => !v)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition shrink-0"
-          >
-            <Search size={14} /> Filters
-          </button>
-        )}
       </div>
 
       {activeTab === 'list'
-        ? <EvaluationListTab showFilters={showListFilters} setShowFilters={setShowListFilters} />
+        ? <EvaluationListTab />
         : <EvaluationDashboardTab />}
     </MainLayout>
   );
 }
 
 /* ===== EVALUATION LIST TAB ===== */
-function EvaluationListTab({ showFilters, setShowFilters }) {
+function EvaluationListTab() {
   const navigate = useNavigate();
-  // canExport belongs here, not to the parent page: this is the component
-  // that renders the DataTable holding the Export button.
   const { canEdit, canDelete, canExport } = usePermissions();
   const { isHidden } = useFieldPermissions('Quote Evaluation');
   const { data, isLoading, error, refetch } = useApiData('/api/purchase/evaluations/');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [datePeriod, setDatePeriod] = useState('All');
+  const [customRange, setCustomRange] = useState({ from: '', to: '' });
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 13;
 
   const handleDelete = async (e, row) => {
     e.stopPropagation();
@@ -139,90 +113,150 @@ function EvaluationListTab({ showFilters, setShowFilters }) {
       toast.error(err.response?.data?.detail || err.response?.data?.error || 'Failed to delete');
     }
   };
-  const [searchTerm, setSearchTerm] = useState('');
-  const filter = useUnifiedFilter(FILTER_FIELDS);
-
-  const columns = [
-    { key: 'evaluation_id', label: 'Evaluation ID', sortable: true },
-    { key: 'linked_pr_numbers', label: 'PR No', sortable: false,
-      render: (value, row) => {
-        if (!value || !Array.isArray(value) || value.length === 0) return '-';
-        const prIds = Array.isArray(row.linked_pr_ids) ? row.linked_pr_ids : [];
-        return value.map((prNo, i) => (
-          <span key={i}>{i > 0 && ', '}{prIds[i] ? (
-            <button onClick={(e) => { e.stopPropagation(); navigate(`/purchase/requests/${prIds[i]}`); }} className="text-primary-600 hover:text-primary-800 hover:underline font-medium">{prNo}</button>
-          ) : prNo}</span>
-        ));
-      },
-    },
-    { key: 'product_names', label: 'Products', sortable: false, render: (value) => <ProductsCell names={value} /> },
-    { key: 'rfq', label: 'RFQ', sortable: true,
-      render: (value, row) => {
-        const display = row.rfq_no || (typeof value === 'string' && value.length > 20 ? value.substring(0, 8) + '...' : value || '-');
-        return row.rfq ? (
-          <button onClick={(e) => { e.stopPropagation(); navigate(`/purchase/rfq/${row.rfq}`); }} className="text-primary-600 hover:text-primary-800 hover:underline font-medium">{display}</button>
-        ) : display;
-      },
-    },
-    {
-      key: 'evaluation_date', label: 'Evaluation Date', sortable: true,
-      render: (value) => value ? formatDate(value) : '-',
-    },
-    { key: 'evaluated_by', label: 'Evaluated By', sortable: true,
-      render: (value, row) => row.evaluated_by_name || '-',
-    },
-    { key: 'recommended_vendor_name', label: 'Recommended Vendor', sortable: true },
-    {
-      key: 'approval_status', label: 'Status',
-      render: (value, row) => <StatusBadge status={row.approval_status_display || value} />,
-    },
-    {
-      key: 'actions', label: '', sortable: false,
-      render: (_, row) => (
-        <div className="flex items-center gap-1">
-          {canEdit('Quote Evaluation') && (
-            <button onClick={(e) => { e.stopPropagation(); navigate(`/purchase/evaluations/${row.id}`); }} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition" title="Edit">
-              <Pencil size={15} />
-            </button>
-          )}
-          {canDelete('Quote Evaluation') && (
-            <button onClick={(e) => handleDelete(e, row)} className="p-1.5 text-red-500 hover:bg-red-50 rounded transition" title="Delete">
-              <Trash2 size={15} />
-            </button>
-          )}
-        </div>
-      ),
-    },
-  ];
 
   const CATALOG_KEYS = ['evaluation_id', 'rfq', 'recommended_vendor', 'best_quote_flag', 'justification_notes', 'approval_status'];
-  const NEVER_HIDE = ['actions', 'evaluation_id'];
-  const visibleColumns = columns.filter((col) => {
-    if (NEVER_HIDE.includes(col.key)) return true;
-    let derivedKey = col.key;
+  const colHidden = (colKey) => {
+    if (colKey === 'evaluation_id' || colKey === 'actions') return false;
+    let derived = colKey;
     for (const suffix of ['_name', '_code', '_display']) {
-      if (derivedKey.endsWith(suffix)) {
-        const stripped = derivedKey.slice(0, -suffix.length);
-        if (CATALOG_KEYS.includes(stripped)) { derivedKey = stripped; break; }
+      if (derived.endsWith(suffix)) {
+        const stripped = derived.slice(0, -suffix.length);
+        if (CATALOG_KEYS.includes(stripped)) { derived = stripped; break; }
       }
     }
-    return !isHidden(derivedKey);
-  });
+    return isHidden(derived);
+  };
 
-  const filteredData = (() => {
-    let result = filter.filterData(data || []);
+  const filteredData = useMemo(() => {
+    let result = [...(data || [])];
+    if (datePeriod !== 'All') {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      let from = null, to = null;
+      if (datePeriod === 'Today') { from = today; to = today; }
+      else if (datePeriod === 'Week') { from = new Date(today); from.setDate(today.getDate() - today.getDay()); to = today; }
+      else if (datePeriod === 'Month') { from = new Date(today.getFullYear(), today.getMonth(), 1); to = today; }
+      else if (datePeriod === 'FY') {
+        const fyStart = today.getMonth() >= 3 ? new Date(today.getFullYear(), 3, 1) : new Date(today.getFullYear() - 1, 3, 1);
+        from = fyStart; to = today;
+      } else if (datePeriod === 'Custom') {
+        if (customRange.from) from = new Date(customRange.from);
+        if (customRange.to) to = new Date(customRange.to);
+      }
+      if (from || to) {
+        result = result.filter(row => {
+          if (!row.evaluation_date) return false;
+          const d = new Date(row.evaluation_date);
+          if (from && d < from) return false;
+          if (to) { const end = new Date(to); end.setDate(end.getDate() + 1); if (d >= end) return false; }
+          return true;
+        });
+      }
+    }
+    if (statusFilter !== 'ALL') {
+      result = result.filter(row => (row.approval_status_display || row.approval_status) === statusFilter);
+    }
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
       result = result.filter(row =>
         Object.values(row).some(v => v != null && typeof v !== 'object' && String(v).toLowerCase().includes(s))
       );
     }
+    result.sort((a, b) => {
+      const da = new Date(a.evaluation_date || 0).getTime();
+      const db = new Date(b.evaluation_date || 0).getTime();
+      return db - da;
+    });
     return result;
-  })();
+  }, [data, datePeriod, customRange, statusFilter, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
+  const pagedData = filteredData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  useEffect(() => { setPage(1); }, [filteredData.length]);
+
+  const handleExport = useCallback(() => {
+    const rows = filteredData.map(r => ({
+      'Evaluation ID': r.evaluation_id,
+      'PR No': (r.linked_pr_numbers || []).join(', '),
+      'RFQ': r.rfq_no || '',
+      'Evaluation Date': r.evaluation_date ? formatDate(r.evaluation_date) : '',
+      'Evaluated By': r.evaluated_by_name || '',
+      'Recommended Vendor': r.recommended_vendor_name || '',
+      'Status': r.approval_status_display || r.approval_status,
+    }));
+    exportToExcel(rows, null, 'quote-evaluations');
+  }, [filteredData]);
+
+  const renderPrLinks = (row) => {
+    const value = row.linked_pr_numbers;
+    if (!Array.isArray(value) || value.length === 0) return '-';
+    const prIds = Array.isArray(row.linked_pr_ids) ? row.linked_pr_ids : [];
+    return value.map((prNo, i) => (
+      <span key={i}>{i > 0 && ', '}{prIds[i] ? (
+        <button onClick={(e) => { e.stopPropagation(); navigate(`/purchase/requests/${prIds[i]}`); }} className="text-primary-600 hover:text-primary-800 hover:underline font-medium">{prNo}</button>
+      ) : prNo}</span>
+    ));
+  };
+
+  const thCls = "text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap";
 
   return (
     <>
-      <UnifiedFilterPanel filterFields={FILTER_FIELDS} filter={filter} showFilters={showFilters} onClose={() => setShowFilters(false)} />
+      {/* Toolbar */}
+      <div className="hidden sm:flex items-center gap-2 px-1 py-1.5">
+        {['All', 'Today', 'Week', 'Month', 'FY', 'Custom'].map((p) => (
+          <button
+            key={p}
+            onClick={() => setDatePeriod(p)}
+            className={`px-3 py-1 text-[12px] font-medium rounded-md border transition ${
+              datePeriod === p
+                ? 'bg-primary-600 text-white border-primary-600'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {p}
+          </button>
+        ))}
+        {datePeriod === 'Custom' && (
+          <>
+            <input type="date" value={customRange.from} onChange={(e) => setCustomRange(r => ({ ...r, from: e.target.value }))} className="h-[30px] text-[11px] border border-slate-200 rounded-md px-2 bg-white" />
+            <span className="text-[10px] text-slate-400">to</span>
+            <input type="date" value={customRange.to} onChange={(e) => setCustomRange(r => ({ ...r, to: e.target.value }))} className="h-[30px] text-[11px] border border-slate-200 rounded-md px-2 bg-white" />
+          </>
+        )}
+        <div className="flex-1" />
+        <div className="relative">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search evaluations…"
+            className="h-[30px] w-[160px] text-[12px] border border-slate-200 rounded-md pl-3 pr-7 bg-white focus:ring-1 focus:ring-primary-400 focus:border-primary-400 placeholder-slate-400"
+          />
+          {searchTerm && (
+            <button onClick={() => setSearchTerm('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600">
+              <X size={10} />
+            </button>
+          )}
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="h-[32px] border border-slate-200 rounded-md bg-white cursor-pointer pl-3 pr-8"
+          style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }}
+        >
+          <option value="ALL">Status</option>
+          <option value="Pending">Pending</option>
+          <option value="Approved">Approved</option>
+          <option value="Rejected">Rejected</option>
+        </select>
+        {canExport('Quote Evaluation') && (
+          <button onClick={handleExport} className="h-[30px] px-3 text-[11px] font-medium text-slate-600 border border-slate-200 rounded-md hover:bg-slate-50">
+            Export
+          </button>
+        )}
+      </div>
+
       <ListState error={error} onRetry={refetch}>
       <MobileListCards
         rows={filteredData}
@@ -232,11 +266,11 @@ function EvaluationListTab({ showFilters, setShowFilters }) {
         searchPlaceholder="Search evaluation, RFQ…"
         emptyMessage="No quote evaluations found"
         config={{
-          title: (row) => row.rfq_no || row.id,
+          title: (row) => row.evaluation_id || row.rfq_no || row.id,
           subtitle: (row) => row.recommended_vendor_name || row.evaluated_by_name,
           badge: (row) => {
             const s = row.approval_status_display || row.approval_status;
-            return { label: s || '-', cls: s === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-slate-100 text-slate-700 border-slate-200' };
+            return { label: s || '-', cls: s === 'APPROVED' || s === 'Approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-slate-100 text-slate-700 border-slate-200' };
           },
           fields: (row) => [
             { label: 'Date',     value: formatDate(row.evaluation_date) },
@@ -249,8 +283,93 @@ function EvaluationListTab({ showFilters, setShowFilters }) {
         }}
         onRowClick={(row) => navigate(`/purchase/evaluations/${row.id}`)}
       />
+
+      {/* Desktop table */}
       <div className="hidden sm:block">
-        <DataTable persistKey="purchase-evaluations" exportFileName="quote-evaluations" canExport={canExport('Quote Evaluation')} columns={visibleColumns} data={filteredData} isLoading={isLoading} onRowClick={(row) => navigate(`/purchase/evaluations/${row.id}`)} />
+        <div className="border border-slate-200 rounded-md overflow-hidden bg-white">
+          <div className="overflow-x-auto">
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className={thCls}>Evaluation ID</th>
+                {!colHidden('linked_pr_numbers') && <th className={thCls}>PR No</th>}
+                {!colHidden('product_names') && <th className={thCls} style={{ width: 160 }}>Products</th>}
+                {!colHidden('rfq') && <th className={thCls}>RFQ</th>}
+                {!colHidden('evaluation_date') && <th className={thCls}>Date</th>}
+                {!colHidden('evaluated_by_name') && <th className={thCls}>Evaluated By</th>}
+                {!colHidden('recommended_vendor_name') && <th className={thCls}>Rec. Vendor</th>}
+                {!colHidden('approval_status') && <th className={thCls}>Status</th>}
+                <th className={thCls}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={9} className="text-center py-8"><Loader2 size={20} className="animate-spin text-primary-500 inline" /></td></tr>
+              ) : pagedData.length === 0 ? (
+                <tr><td colSpan={9} className="text-center py-8 text-slate-400 text-[12px]">No quote evaluations found</td></tr>
+              ) : pagedData.map(row => (
+                <tr
+                  key={row.id}
+                  onClick={() => navigate(`/purchase/evaluations/${row.id}`)}
+                  className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  <td className="px-2 py-2 font-semibold text-slate-800">{row.evaluation_id || row.id}</td>
+                  {!colHidden('linked_pr_numbers') && <td className="px-2 py-2">{renderPrLinks(row)}</td>}
+                  {!colHidden('product_names') && <td className="px-2 py-2 truncate" style={{ maxWidth: 160 }}><ProductsCell names={row.product_names} /></td>}
+                  {!colHidden('rfq') && (
+                    <td className="px-2 py-2">
+                      {row.rfq ? (
+                        <button onClick={(e) => { e.stopPropagation(); navigate(`/purchase/rfq/${row.rfq}`); }} className="text-primary-600 hover:text-primary-800 hover:underline font-medium">
+                          {row.rfq_no || (typeof row.rfq === 'string' && row.rfq.length > 20 ? row.rfq.substring(0, 8) + '...' : row.rfq || '-')}
+                        </button>
+                      ) : '-'}
+                    </td>
+                  )}
+                  {!colHidden('evaluation_date') && <td className="px-2 py-2 text-slate-500">{row.evaluation_date ? formatDate(row.evaluation_date) : '—'}</td>}
+                  {!colHidden('evaluated_by_name') && <td className="px-2 py-2 text-slate-600 truncate">{row.evaluated_by_name || '—'}</td>}
+                  {!colHidden('recommended_vendor_name') && <td className="px-2 py-2 text-slate-600 truncate">{row.recommended_vendor_name || '—'}</td>}
+                  {!colHidden('approval_status') && <td className="px-2 py-2"><StatusBadge status={row.approval_status_display || row.approval_status} /></td>}
+                  <td className="px-2 py-1.5">
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      {canEdit('Quote Evaluation') && (
+                        <button onClick={() => navigate(`/purchase/evaluations/${row.id}`)} className="p-1 text-blue-600 hover:bg-blue-50 rounded transition" title="Edit">
+                          <Pencil size={14} />
+                        </button>
+                      )}
+                      {canDelete('Quote Evaluation') && (
+                        <button onClick={(e) => handleDelete(e, row)} className="p-1 text-red-500 hover:bg-red-50 rounded transition" title="Delete">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+        </div>
+
+        {/* Pagination */}
+        {filteredData.length > 0 && (
+          <div className="flex items-center justify-between px-1 py-2 text-[11px] text-slate-500">
+            <span>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredData.length)} of {filteredData.length}</span>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`w-7 h-7 rounded text-[11px] font-medium ${p === page ? 'bg-primary-600 text-white' : 'hover:bg-slate-100 text-slate-600'}`}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
       </ListState>
     </>
@@ -263,7 +382,6 @@ function EvaluationDashboardTab() {
   const [searchParams] = useSearchParams();
   const { canCreate } = usePermissions();
 
-  // PR selection — fetch fresh (no cache) so deleted POs reflect immediately
   const [prRaw, setPrRaw] = useState([]);
   const [prLoading, setPrLoading] = useState(false);
   const [rfqRaw, setRfqRaw] = useState([]);
@@ -281,16 +399,7 @@ function EvaluationDashboardTab() {
   useEffect(() => { fetchPrAndRfqLists(); }, [fetchPrAndRfqLists]);
   const prIdFromUrl = searchParams.get('pr_id');
   const rfqIdFromUrl = searchParams.get('rfq_id');
-  // `has_po` always wins. Previously the URL `?pr_id=` clause overrode
-  // the has-PO check, so a PR you just evaluated + converted to a PO
-  // stayed in the dropdown if it happened to be the URL PR. Now any PR
-  // with an active PO is dropped regardless of URL, and the URL-prefill
-  // only relaxes the APPROVED + linked-RFQ gate (handy when the
-  // operator wants to inspect an evaluation row that doesn't quite fit
-  // the default eligibility — but never if the PR is already done).
   const prOptions = prRaw
-    // Keep a PR until EVERY product is converted (independent evaluation) —
-    // a partially-converted PR must stay so the rest can be evaluated.
     .filter(p => !p.fully_converted && (
       (p.approval_status === 'APPROVED' && p.linked_rfq) || p.id === prIdFromUrl
     ))
@@ -305,7 +414,6 @@ function EvaluationDashboardTab() {
   const [selectedPrId, setSelectedPrId] = useState('');
   const [directRfqId, setDirectRfqId] = useState('');
 
-  // Auto-select from query params
   useEffect(() => {
     if (prIdFromUrl && prRaw.length > 0 && !selectedPrId) {
       setSelectedPrId(prIdFromUrl);
@@ -318,13 +426,10 @@ function EvaluationDashboardTab() {
     }
   }, [rfqIdFromUrl]);
 
-  // Dashboard data
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Evaluation state — per-product award: { productId: winning quote_line_id }.
-  // Each product can go to a different vendor; PO generation clubs by vendor.
   const [productAwards, setProductAwards] = useState({});
   const [vendorNotes, setVendorNotes] = useState({});
   const [autoGeneratePO, setAutoGeneratePO] = useState(true);
@@ -332,7 +437,6 @@ function EvaluationDashboardTab() {
   const [createdPO, setCreatedPO] = useState(null);
   const [createdPOs, setCreatedPOs] = useState([]);
 
-  // Load dashboard data
   const loadDashboard = async () => {
     const params = {};
     if (selectedPrId) {
@@ -354,8 +458,6 @@ function EvaluationDashboardTab() {
     try {
       const res = await apiClient.get('/api/purchase/evaluation-dashboard/', { params });
       const pr = res.data?.pr || res.data?.purchase_request;
-      // A skip-RFQ request goes straight to a PO — there's no RFQ/quote to
-      // evaluate, so block the evaluation view with a clear message.
       if (pr?.allow_rfq_skip) {
         toast.error(`RFQ was skipped for ${pr.pr_no || 'this request'} — no evaluation can be made.`);
         setDashboardData(null);
@@ -363,8 +465,6 @@ function EvaluationDashboardTab() {
         return;
       }
       setDashboardData(res.data);
-      // POs already created for this PR — so the "Send" actions show even
-      // after a reload (not just right after submitting in this session).
       setCreatedPOs(res.data?.pos || []);
     } catch (err) {
       const msg = getErrorMessage(err);
@@ -375,12 +475,10 @@ function EvaluationDashboardTab() {
     }
   };
 
-  // Extract data from response
   const prSummary = dashboardData?.pr || dashboardData?.purchase_request || null;
   const vendors = dashboardData?.vendors || dashboardData?.quotes || [];
   const prItems = dashboardData?.items || dashboardData?.pr_items || prSummary?.items || [];
 
-  // Build comparison data
   const comparisonData = useMemo(() => {
     const rfqs = dashboardData?.rfqs || [];
     const apiComparison = dashboardData?.comparison || null;
@@ -439,8 +537,6 @@ function EvaluationDashboardTab() {
         prod.lowestTotal = lowestTotal === Infinity ? 0 : lowestTotal;
 
         (p.vendor_prices || []).forEach((vp) => {
-          // Strict match by quote UUID / quote number only — matching by vendor
-          // name/id breaks when multiple quotes come from the same vendor.
           const vendor = vendorList.find(
             (v) => (vp.quote_uuid && String(v.quoteUuid) === String(vp.quote_uuid)) ||
                    (vp.quote_id && String(v.quoteNo) === String(vp.quote_id))
@@ -466,8 +562,6 @@ function EvaluationDashboardTab() {
                 quoted: vp.quoted,
               });
             } else {
-              // Augment pre-existing quote line with comparison fields (quote
-              // lines use quantity_offered, not quantity — merge so rendering works).
               if (existingLine.unit_price == null) existingLine.unit_price = vp.unit_price;
               if (existingLine.quantity == null) existingLine.quantity = vp.quantity;
               if (existingLine.qty == null) existingLine.qty = vp.quantity;
@@ -542,9 +636,7 @@ function EvaluationDashboardTab() {
     return { products, vendorList, bestTotalValue };
   }, [dashboardData, vendors, prItems]);
 
-  // Per-product award helpers.
   const awardsCount = Object.values(productAwards).filter(Boolean).length;
-  // PO plan: group the current awards by vendor (one PO per vendor).
   const poPlan = useMemo(() => {
     const products = dashboardData?.comparison?.products || [];
     const byVendor = {};
@@ -559,30 +651,47 @@ function EvaluationDashboardTab() {
     return byVendor;
   }, [dashboardData, productAwards]);
 
-  // A PO was already generated for this PR once any quote on it has been
-  // chosen (chosen_flag). The backend rejects a second submit with
-  // "already accepted in a prior evaluation" — surface that up front by
-  // disabling the submit button instead of letting the click fail.
   const alreadyEvaluated = useMemo(() => {
     const fromRfqs = (dashboardData?.rfqs || []).flatMap((r) => r.quotes || []);
     const pool = fromRfqs.length ? fromRfqs : (dashboardData?.vendors || dashboardData?.quotes || []);
     return pool.some((q) => q?.chosen_flag);
   }, [dashboardData]);
 
-  // Per-product award: pick the winning vendor for ONE product (by its quote
-  // line). Clicking the same winner again clears it; OTHER products are left
-  // untouched — so 3 products can be awarded to 3 different vendors.
-  // Convert ONE product to a PO independently — award just this product's
-  // winning vendor and generate its PO, leaving the rest of the evaluation
-  // open. The backend is idempotent (a product already on a PO is skipped).
   const [convertingId, setConvertingId] = useState(null);
+
+  const getVendorLine = (vendor, productId) => {
+    return vendor.lines.find(
+      (l) =>
+        (l.product_id || l.product || l.item_id || l.pr_line_id || l.product_name) === productId ||
+        l.product_code === productId ||
+        l.product_name === productId
+    );
+  };
+
+  const fmtQty = (v) => formatNumber(v, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+  const collectQtyMismatches = (awardIds) => {
+    const idSet = new Set((awardIds || []).map(String));
+    const out = [];
+    comparisonData.products.forEach((product) => {
+      const reqQty = parseFloat(product.requestedQty);
+      if (!Number.isFinite(reqQty) || reqQty <= 0) return;
+      comparisonData.vendorList.forEach((vendor) => {
+        const line = getVendorLine(vendor, product.id);
+        if (!line?.quote_line_id || !idSet.has(String(line.quote_line_id))) return;
+        const offered = parseFloat(line.quantity || line.qty || line.quantity_offered || 0);
+        if (!Number.isFinite(offered) || offered <= 0 || offered === reqQty) return;
+        out.push(`• ${product.name}: offered ${fmtQty(offered)} vs requested ${fmtQty(reqQty)}${product.uom ? ` ${product.uom}` : ''}`);
+      });
+    });
+    return out;
+  };
+
   const convertProduct = async (product) => {
     const qlId = productAwards[product.id];
     if (!qlId) { toast.error('Approve a vendor for this product first.'); return; }
     const prId = dashboardData?.pr?.id || selectedPrId;
     if (!prId) { toast.error('No Purchase Request context.'); return; }
-    // Confirm before converting an offer whose quantity differs from the
-    // PR's requested quantity — the PO is created for the OFFERED qty.
     const qtyMismatches = collectQtyMismatches([qlId]);
     if (qtyMismatches.length > 0) {
       const ok = await confirm({
@@ -598,7 +707,7 @@ function EvaluationDashboardTab() {
       });
       const po = res.data?.pos?.[0];
       toast.success(po ? `${product.name} → ${po.po_no} created.` : 'Converted to PO.');
-      await loadDashboard();  // reflect converted status, keep the rest open
+      await loadDashboard();
     } catch (err) {
       toast.error(err?.response?.data?.error || 'Failed to convert to PO.');
     } finally {
@@ -622,11 +731,6 @@ function EvaluationDashboardTab() {
     setVendorNotes((prev) => ({ ...prev, [String(vendorId)]: text }));
   };
 
-  // Submit evaluation. The "Save Draft" path was removed — the backend
-  // submit endpoint never actually persisted drafts (it always required
-  // at least one ACCEPTED quote and either generated a PO or didn't),
-  // so a Save Draft click would have 400'd anyway. The Evaluation is now
-  // a single-step Submit action.
   const handleSubmit = async () => {
     const awards = Object.values(productAwards).filter(Boolean);
     if (awards.length === 0) {
@@ -634,8 +738,6 @@ function EvaluationDashboardTab() {
       return;
     }
 
-    // Confirm before awarding any line whose offered quantity differs from
-    // the PR's requested quantity — POs are created for the OFFERED qty.
     const qtyMismatches = collectQtyMismatches(awards);
     if (qtyMismatches.length > 0) {
       const ok = await confirm({
@@ -650,51 +752,17 @@ function EvaluationDashboardTab() {
       const payload = {
         pr_id: selectedPrId,
         generate_po: autoGeneratePO,
-        awards, // winning quote-line ids, one per product
+        awards,
       };
       const res = await apiClient.post('/api/purchase/evaluation-dashboard/submit/', payload);
       toast.success(res.data?.message || 'Evaluation submitted.');
       setCreatedPOs(res.data?.pos || []);
-      // Refetch the PR list so the just-evaluated PR drops out of the dropdown.
       fetchPrAndRfqLists();
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
-  };
-
-  // Helper to get line data for a vendor + product combo
-  const getVendorLine = (vendor, productId) => {
-    return vendor.lines.find(
-      (l) =>
-        (l.product_id || l.product || l.item_id || l.pr_line_id || l.product_name) === productId ||
-        l.product_code === productId ||
-        l.product_name === productId
-    );
-  };
-
-  // Trim trailing zeros on quantities (250, 12.5 — never 250.00).
-  const fmtQty = (v) => formatNumber(v, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-
-  // Given the quote-line ids being awarded, collect a bullet line for every
-  // one whose offered quantity differs from the PR's requested quantity —
-  // used to confirm before generating a PO for the vendor's quantity.
-  const collectQtyMismatches = (awardIds) => {
-    const idSet = new Set((awardIds || []).map(String));
-    const out = [];
-    comparisonData.products.forEach((product) => {
-      const reqQty = parseFloat(product.requestedQty);
-      if (!Number.isFinite(reqQty) || reqQty <= 0) return;
-      comparisonData.vendorList.forEach((vendor) => {
-        const line = getVendorLine(vendor, product.id);
-        if (!line?.quote_line_id || !idSet.has(String(line.quote_line_id))) return;
-        const offered = parseFloat(line.quantity || line.qty || line.quantity_offered || 0);
-        if (!Number.isFinite(offered) || offered <= 0 || offered === reqQty) return;
-        out.push(`• ${product.name}: offered ${fmtQty(offered)} vs requested ${fmtQty(reqQty)}${product.uom ? ` ${product.uom}` : ''}`);
-      });
-    });
-    return out;
   };
 
   return (
@@ -842,9 +910,6 @@ function EvaluationDashboardTab() {
                   </thead>
                   <tbody>
                     {comparisonData.products.map((product) => {
-                      // The LONGEST NET payment term among vendors for this
-                      // product is the most favourable (more credit) → flag it
-                      // green + star, like the best price.
                       const parseNetDays = (t) => {
                         const s = String(t || '');
                         const m = s.match(/(\d+)/);
@@ -912,16 +977,12 @@ function EvaluationDashboardTab() {
                               const qty = parseFloat(line.quantity || line.qty || line.quantity_offered || 0);
                               const gst = parseFloat(line.gst_percent || line.gst || line.tax_percent || vendor.gstPercent || 0);
                               const total = parseFloat(line.total || line.line_total || line.amount || unitPrice * qty || 0);
-                              // Delivery + payment are per-quoted-line only — no fallback to the
-                              // vendor's quote-level value, so an unquoted product stays blank.
                               const delivery = line.delivery_days || line.delivery || null;
                               const payment = line.payment_terms || '';
 
                               const isBestPrice = field === 'unit_price' && unitPrice > 0 && unitPrice <= product.lowestPrice;
                               const isBestTotal = field === 'total' && total > 0 && total <= product.lowestTotal;
                               const isBestPayment = field === 'payment' && maxNet > 0 && parseNetDays(payment) === maxNet;
-                              // Offered vs requested quantity mismatch — amber Short/Over badge
-                              // next to the offered quantity so it's visible at a glance.
                               const reqQty = parseFloat(product.requestedQty);
                               const qtyMismatch =
                                 field === 'quantity' && qty > 0 &&
@@ -952,8 +1013,7 @@ function EvaluationDashboardTab() {
                           </tr>
                         ))}
 
-                        {/* Award row — pick the winning vendor for THIS product.
-                            Per-product: awarding here never touches other products. */}
+                        {/* Award row */}
                         <tr key={`award-${product.id}`} className="border-b-2 border-slate-200 bg-slate-50/40">
                           <td className="sticky left-0 z-10 bg-slate-50 px-4 sm:px-6 py-3 pl-10 font-medium text-slate-700 border-r border-slate-200">Approve</td>
                           {comparisonData.vendorList.map((vendor) => {
@@ -1001,8 +1061,6 @@ function EvaluationDashboardTab() {
                         );
                       })}
                     </tr>
-
-                    {/* Winner is chosen per-product via the Award row in each product group above. */}
 
                     {/* Notes Row */}
                     <tr className="border-t border-slate-200">
@@ -1054,7 +1112,7 @@ function EvaluationDashboardTab() {
             </div>
           )}
 
-          {/* POs Created — one per awarded vendor */}
+          {/* POs Created */}
           {createdPOs.length > 0 && (
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6 shadow-sm">
               <div className="flex items-center gap-3 mb-3">

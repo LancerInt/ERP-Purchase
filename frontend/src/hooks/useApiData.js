@@ -19,7 +19,7 @@ import apiClient from '../utils/api.js';
  * @returns {{ data, isLoading, error, refetch, totalCount }}
  */
 const _cache = new Map(); // endpoint -> { results, total, ts }
-const FRESH_MS = 5000;
+const FRESH_MS = 30000;
 
 export default function useApiData(endpoint, options = {}) {
   const { autoFetch = true } = options;
