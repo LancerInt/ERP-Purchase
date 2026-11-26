@@ -268,9 +268,18 @@ export default function QuoteEvaluationDetail() {
           </div>
         )}
 
-        {/* ── Attachments ── */}
-        <div className="bg-white rounded-lg border border-slate-200">
-          <FileAttachments module="EVALUATION" recordId={id} />
+        {/* ── Attachments (collapsible) ── */}
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+          <details className="group">
+            <summary className="flex items-center justify-between px-3 py-2 cursor-pointer select-none hover:bg-slate-50 transition">
+              <span style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">Attachments</span>
+              <span className="text-[10px] text-blue-600 font-medium group-open:hidden">View ↓</span>
+              <span className="text-[10px] text-blue-600 font-medium hidden group-open:inline">Hide ↑</span>
+            </summary>
+            <div className="border-t border-slate-100">
+              <FileAttachments module="EVALUATION" recordId={id} />
+            </div>
+          </details>
         </div>
 
       </div>

@@ -1379,175 +1379,122 @@ export default function ReceiptAdviceDetail() {
             </div>
           )}
 
-      {/* Actions + Audit share a row; Attachments gets its own full row. */}
+      {/* Actions (left) + Attachments & Activity (right, collapsible) */}
       <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-2 mt-2 items-start">
+          {/* Left: Actions */}
           <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
             <h3 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Actions</h3>
-            {/* Two-up — the Actions card now sits in a half-width row next
-                to Audit, so two buttons per row keeps labels readable. */}
-            <div className="grid grid-cols-2 gap-2">
-              {!isEditing && (() => {
-                const isApproved = receipt.approval_status === 'APPROVED';
-                const lockTitle = 'Approve the receipt to enable this action';
-                return (
-                  <>
-                    {canEditReceipt && (
-                      <button onClick={handleEdit} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-                        <Pencil size={14} /> Edit Receipt
-                      </button>
-                    )}
-                    {/* Create Freight — gated on:
-                          1. Receipt approved
-                          2. No freight advice already raised against
-                             this receipt (receipt.freight_advices comes
-                             from the API and lists every linked freight).
-                        Once freight exists, replace the button with a
-                        link to the first freight advice. Click opens it
-                        so the user can review/pay instead of mistakenly
-                        raising a duplicate. */}
-                    {Array.isArray(receipt.freight_advices) && receipt.freight_advices.length > 0 ? (
-                      <button
-                        onClick={() => navigate(`/freight/purchase/${receipt.freight_advices[0].id}`)}
-                        title={
-                          receipt.freight_advices.length === 1
-                            ? `Freight advice ${receipt.freight_advices[0].advice_no} already raised — click to open`
-                            : `${receipt.freight_advices.length} freight advices already linked — click to open the first`
-                        }
-                        className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100"
-                      >
-                        <CheckCircle2 size={14} />
-                        Freight Raised: {receipt.freight_advices[0].advice_no}
-                        {receipt.freight_advices.length > 1 && (
-                          <span className="text-xs text-orange-500">+{receipt.freight_advices.length - 1}</span>
-                        )}
-                      </button>
-                    ) : isApproved ? (
-                      canCreateReceiptFreight && (
-                        <button onClick={() => navigate(`/freight/inward/new?receipt_id=${id}`)} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-orange-600 text-white rounded-lg hover:bg-orange-700">
-                          <Truck size={14} /> Create Freight
+              <div className="grid grid-cols-2 gap-2">
+                {!isEditing && (() => {
+                  const isApproved = receipt.approval_status === 'APPROVED';
+                  const lockTitle = 'Approve the receipt to enable this action';
+                  return (
+                    <>
+                      {canEditReceipt && (
+                        <button onClick={handleEdit} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                          <Pencil size={14} /> Edit Receipt
                         </button>
-                      )
-                    ) : (
-                      canCreateReceiptFreight && (
-                        <button disabled title={lockTitle} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-slate-100 text-slate-400 rounded-lg cursor-not-allowed">
-                          <Truck size={14} /> Create Freight
-                        </button>
-                      )
-                    )}
-                    {/* Create Bill — gated on:
-                          1. Receipt approved
-                          2. No bill already raised against this receipt
-                        Once a bill exists, replace the button with a
-                        link to that bill so the user can open it
-                        instead of mistakenly raising a duplicate. */}
-                    {receipt.bill_info ? (
-                      <button
-                        onClick={() => navigate(`/purchase/bills/${receipt.bill_info.id}`)}
-                        title={`Bill ${receipt.bill_info.bill_no} already raised — click to open`}
-                        className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100"
-                      >
-                        <CheckCircle2 size={14} /> Bill Raised: {receipt.bill_info.bill_no}
-                      </button>
-                    ) : isApproved ? (
-                      canConvertReceiptToBill && (
-                        <button onClick={() => navigate(`/purchase/bills/new?receipt_id=${id}`)} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
-                          <FileText size={14} /> Create Bill
-                        </button>
-                      )
-                    ) : (
-                      canConvertReceiptToBill && (
-                        <button disabled title={lockTitle} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-slate-100 text-slate-400 rounded-lg cursor-not-allowed">
-                          <FileText size={14} /> Create Bill
-                        </button>
-                      )
-                    )}
-                    {canReject('Receipt Advice') && (isApproved ? (
-                      <button onClick={() => navigate(`/purchase/rejections/new?receipt_id=${id}`)} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-red-600 text-white rounded-lg hover:bg-red-700">
-                        Reject Material
-                      </button>
-                    ) : (
-                      <button disabled title={lockTitle} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-slate-100 text-slate-400 rounded-lg cursor-not-allowed">
-                        Reject Material
-                      </button>
-                    ))}
-                    {canDeleteReceipt && (
-                      <button onClick={handleDelete} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100">
-                        <Trash2 size={14} /> Delete Receipt
-                      </button>
-                    )}
-                    {canCreateDebitNote && (receipt.receipt_lines || []).some(l => l.is_debit_note) && (
-                      <button
-                        onClick={handleGenerateDebitNote}
-                        disabled={isGeneratingDebit}
-                        title="Create a Vendor Credit Debit Note for the shortfall (rcvd − net) at PO rate."
-                        className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
-                      >
-                        {isGeneratingDebit ? 'Generating...' : 'Generate Debit Note'}
-                      </button>
-                    )}
-                    {canUseDebitNote && (() => {
-                      // Aggregate state across all lines: off / mixed /
-                      // on. Mixed means some lines are flagged and some
-                      // aren't — click to enable on all. On → click
-                      // clears all. Off → click enables all.
-                      const allLines = receipt.receipt_lines || [];
-                      const debitCount = allLines.filter(l => l.is_debit_note).length;
-                      const state = debitCount === 0
-                        ? 'off'
-                        : debitCount === allLines.length
-                          ? 'on'
-                          : 'mixed';
-                      const label = state === 'on'
-                        ? 'Debit Note: All ON'
-                        : state === 'mixed'
-                          ? `Debit Note: ${debitCount}/${allLines.length}`
-                          : 'Debit Note';
-                      const cls = state === 'on'
-                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                        : state === 'mixed'
-                          ? 'bg-amber-50 text-amber-700 border border-amber-300 hover:bg-amber-100'
-                          : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50';
-                      return (
+                      )}
+                      {Array.isArray(receipt.freight_advices) && receipt.freight_advices.length > 0 ? (
                         <button
-                          onClick={handleToggleDebitNote}
-                          disabled={isSaving || allLines.length === 0}
-                          title={state === 'on'
-                            ? 'Clear Debit Note on every line'
-                            : state === 'mixed'
-                              ? `${debitCount}/${allLines.length} lines flagged — click to mark all`
-                              : 'Mark every line as a Debit Note'}
-                          className={`w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight rounded-lg disabled:opacity-50 ${cls}`}
+                          onClick={() => navigate(`/freight/purchase/${receipt.freight_advices[0].id}`)}
+                          title={
+                            receipt.freight_advices.length === 1
+                              ? `Freight advice ${receipt.freight_advices[0].advice_no} already raised — click to open`
+                              : `${receipt.freight_advices.length} freight advices already linked — click to open the first`
+                          }
+                          className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100"
                         >
-                          {label}
+                          <CheckCircle2 size={14} />
+                          Freight Raised: {receipt.freight_advices[0].advice_no}
+                          {receipt.freight_advices.length > 1 && (
+                            <span className="text-xs text-orange-500">+{receipt.freight_advices.length - 1}</span>
+                          )}
                         </button>
-                      );
-                    })()}
-                  </>
-                );
-              })()}
-              <button onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/receipts'))} className="w-full px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
-                ← Back to List
-              </button>
+                      ) : isApproved ? (
+                        canCreateReceiptFreight && (
+                          <button onClick={() => navigate(`/freight/inward/new?receipt_id=${id}`)} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-orange-600 text-white rounded-lg hover:bg-orange-700">
+                            <Truck size={14} /> Create Freight
+                          </button>
+                        )
+                      ) : (
+                        canCreateReceiptFreight && (
+                          <button disabled title={lockTitle} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-slate-100 text-slate-400 rounded-lg cursor-not-allowed">
+                            <Truck size={14} /> Create Freight
+                          </button>
+                        )
+                      )}
+                      {receipt.bill_info ? (
+                        <button
+                          onClick={() => navigate(`/purchase/bills/${receipt.bill_info.id}`)}
+                          title={`Bill ${receipt.bill_info.bill_no} already raised — click to open`}
+                          className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100"
+                        >
+                          <CheckCircle2 size={14} /> Bill Raised: {receipt.bill_info.bill_no}
+                        </button>
+                      ) : isApproved ? (
+                        canConvertReceiptToBill && (
+                          <button onClick={() => navigate(`/purchase/bills/new?receipt_id=${id}`)} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
+                            <FileText size={14} /> Create Bill
+                          </button>
+                        )
+                      ) : (
+                        canConvertReceiptToBill && (
+                          <button disabled title={lockTitle} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-slate-100 text-slate-400 rounded-lg cursor-not-allowed">
+                            <FileText size={14} /> Create Bill
+                          </button>
+                        )
+                      )}
+                      {canReject('Receipt Advice') && (isApproved ? (
+                        <button onClick={() => navigate(`/purchase/rejections/new?receipt_id=${id}`)} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-red-600 text-white rounded-lg hover:bg-red-700">
+                          Reject Material
+                        </button>
+                      ) : (
+                        <button disabled title={lockTitle} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-slate-100 text-slate-400 rounded-lg cursor-not-allowed">
+                          Reject Material
+                        </button>
+                      ))}
+                      {canDeleteReceipt && (
+                        <button onClick={handleDelete} className="w-full flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100">
+                          <Trash2 size={14} /> Delete Receipt
+                        </button>
+                      )}
+                      <button onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/receipts'))} className="w-full px-2 sm:px-3 py-1.5 text-[11px] sm:text-xs leading-tight bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
+                        ← Back to List
+                      </button>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
+          {/* Right: Attachments + Activity stacked, both collapsible */}
+          <div className="space-y-2">
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <details className="group" open>
+                <summary className="flex items-center justify-between px-3 py-2 cursor-pointer select-none hover:bg-slate-50 transition">
+                  <span style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">Attachments</span>
+                  <span className="text-[10px] text-blue-600 font-medium group-open:hidden">View ↓</span>
+                  <span className="text-[10px] text-blue-600 font-medium hidden group-open:inline">Hide ↑</span>
+                </summary>
+                <div className="border-t border-slate-100">
+                  <FileAttachments module="RECEIPT" recordId={id} className="mt-0" />
+                </div>
+              </details>
+            </div>
+            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+              <details className="group" open>
+                <summary className="flex items-center justify-between px-3 py-2 cursor-pointer select-none hover:bg-slate-50 transition">
+                  <span style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">Activity</span>
+                  <span className="text-[10px] text-blue-600 font-medium group-open:hidden">View ↓</span>
+                  <span className="text-[10px] text-blue-600 font-medium hidden group-open:inline">Hide ↑</span>
+                </summary>
+                <div className="border-t border-slate-100">
+                  <ActivityLog module="Receipt Advice" recordId={id} />
+                </div>
+              </details>
             </div>
           </div>
-
-          <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
-            <h3 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Audit</h3>
-            <div className="space-y-1 text-[12px] text-slate-600">
-              <div className="flex justify-between"><span>Created</span><span>{fmtDate(receipt.created_at)}</span></div>
-              <div className="flex justify-between"><span>Updated</span><span>{fmtDate(receipt.updated_at)}</span></div>
-            </div>
-          </div>
-      </div>
-
-      {/* Attachments + Activity */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-        <div className="bg-white rounded-lg border border-slate-200">
-          <FileAttachments module="RECEIPT" recordId={id} className="mt-0" />
-        </div>
-        <div className="bg-white rounded-lg border border-slate-200">
-          <ActivityLog module="Receipt Advice" recordId={id} />
-        </div>
       </div>
 
       </div>{/* /max-w-6xl */}

@@ -26,7 +26,7 @@ export default function PurchaseOrderList() {
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 13;
+  const PAGE_SIZE = 17;
 
   const handleDelete = async (e, row) => {
     e.stopPropagation();

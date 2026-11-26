@@ -216,7 +216,8 @@ export default function PurchaseRequestList() {
 
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 13;
+  const PAGE_SIZE = 17;
+  const thCls = "text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap";
 
   useEffect(() => {
     if (!rawData || rawData.length === 0) return;
@@ -609,23 +610,27 @@ export default function PurchaseRequestList() {
       {/* Desktop: Compact Rows Table */}
       <div className="hidden sm:block">
         <div className="border border-slate-200 rounded-md overflow-hidden bg-white">
+          <div className="overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">PR Number</th>
-                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">WH</th>
-                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap" style={{width:180}}>Products</th>
-                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">Status</th>
-                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">Created</th>
-                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">RFQ</th>
-                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">Actions</th>
+                <th className={thCls}>PR Number</th>
+                <th className={thCls} style={{ width: 160 }}>Products</th>
+                <th className={thCls}>Company</th>
+                <th className={thCls}>Warehouse</th>
+                <th className={thCls}>Vendor</th>
+                <th className={thCls}>Created</th>
+                <th className={thCls}>Required By</th>
+                <th className={thCls}>Status</th>
+                <th className={thCls}>RFQ</th>
+                <th className={thCls}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={7} className="text-center py-8"><Loader2 size={20} className="animate-spin text-primary-500 inline" /></td></tr>
+                <tr><td colSpan={10} className="text-center py-8"><Loader2 size={20} className="animate-spin text-primary-500 inline" /></td></tr>
               ) : pagedData.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-8 text-slate-400 text-[12px]">No purchase requests found</td></tr>
+                <tr><td colSpan={10} className="text-center py-8 text-slate-400 text-[12px]">No purchase requests found</td></tr>
               ) : pagedData.map(row => (
                 <tr
                   key={row.id}
@@ -640,10 +645,13 @@ export default function PurchaseRequestList() {
                       )}
                     </div>
                   </td>
+                  <td className="px-2 py-2 text-slate-600 truncate" style={{ maxWidth: 160 }}>{row.product_names || '—'}</td>
+                  <td className="px-2 py-2 text-slate-600 truncate">{row.company_name || '—'}</td>
                   <td className="px-2 py-2 text-slate-600 truncate">{row.warehouse_name || '—'}</td>
-                  <td className="px-2 py-2 text-slate-600 truncate" style={{maxWidth:180}}>{row.product_names || '—'}</td>
+                  <td className="px-2 py-2 text-slate-600 truncate">{row.preferred_vendor_name || '—'}</td>
+                  <td className="px-2 py-2 text-slate-500">{row.request_date ? formatDate(row.request_date) : '—'}</td>
+                  <td className="px-2 py-2 text-slate-500">{row.required_by_date ? formatDate(row.required_by_date) : '—'}</td>
                   <td className="px-2 py-2"><StatusBadge status={row.approval_status || 'DRAFT'} /></td>
-                  <td className="px-2 py-2 text-slate-500 truncate">{row.request_date ? formatDate(row.request_date) : '—'}</td>
                   <td className="px-2 py-2 truncate">
                     {row.linked_rfq_no ? (
                       <button onClick={(e) => { e.stopPropagation(); navigate(`/purchase/rfq/${row.linked_rfq}`); }} className="text-primary-600 hover:underline font-medium text-[11px]">{row.linked_rfq_no}</button>
@@ -669,6 +677,7 @@ export default function PurchaseRequestList() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
 
         {/* Pagination */}

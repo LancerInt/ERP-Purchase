@@ -946,7 +946,7 @@ export default function PurchaseRequestDetailPage() {
   if (isLoading) {
     return (
       <MainLayout>
-        <div className="space-y-4 max-w-6xl">
+        <div className="space-y-2 max-w-6xl">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-32 bg-slate-200 rounded animate-pulse" />
           ))}
@@ -1061,14 +1061,14 @@ export default function PurchaseRequestDetailPage() {
         )}
 
         {/* ── Header row: Back + PR# + badge + chips + actions ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap mb-2">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
               onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/requests'))}
               className="p-1 text-slate-400 hover:text-slate-700 transition shrink-0"
               title="Back to list"
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={18} />
             </button>
             <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">{prNumber}</h1>
             <StatusBadge status={approvalStatus} label={statusLabel(approvalStatus)} />
@@ -1153,10 +1153,10 @@ export default function PurchaseRequestDetailPage() {
             </div>
           ) : (
             /* Edit mode: 2-col grid on mobile, 4-col on desktop */
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1.5">
               {!isHidden('warehouse') && (
                 <div>
-                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Warehouse</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Warehouse</p>
                   {!isReadOnly('warehouse') ? (
                     <CustomSelect name="warehouse" value={editData.warehouse || ''} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <option value="">Select...</option>
@@ -1167,7 +1167,7 @@ export default function PurchaseRequestDetailPage() {
               )}
               {!isHidden('godown') && (
                 <div>
-                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Godown</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Godown</p>
                   {!isReadOnly('godown') ? (
                     <GodownEditSelect warehouse={editData.warehouse} value={editData.godown || ''} onChange={handleChange} />
                   ) : (<p className="text-[12px] font-medium text-slate-800">{pr.godown_name || '-'}</p>)}
@@ -1175,7 +1175,7 @@ export default function PurchaseRequestDetailPage() {
               )}
               {!isHidden('requirement_type') && (
                 <div>
-                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Requirement Type</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Requirement Type</p>
                   {!isReadOnly('requirement_type') ? (
                     <CustomSelect name="requirement_type" value={editData.requirement_type || 'GOODS'} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <option value="GOODS">Goods</option>
@@ -1186,7 +1186,7 @@ export default function PurchaseRequestDetailPage() {
               )}
               {!isHidden('priority') && (
                 <div>
-                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Priority</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Priority</p>
                   {!isReadOnly('priority') ? (
                     <CustomSelect name="priority" value={editData.priority || ''} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <option value="">Select...</option>
@@ -1199,7 +1199,7 @@ export default function PurchaseRequestDetailPage() {
               )}
               {!isHidden('required_by_date') && (
                 <div>
-                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Required By</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Required By</p>
                   {!isReadOnly('required_by_date') ? (
                     <CustomDatePicker name="required_by_date" value={editData.required_by_date || ''} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
                   ) : (<p className="text-[12px] font-medium text-slate-800">{formatDate(pr.required_by_date || pr.deliveryDate)}</p>)}
@@ -1207,14 +1207,14 @@ export default function PurchaseRequestDetailPage() {
               )}
               {!isHidden('requestor_role') && (
                 <div>
-                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Requestor Role</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Requestor Role</p>
                   {!isReadOnly('requestor_role') ? (
                     <input type="text" name="requestor_role" value={editData.requestor_role || ''} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
                   ) : (<p className="text-[12px] font-medium text-slate-800">{pr.requestor_role || '-'}</p>)}
                 </div>
               )}
               <div>
-                <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Sales Order Ref</p>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Sales Order Ref</p>
                 <CustomSelect name="sales_order" value={editData.sales_order || ''} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
                   <option value="">None</option>
                   {soOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -1222,7 +1222,7 @@ export default function PurchaseRequestDetailPage() {
               </div>
               {!isHidden('justification') && (
                 <div className="col-span-2 sm:col-span-4">
-                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Justification</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Justification</p>
                   {!isReadOnly('justification') ? (
                     <textarea name="justification" value={editData.justification || ''} onChange={handleChange} rows={1} placeholder="Justification..." className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
                   ) : (<p className="text-[12px] text-slate-700">{pr.justification || '-'}</p>)}
@@ -1230,7 +1230,7 @@ export default function PurchaseRequestDetailPage() {
               )}
               {!isHidden('notes') && (
                 <div className="col-span-2 sm:col-span-4">
-                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Notes</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Notes</p>
                   {!isReadOnly('notes') ? (
                     <textarea name="notes" value={editData.notes || ''} onChange={handleChange} rows={1} placeholder="Notes..." className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
                   ) : (<p className="text-[12px] text-slate-700">{pr.notes || '-'}</p>)}
@@ -1351,7 +1351,7 @@ export default function PurchaseRequestDetailPage() {
             {/* Line Items */}
             <div className="bg-white rounded-lg border border-slate-200">
               <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-100">
-                <h2 style={{ fontSize: 10, letterSpacing: '0.06em' }} className="font-bold text-slate-600 uppercase">Line Items ({(isEditing ? editLines : lineItems).length})</h2>
+                <h2 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">Line Items ({(isEditing ? editLines : lineItems).length})</h2>
                 {isEditing && (
                   <button
                     type="button"
@@ -1377,7 +1377,7 @@ export default function PurchaseRequestDetailPage() {
                       phone. View mode shows read-only key/value rows;
                       edit mode swaps in the same inputs the table
                       uses. */}
-                  <div className="sm:hidden space-y-3">
+                  <div className="sm:hidden space-y-2 p-2">
                     {displayLines.map((line, idx) => {
                       const lineCategory = line.category || line._category || '';
                       return (
@@ -1482,17 +1482,17 @@ export default function PurchaseRequestDetailPage() {
 
                   {/* Desktop table — hidden on phones. */}
                   <div className="hidden sm:block overflow-x-auto">
-                    <table className="text-[12px]">
+                    <table className="w-full text-[12px]">
                       <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200">
-                          <th className="text-left px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">#</th>
-                          {!isLineHidden('category') && <th className="text-left px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">Category {isEditing && <span className="text-red-500">*</span>}</th>}
-                          {!isLineHidden('product_service') && <th className="text-left px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">Product {isEditing && <span className="text-red-500">*</span>}</th>}
-                          <th className="text-right px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">Stock</th>
-                          {!isLineHidden('description_override') && <th className="text-left px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">Description</th>}
-                          {!isLineHidden('quantity_requested') && <th className="text-right px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">Qty {isEditing && <span className="text-red-500">*</span>}</th>}
-                          {!isLineHidden('uom') && <th className="text-left px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">UOM</th>}
-                          {!isLineHidden('purpose') && <th className="text-left px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">Purpose</th>}
+                        <tr className="border-b border-slate-200">
+                          <th className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">#</th>
+                          {!isLineHidden('category') && <th className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">Category {isEditing && <span className="text-red-500">*</span>}</th>}
+                          {!isLineHidden('product_service') && <th className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">Product {isEditing && <span className="text-red-500">*</span>}</th>}
+                          <th className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">Stock</th>
+                          {!isLineHidden('description_override') && <th className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">Description</th>}
+                          {!isLineHidden('quantity_requested') && <th className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">Qty {isEditing && <span className="text-red-500">*</span>}</th>}
+                          {!isLineHidden('uom') && <th className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">UOM</th>}
+                          {!isLineHidden('purpose') && <th className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">Purpose</th>}
                           {isEditing && <th className="px-2 py-1.5" style={{ width: 32 }}></th>}
                         </tr>
                       </thead>
@@ -1630,8 +1630,17 @@ export default function PurchaseRequestDetailPage() {
 
         {/* ── Collapsible bottom sections: Attachments + Activity ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div className="bg-white rounded-lg border border-slate-200">
-            <FileAttachments module="PR" recordId={id} readOnly={!isEditing} />
+          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+            <details className="group">
+              <summary className="flex items-center justify-between px-3 py-2 cursor-pointer select-none hover:bg-slate-50 transition">
+                <span style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">Attachments</span>
+                <span className="text-[10px] text-blue-600 font-medium group-open:hidden">View ↓</span>
+                <span className="text-[10px] text-blue-600 font-medium hidden group-open:inline">Hide ↑</span>
+              </summary>
+              <div className="border-t border-slate-100">
+                <FileAttachments module="PR" recordId={id} readOnly={!isEditing} />
+              </div>
+            </details>
           </div>
           <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
             <details className="group">
