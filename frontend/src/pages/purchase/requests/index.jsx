@@ -18,12 +18,13 @@ import usePermissions from '../../../hooks/usePermissions.js';
 import useFieldPermissions from '../../../hooks/useFieldPermissions.js';
 import apiClient from '../../../utils/api.js';
 import toast from 'react-hot-toast';
-import FilterPanel, { matchesSelect } from '@/components/common/FilterPanel';
+import { matchesSelect } from '@/components/common/FilterPanel';
 import MobileListCards from '../components/MobileListCards';
 import { confirm } from '@/components/common/confirm';
 import { formatDate } from '@/utils/formatters';
 import ListState from '@/components/common/ListState.jsx';
 import { useUrlFilters } from '../../../hooks/useUrlState.js';
+import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 
 /* ================================================================
    FLOW GRAPH CONSTANTS & HELPERS
@@ -183,9 +184,14 @@ export default function PurchaseRequestList() {
   const RFQ_SKIP_ROLES = new Set(['admin', 'administrator', 'purchase coordinator', 'purchase manager']);
   const _roleName = (role?.role_name || role?.name || '').trim().toLowerCase();
   const canSkipRfq = isAdmin || isSuperuser || RFQ_SKIP_ROLES.has(_roleName);
-  const data = rawData;
-  const [showFilters, setShowFilters] = useState(false);
+  const { company: globalCompany } = useGlobalCompany();
+  const data = useMemo(() => {
+    if (!globalCompany || !rawData) return rawData;
+    return rawData.filter(r => String(r.company || '') === String(globalCompany));
+  }, [rawData, globalCompany]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [datePeriod, setDatePeriod] = useState('All');
+  const [customRange, setCustomRange] = useState({ from: '', to: '' });
   // Filters live in the URL so Back / refresh / sharing restore the filtered
   // view (and a PR opened from here returns to it on Back).
   const { values: filterValues, setValue: setFilterValue, reset: clearFilters } = useUrlFilters({
@@ -207,6 +213,10 @@ export default function PurchaseRequestList() {
   // Attachments per PR — fetched once when data loads
   const [attachmentsByPr, setAttachmentsByPr] = useState({});
   const [attachmentModal, setAttachmentModal] = useState(null); // { prNo, files }
+
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 13;
 
   useEffect(() => {
     if (!rawData || rawData.length === 0) return;
@@ -433,6 +443,34 @@ export default function PurchaseRequestList() {
         return matchesSelect(row[f.key], sel);
       })
     );
+    if (datePeriod !== 'All') {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      let from = null, to = null;
+      if (datePeriod === 'Today') { from = today; to = today; }
+      else if (datePeriod === 'Week') { from = new Date(today); from.setDate(today.getDate() - today.getDay()); to = today; }
+      else if (datePeriod === 'Month') { from = new Date(today.getFullYear(), today.getMonth(), 1); to = today; }
+      else if (datePeriod === 'FY') {
+        const fyStart = today.getMonth() >= 3 ? new Date(today.getFullYear(), 3, 1) : new Date(today.getFullYear() - 1, 3, 1);
+        from = fyStart; to = today;
+      } else if (datePeriod === 'Custom') {
+        if (customRange.from) from = new Date(customRange.from);
+        if (customRange.to) to = new Date(customRange.to);
+      }
+      if (from || to) {
+        result = result.filter(row => {
+          if (!row.request_date) return false;
+          const d = new Date(row.request_date);
+          if (from && d < from) return false;
+          if (to) { const end = new Date(to); end.setDate(end.getDate() + 1); if (d >= end) return false; }
+          return true;
+        });
+      }
+    }
+    if (statusFilter !== 'ALL') {
+      if (statusFilter === 'RFQ_SKIP') result = result.filter(row => row.allow_rfq_skip);
+      else result = result.filter(row => row.approval_status === statusFilter);
+    }
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
       result = result.filter(row =>
@@ -440,7 +478,11 @@ export default function PurchaseRequestList() {
       );
     }
     return result;
-  }, [data, filters, filterValues, searchTerm]);
+  }, [data, filters, filterValues, searchTerm, datePeriod, customRange, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
+  const pagedData = filteredData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  useEffect(() => { setPage(1); }, [filteredData.length]);
 
   // Single export path for both the header and DataTable buttons. Dates are
   // formatted and booleans rendered as Yes/No so the sheet is readable.
@@ -465,19 +507,66 @@ export default function PurchaseRequestList() {
         subtitle="Manage purchase requests and approvals"
         breadcrumbs={[{ label: 'Sourcing' }, { label: 'Requests (PR)' }]}
         actions={{
-          onFilter: () => setShowFilters(!showFilters),
           ...(canCreate('Purchase Request') ? { createLink: '/purchase/requests/new', createLabel: 'New PR' } : {}),
         }}
       />
-      {showFilters && (
-        <FilterPanel
-          filters={filters}
-          values={filterValues}
-          onChange={(key, value) => setFilterValue(key, value)}
-          onReset={clearFilters}
-          onClose={() => setShowFilters(false)}
-        />
-      )}
+      {/* Single toolbar row: date tabs + search + status dropdown + export */}
+      <div className="hidden sm:flex items-center gap-2 px-1 py-1.5">
+        {['All', 'Today', 'Week', 'Month', 'FY', 'Custom'].map((p) => (
+          <button
+            key={p}
+            onClick={() => setDatePeriod(p)}
+            className={`px-3 py-1 text-[12px] font-medium rounded-md border transition ${
+              datePeriod === p
+                ? 'bg-primary-600 text-white border-primary-600'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {p}
+          </button>
+        ))}
+        {datePeriod === 'Custom' && (
+          <>
+            <input type="date" value={customRange.from} onChange={(e) => setCustomRange(r => ({ ...r, from: e.target.value }))} className="h-[30px] text-[11px] border border-slate-200 rounded-md px-2 bg-white" />
+            <span className="text-[10px] text-slate-400">to</span>
+            <input type="date" value={customRange.to} onChange={(e) => setCustomRange(r => ({ ...r, to: e.target.value }))} className="h-[30px] text-[11px] border border-slate-200 rounded-md px-2 bg-white" />
+          </>
+        )}
+        <div className="flex-1" />
+        <div className="relative">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search PRs…"
+            className="h-[30px] w-[160px] text-[12px] border border-slate-200 rounded-md pl-3 pr-7 bg-white focus:ring-1 focus:ring-primary-400 focus:border-primary-400 placeholder-slate-400"
+          />
+          {searchTerm && (
+            <button onClick={() => setSearchTerm('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600">
+              <X size={10} />
+            </button>
+          )}
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="h-[32px] border border-slate-200 rounded-md bg-white cursor-pointer pl-3 pr-8"
+          style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }}
+        >
+          <option value="ALL">Status</option>
+          <option value="DRAFT">Draft</option>
+          <option value="PENDING">Pending</option>
+          <option value="PENDING_APPROVAL">Pending Approval</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REJECTED">Rejected</option>
+          <option value="RFQ_SKIP">RFQ Skip</option>
+        </select>
+        {canExport('Purchase Request') && (
+          <button onClick={handleExport} className="h-[30px] px-3 text-[11px] font-medium text-slate-600 border border-slate-200 rounded-md hover:bg-slate-50">
+            Export
+          </button>
+        )}
+      </div>
       <ListState error={error} onRetry={refetch}>
       {/* Mobile card list — phones get this; desktop gets the table below. */}
       <MobileListCards
@@ -517,16 +606,89 @@ export default function PurchaseRequestList() {
         onRowClick={(row) => navigate(`/purchase/requests/${row.id}`)}
       />
 
+      {/* Desktop: Compact Rows Table */}
       <div className="hidden sm:block">
-        <DataTable persistKey="purchase-requests"
-          exportFileName="purchase-requests"
-          canExport={canExport('Purchase Request')}
-          onExport={canExport('Purchase Request') ? handleExport : undefined}
-          columns={visibleColumns}
-          data={filteredData}
-          isLoading={isLoading}
-          onRowClick={(row) => navigate(`/purchase/requests/${row.id}`)}
-        />
+        <div className="border border-slate-200 rounded-md overflow-hidden bg-white">
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">PR Number</th>
+                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">WH</th>
+                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap" style={{width:180}}>Products</th>
+                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">Status</th>
+                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">Created</th>
+                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">RFQ</th>
+                <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={7} className="text-center py-8"><Loader2 size={20} className="animate-spin text-primary-500 inline" /></td></tr>
+              ) : pagedData.length === 0 ? (
+                <tr><td colSpan={7} className="text-center py-8 text-slate-400 text-[12px]">No purchase requests found</td></tr>
+              ) : pagedData.map(row => (
+                <tr
+                  key={row.id}
+                  onClick={() => navigate(`/purchase/requests/${row.id}`)}
+                  className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  <td className="px-2 py-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-slate-800">{row.pr_no}</span>
+                      {row.allow_rfq_skip && (
+                        <span className="text-[8px] font-bold uppercase bg-amber-100 text-amber-700 px-1 py-[1px] rounded">Skip</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 text-slate-600 truncate">{row.warehouse_name || '—'}</td>
+                  <td className="px-2 py-2 text-slate-600 truncate" style={{maxWidth:180}}>{row.product_names || '—'}</td>
+                  <td className="px-2 py-2"><StatusBadge status={row.approval_status || 'DRAFT'} /></td>
+                  <td className="px-2 py-2 text-slate-500 truncate">{row.request_date ? formatDate(row.request_date) : '—'}</td>
+                  <td className="px-2 py-2 truncate">
+                    {row.linked_rfq_no ? (
+                      <button onClick={(e) => { e.stopPropagation(); navigate(`/purchase/rfq/${row.linked_rfq}`); }} className="text-primary-600 hover:underline font-medium text-[11px]">{row.linked_rfq_no}</button>
+                    ) : '—'}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                      {canSkipRfq && row.approval_status === 'APPROVED' && !row.allow_rfq_skip && (
+                        <button onClick={() => handleSkipRfq(row)} className="p-1 text-amber-600 hover:bg-amber-50 rounded" title="Skip RFQ">
+                          <SkipForward size={14} />
+                        </button>
+                      )}
+                      <ActionButtons moduleName="Purchase Request" editPath={`/purchase/requests/${row.id}`} onDelete={() => handleDelete(row.id)} row={row} />
+                      <button onClick={() => openLineItems(row)} className="p-1 text-teal-600 hover:bg-teal-50 rounded" title="Products">
+                        <List size={14} />
+                      </button>
+                      <button onClick={() => openFlow(row)} className="p-1 text-indigo-600 hover:bg-indigo-50 rounded" title="Flow">
+                        <GitBranch size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between px-1 py-2 text-[11px] text-slate-500">
+          <span>{(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, filteredData.length)} of {filteredData.length}</span>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i;
+              return (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`w-7 h-7 rounded text-[11px] font-medium ${p === page ? 'bg-primary-600 text-white' : 'hover:bg-slate-100 text-slate-600'}`}
+                >
+                  {p}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
       </ListState>
 

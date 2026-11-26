@@ -3,7 +3,7 @@ import CustomSelect from "@/components/ui/CustomSelect";
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Paperclip } from 'lucide-react';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import apiClient from '../../../utils/api.js';
@@ -94,6 +94,7 @@ export default function CreatePurchaseRequest() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState([]);
   const pendingAttachmentsRef = useRef([]);
+  const attachInputRef = useRef(null);
   const [formData, setFormData] = useState({
     warehouse: '',
     godown: '',
@@ -437,9 +438,11 @@ export default function CreatePurchaseRequest() {
     }
   };
 
-  const inputClass = "w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
-  const readonlyClass = "w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-500";
-  const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
+  // Float design — compact floating-label inputs
+  const floatWrap = "relative";
+  const floatLabel = "absolute top-[3px] left-[7px] text-[8px] font-semibold text-slate-400 uppercase tracking-[0.04em] pointer-events-none z-10";
+  const floatInput = "w-full pt-[14px] pb-[3px] px-[7px] text-[11.5px] border border-slate-300 rounded-[6px] focus:ring-1 focus:ring-primary-500 focus:border-primary-500 bg-white";
+  const floatLocked = `${floatInput} bg-slate-100 cursor-not-allowed`;
 
   return (
     <MainLayout>
@@ -455,53 +458,51 @@ export default function CreatePurchaseRequest() {
 
       <form onSubmit={handleSubmit}>
         <EditGate canEdit={editable} className="space-y-3">
-        {/* Request Details */}
-        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-          <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Request Details</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
-            {!isHidden('pr_no') && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">PR Number</label>
-              <input type="text" value={nextPrNo || 'Auto-generated'} disabled className={readonlyClass} />
-            </div>
-            )}
-            {!isHidden('requestor_role') && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Requestor Role</label>
-              <input type="text" value={formData.requestor_role} disabled className={readonlyClass} />
-            </div>
-            )}
+        {/* Auto-info strip — read-only auto-generated fields */}
+        <div className="bg-white rounded-[6px] border border-slate-200 px-3 py-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+          {!isHidden('pr_no') && (
+            <span className="text-slate-400"><span className="font-semibold uppercase tracking-wide text-[8px] mr-1">PR#</span><span className="text-slate-600 font-medium">{nextPrNo || 'Auto'}</span></span>
+          )}
+          {!isHidden('requestor_role') && formData.requestor_role && (
+            <span className="text-slate-400"><span className="font-semibold uppercase tracking-wide text-[8px] mr-1">ROLE</span><span className="text-slate-600 font-medium">{formData.requestor_role}</span></span>
+          )}
+        </div>
+
+        {/* Request Details — Float Design */}
+        <div className="bg-white rounded-[6px] border border-slate-200 p-2 sm:p-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1">
+            {/* Row 1: Company, Warehouse, Godown, Type (chips), Priority (chips) */}
             {!isHidden('company') && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Company <span className="text-red-500">*</span></label>
-              <CustomSelect value={selectedCompany} onChange={(e) => { setSelectedCompany(e.target.value); setFormData(prev => ({ ...prev, warehouse: '', godown: '', godowns: [] })); }} required disabled={isReadOnly('company')} className={isReadOnly('company') ? lockedInputClass : inputClass}>
-                <option value="">Select Company...</option>
+            <div className={floatWrap}>
+              <label className={floatLabel}>Company *</label>
+              <CustomSelect value={selectedCompany} onChange={(e) => { setSelectedCompany(e.target.value); setFormData(prev => ({ ...prev, warehouse: '', godown: '', godowns: [] })); }} required disabled={isReadOnly('company')} className={isReadOnly('company') ? floatLocked : floatInput}>
+                <option value="">Select...</option>
                 {companyOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </CustomSelect>
             </div>
             )}
             {!isHidden('warehouse') && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Warehouse/Location <span className="text-red-500">*</span></label>
-              <CustomSelect name="warehouse" value={formData.warehouse} onChange={(e) => { setFormData(prev => ({ ...prev, warehouse: e.target.value, godown: '', godowns: [] })); }} required disabled={isReadOnly('warehouse') || !selectedCompany} className={isReadOnly('warehouse') ? lockedInputClass : `${inputClass} disabled:bg-slate-100 disabled:cursor-not-allowed`}>
-                <option value="">{selectedCompany ? 'Select Warehouse...' : 'Select company first...'}</option>
+            <div className={floatWrap}>
+              <label className={floatLabel}>Warehouse *</label>
+              <CustomSelect name="warehouse" value={formData.warehouse} onChange={(e) => { setFormData(prev => ({ ...prev, warehouse: e.target.value, godown: '', godowns: [] })); }} required disabled={isReadOnly('warehouse') || !selectedCompany} className={isReadOnly('warehouse') ? floatLocked : `${floatInput} disabled:bg-slate-100 disabled:cursor-not-allowed`}>
+                <option value="">{selectedCompany ? 'Select...' : 'Company first...'}</option>
                 {warehouseOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </CustomSelect>
             </div>
             )}
             {!isHidden('godown') && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Godown(s)</label>
+            <div className={floatWrap}>
+              <label className={floatLabel}>Godown(s)</label>
               {!formData.warehouse ? (
-                <div className={`${inputClass} bg-slate-100 text-slate-400`}>Select warehouse first...</div>
+                <div className={`${floatInput} bg-slate-100 text-slate-400 text-[10px]`}>Select warehouse...</div>
               ) : godownOptions.length === 0 ? (
-                <div className={`${inputClass} bg-slate-100 text-slate-400`}>No godowns in this warehouse</div>
+                <div className={`${floatInput} bg-slate-100 text-slate-400 text-[10px]`}>No godowns</div>
               ) : (
-                <div className="border border-slate-300 rounded-lg p-2 max-h-40 overflow-y-auto space-y-1 bg-white">
+                <div className="border border-slate-300 rounded-[6px] pt-[14px] pb-[2px] px-[5px] max-h-[70px] overflow-y-auto bg-white">
                   {godownOptions.map(o => {
                     const checked = formData.godowns.includes(o.value);
                     return (
-                      <label key={o.value} className="flex items-center gap-2 text-sm px-1 py-0.5 rounded hover:bg-slate-50 cursor-pointer">
+                      <label key={o.value} className="flex items-center gap-1.5 text-[10px] px-0.5 py-[1px] rounded hover:bg-slate-50 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={checked}
@@ -512,7 +513,7 @@ export default function CreatePurchaseRequest() {
                               : [...prev.godowns, o.value];
                             return { ...prev, godowns: next, godown: next[0] || '' };
                           })}
-                          className="rounded border-slate-300"
+                          className="rounded border-slate-300 w-3 h-3"
                         />
                         {o.label}
                       </label>
@@ -520,81 +521,101 @@ export default function CreatePurchaseRequest() {
                   })}
                 </div>
               )}
-              <p className="text-[11px] text-slate-400 mt-1">A product may be needed in several godowns — pick all that apply.</p>
             </div>
             )}
             {!isHidden('requirement_type') && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Requirement Type <span className="text-red-500">*</span></label>
-              <CustomSelect name="requirement_type" value={formData.requirement_type} onChange={handleChange} required disabled={isReadOnly('requirement_type')} className={isReadOnly('requirement_type') ? lockedInputClass : inputClass}>
-                <option value="GOODS">Goods</option>
-                <option value="MACHINERY">Machinery</option>
-              </CustomSelect>
+            <div className={floatWrap}>
+              <label className={floatLabel}>Type *</label>
+              <div className={`flex gap-[2px] pt-[14px] pb-[3px] px-[6px] border border-slate-300 rounded-[6px] bg-white ${isReadOnly('requirement_type') ? 'opacity-60 pointer-events-none' : ''}`}>
+                {[{ value: 'GOODS', label: 'Goods' }, { value: 'MACHINERY', label: 'Machinery' }].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => !isReadOnly('requirement_type') && handleChange({ target: { name: 'requirement_type', value: opt.value } })}
+                    className={`px-[4px] py-[2px] text-[9px] font-bold rounded-[4px] uppercase tracking-wide transition-colors ${
+                      formData.requirement_type === opt.value
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
             )}
             {!isHidden('priority') && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Priority</label>
-              <CustomSelect name="priority" value={formData.priority} onChange={handleChange} disabled={isReadOnly('priority')} className={isReadOnly('priority') ? lockedInputClass : inputClass}>
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-              </CustomSelect>
+            <div className={floatWrap}>
+              <label className={floatLabel}>Priority</label>
+              <div className={`flex gap-[2px] pt-[14px] pb-[3px] px-[6px] border border-slate-300 rounded-[6px] bg-white ${isReadOnly('priority') ? 'opacity-60 pointer-events-none' : ''}`}>
+                {[
+                  { value: 'LOW', label: 'Low', active: 'bg-emerald-500 text-white', idle: 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' },
+                  { value: 'MEDIUM', label: 'Med', active: 'bg-amber-500 text-white', idle: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
+                  { value: 'HIGH', label: 'High', active: 'bg-red-500 text-white', idle: 'bg-red-50 text-red-600 hover:bg-red-100' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => !isReadOnly('priority') && handleChange({ target: { name: 'priority', value: opt.value } })}
+                    className={`px-[4px] py-[2px] text-[9px] font-bold rounded-[4px] uppercase tracking-wide transition-colors ${
+                      formData.priority === opt.value ? opt.active : opt.idle
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
             )}
+
+            {/* Row 2: Required By, SO Ref, Justification (span 2 + mic), Upload Files */}
             {!isHidden('required_by_date') && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Required By Date</label>
-              <CustomDatePicker name="required_by_date" value={formData.required_by_date} onChange={handleChange} disabled={isReadOnly('required_by_date')} className={isReadOnly('required_by_date') ? lockedInputClass : inputClass} />
+            <div className={floatWrap}>
+              <label className={floatLabel}>Required By</label>
+              <CustomDatePicker name="required_by_date" value={formData.required_by_date} onChange={handleChange} disabled={isReadOnly('required_by_date')} className={isReadOnly('required_by_date') ? floatLocked : floatInput} />
             </div>
             )}
-            {/* Sales Order reference — optional justification anchor.
-                Requisitions raised to fulfil a specific SO record it here
-                so approvers can trace WHY the purchase is needed. */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Sales Order Ref <span className="text-slate-400 font-normal">(optional)</span></label>
-              <CustomSelect name="sales_order" value={formData.sales_order} onChange={handleChange} className={inputClass}>
+            <div className={floatWrap}>
+              <label className={floatLabel}>SO Ref</label>
+              <CustomSelect name="sales_order" value={formData.sales_order} onChange={handleChange} className={floatInput}>
                 <option value="">None</option>
                 {soOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </CustomSelect>
             </div>
             {!isHidden('justification') && (
-            <div className="col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5">
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <label className="block text-sm font-bold text-slate-700">Justification</label>
-                {!isReadOnly('justification') && (
-                  <VoiceDictation onText={(t) => appendDictation('justification', t)} onAudio={addVoiceAudio} />
-                )}
+            <div className={`${floatWrap} flex items-start gap-1`}>
+              <div className="flex-1 relative">
+                <label className={floatLabel}>Justification</label>
+                <div className="border border-slate-300 rounded-[6px] bg-white overflow-hidden">
+                  <textarea name="justification" value={formData.justification} onChange={handleChange} rows={1} disabled={isReadOnly('justification')} className="w-full pt-[14px] pb-[1px] px-[7px] text-[11.5px] border-0 focus:ring-0 focus:outline-none bg-transparent resize-none" placeholder="Reason..." />
+                  {!isReadOnly('justification') && (
+                    <div className="flex items-center justify-end px-1 pb-[2px]">
+                      <VoiceDictation compact onText={(t) => appendDictation('justification', t)} onAudio={addVoiceAudio} />
+                    </div>
+                  )}
+                </div>
               </div>
-              <textarea name="justification" value={formData.justification} onChange={handleChange} rows={1} disabled={isReadOnly('justification')} className={isReadOnly('justification') ? lockedInputClass : inputClass} placeholder="Reason for this purchase request... (or dictate in any language)" />
-            </div>
-            )}
-            {!isHidden('notes') && (
-            <div className="col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5">
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <label className="block text-sm font-bold text-slate-700">Notes</label>
-                {!isReadOnly('notes') && (
-                  <VoiceDictation onText={(t) => appendDictation('notes', t)} onAudio={addVoiceAudio} />
-                )}
-              </div>
-              <textarea name="notes" value={formData.notes} onChange={handleChange} rows={1} disabled={isReadOnly('notes')} className={isReadOnly('notes') ? lockedInputClass : inputClass} placeholder="Additional notes... (or dictate in any language)" />
+              <button type="button" onClick={() => attachInputRef.current?.click()} className="mt-[12px] flex items-center gap-0.5 px-1.5 py-[4px] text-[9px] font-semibold text-primary-600 border border-primary-300 rounded-[4px] hover:bg-primary-50 uppercase tracking-wide whitespace-nowrap shrink-0">
+                <Paperclip size={9} />
+                {pendingAttachments.length > 0 ? `${pendingAttachments.length}` : 'Attach'}
+              </button>
             </div>
             )}
           </div>
         </div>
 
         {/* Line Items */}
-        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-          <div className="flex items-center justify-between mb-3 pb-1.5 border-b">
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800">Line Items</h3>
+        <div className="bg-white rounded-[6px] border border-slate-200 p-2 sm:p-3">
+          <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100">
+            <h3 className="text-[11.5px] font-semibold text-slate-700 uppercase tracking-wide">Line Items</h3>
             <button
               type="button"
               onClick={addLine}
               disabled={lineItems.length >= MAX_PR_LINES}
               title={lineItems.length >= MAX_PR_LINES ? `Maximum ${MAX_PR_LINES} lines per PR` : ''}
-              className="flex items-center gap-1 px-3 py-1.5 text-sm text-primary-600 border border-primary-300 rounded-lg hover:bg-primary-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              className="flex items-center gap-0.5 px-2 py-1 text-[10px] font-semibold text-primary-600 border border-primary-300 rounded-[4px] hover:bg-primary-50 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wide"
             >
-              <Plus size={16} /> Add Item {lineItems.length >= MAX_PR_LINES && `(${MAX_PR_LINES} max)`}
+              <Plus size={12} /> Add {lineItems.length >= MAX_PR_LINES && `(${MAX_PR_LINES} max)`}
             </button>
           </div>
 
@@ -602,7 +623,7 @@ export default function CreatePurchaseRequest() {
               card with stacked inputs — no horizontal scroll on
               phones. Reuses the same handlers as the desktop table
               so create / edit behavior is identical. */}
-          <div className="sm:hidden space-y-3">
+          <div className="sm:hidden space-y-1.5">
             {lineItems.map((item, idx) => {
               const rtKey = (formData.requirement_type || 'GOODS').toUpperCase();
               const categoryOptions = categoryChoicesForRequirementType(rtKey);
@@ -612,8 +633,6 @@ export default function CreatePurchaseRequest() {
               const safeCategoryEncoded = validEncoded.has(encodedCurrent) ? encodedCurrent : '';
               const norm = (v) => (v || '').toString().trim().toUpperCase().replace(/[\s-]+/g, '_');
               const src = (item.category_source || '').toUpperCase();
-              // Every selectable line item now resolves to a Product master
-              // row — `src` tells us which product_type bucket to show.
               const wantedType =
                 src === 'MACHINERY_PRODUCT' ? 'MACHINERY' :
                 src === 'SERVICE_PRODUCT'   ? 'SERVICES'  :
@@ -626,9 +645,6 @@ export default function CreatePurchaseRequest() {
                   && (it.product_type || 'GOODS').toUpperCase() === wantedType)
                 .filter(it => !usedElsewhere.has(String(it.item_id)))
                 .filter(it => {
-                  // Only GOODS narrows further by sub-type (goods_sub_type).
-                  // The other product_types use '__ANY__' as the sole
-                  // category option so the filter is a no-op for them.
                   if (!item.category || item.category === '__ANY__') return true;
                   if (wantedType !== 'GOODS') return true;
                   const cat = norm(item.category);
@@ -643,81 +659,69 @@ export default function CreatePurchaseRequest() {
                            wantedType === 'SERVICES'  ? 'Service'   :
                                                         'Product';
               return (
-                <div key={`m-${idx}`} className="border border-slate-200 rounded-lg bg-white overflow-hidden">
-                  <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border-b border-slate-100">
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Line #{idx + 1}</span>
-                    <button type="button" onClick={() => removeLine(idx)} disabled={lineItems.length <= 1} className="p-1 text-red-500 hover:bg-red-50 rounded disabled:opacity-30">
-                      <Trash2 size={14} />
+                <div key={`m-${idx}`} className="border border-slate-200 rounded-[6px] bg-white overflow-hidden">
+                  <div className="flex items-center justify-between px-2 py-1 bg-slate-50 border-b border-slate-100">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">#{idx + 1}</span>
+                    <button type="button" onClick={() => removeLine(idx)} disabled={lineItems.length <= 1} className="p-0.5 text-red-400 hover:bg-red-50 rounded disabled:opacity-30">
+                      <Trash2 size={11} />
                     </button>
                   </div>
-                  <div className="px-3 py-2 space-y-2 text-sm">
+                  <div className="px-2 py-1.5 grid grid-cols-2 gap-1">
                     {!isLineHidden('category') && (
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">Category <span className="text-red-500">*</span></p>
-                      <CustomSelect key={`mcat-${idx}-${rtKey}`} value={safeCategoryEncoded} onChange={(e) => handleLineChange(idx, 'category', e.target.value)} disabled={isLineRO('category')} className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm disabled:bg-slate-100 disabled:cursor-not-allowed">
-                        <option value="">Select Category...</option>
+                    <div className={floatWrap}>
+                      <label className={floatLabel}>Category *</label>
+                      <CustomSelect key={`mcat-${idx}-${rtKey}`} value={safeCategoryEncoded} onChange={(e) => handleLineChange(idx, 'category', e.target.value)} disabled={isLineRO('category')} className={floatInput}>
+                        <option value="">Select...</option>
                         {categoryOptions.map(c => <option key={encodeCategoryOption(c)} value={encodeCategoryOption(c)}>{c.label}</option>)}
                       </CustomSelect>
                     </div>
                     )}
                     {!isLineHidden('product_service') && (
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">Product</p>
-                      <CustomSelect key={`mp-${idx}-${rtKey}-${src}`} value={safeProduct} onChange={(e) => handleLineChange(idx, 'product', e.target.value)} disabled={isLineRO('product_service') || (!!item.category && prodOptions.length === 0)} className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm disabled:bg-slate-50 disabled:text-slate-400">
-                        <option value="">{!item.category ? 'Select Category first…' : (prodOptions.length === 0 ? `No ${noun.toLowerCase()} found` : `Select ${noun}`)}</option>
+                    <div className={floatWrap}>
+                      <label className={floatLabel}>Product</label>
+                      <CustomSelect key={`mp-${idx}-${rtKey}-${src}`} value={safeProduct} onChange={(e) => handleLineChange(idx, 'product', e.target.value)} disabled={isLineRO('product_service') || (!!item.category && prodOptions.length === 0)} className={`${floatInput} disabled:bg-slate-50 disabled:text-slate-400`}>
+                        <option value="">{!item.category ? 'Category first…' : (prodOptions.length === 0 ? 'None found' : `Select ${noun}`)}</option>
                         {prodOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
                       </CustomSelect>
                     </div>
                     )}
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">Available Stock</p>
+                    <div className={floatWrap}>
+                      <label className={floatLabel}>Stock</label>
+                      <div className={`${floatInput} bg-slate-50 text-right tabular-nums`}>
                       {(() => {
                         const picked = (purchaseItems || []).find(
                           it => String(it.item_id) === String(item.product) && it.item_type === 'PRODUCT'
                         );
-                        if (!formData.warehouse) {
-                          return <p className="text-xs text-slate-400 italic">Select warehouse</p>;
-                        }
-                        if (!picked) {
-                          return <p className="text-xs text-slate-300">—</p>;
-                        }
+                        if (!formData.warehouse) return <span className="text-slate-400 text-[10px]">—</span>;
+                        if (!picked) return <span className="text-slate-300 text-[10px]">—</span>;
                         const n = Number(picked.current_stock);
-                        const tone = Number.isFinite(n) && n < 0
-                          ? 'bg-red-50 border-red-200 text-red-800'
-                          : 'bg-sky-50 border-sky-200 text-sky-900';
-                        return (
-                          <div className={`px-2 py-1 text-sm text-right tabular-nums rounded border ${tone}`}>
-                            {fmtStock(picked.current_stock, picked.uom)}
-                            {picked.uom && <span className="text-[10px] text-slate-400 ml-1">{picked.uom}</span>}
-                          </div>
-                        );
+                        return <span className={n < 0 ? 'text-red-600' : 'text-sky-700'}>{fmtStock(picked.current_stock, picked.uom)}</span>;
                       })()}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {!isLineHidden('quantity_requested') && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">Quantity <span className="text-red-500">*</span></p>
-                        <input type="number" min="0.01" step="any" required value={item.quantity} onChange={(e) => handleLineChange(idx, 'quantity', e.target.value)} disabled={isLineRO('quantity_requested')} className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm disabled:bg-slate-100 disabled:cursor-not-allowed" />
                       </div>
-                      )}
-                      {!isLineHidden('uom') && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">UOM</p>
-                        <CustomSelect value={item.uom} onChange={(e) => handleLineChange(idx, 'uom', e.target.value)} disabled={isLineRO('uom')} className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm disabled:bg-slate-100 disabled:cursor-not-allowed">
-                          {item.uom && !UOM_VALUES.includes(item.uom) && (
-                            <option value={item.uom}>{item.uom}</option>
-                          )}
-                          {UOM_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                        </CustomSelect>
-                      </div>
-                      )}
                     </div>
+                    {!isLineHidden('quantity_requested') && (
+                    <div className={floatWrap}>
+                      <label className={floatLabel}>Qty *</label>
+                      <input type="number" min="0.01" step="any" required value={item.quantity} onChange={(e) => handleLineChange(idx, 'quantity', e.target.value)} disabled={isLineRO('quantity_requested')} className={floatInput} />
+                    </div>
+                    )}
+                    {!isLineHidden('uom') && (
+                    <div className={floatWrap}>
+                      <label className={floatLabel}>UOM</label>
+                      <CustomSelect value={item.uom} onChange={(e) => handleLineChange(idx, 'uom', e.target.value)} disabled={isLineRO('uom')} className={floatInput}>
+                        {item.uom && !UOM_VALUES.includes(item.uom) && (
+                          <option value={item.uom}>{item.uom}</option>
+                        )}
+                        {UOM_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </CustomSelect>
+                    </div>
+                    )}
                     {!isLineHidden('description_override') && (
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">Description</p>
-                      <input type="text" value={item.description} onChange={(e) => handleLineChange(idx, 'description', e.target.value)} disabled={isLineRO('description_override')} placeholder="Optional description" className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm disabled:bg-slate-100 disabled:cursor-not-allowed" />
+                    <div className={`${floatWrap} col-span-2`}>
+                      <label className={floatLabel}>Description</label>
+                      <input type="text" value={item.description} onChange={(e) => handleLineChange(idx, 'description', e.target.value)} disabled={isLineRO('description_override')} placeholder="Optional" className={floatInput} />
                     </div>
                     )}
                   </div>
@@ -924,12 +928,20 @@ export default function CreatePurchaseRequest() {
           )}
         </div>
 
-        <FileAttachments module="PR" recordId={null} presetPendingFiles={voiceAudioFiles} onPendingChange={(files) => { pendingAttachmentsRef.current = files; setPendingAttachments(files); }} />
+        {/* Hidden file input for inline Attach button */}
+        <input ref={attachInputRef} type="file" multiple className="hidden" onChange={(e) => {
+          const files = Array.from(e.target.files || []);
+          if (files.length === 0) return;
+          const updated = [...pendingAttachmentsRef.current, ...files];
+          pendingAttachmentsRef.current = updated;
+          setPendingAttachments(updated);
+          e.target.value = '';
+        }} />
 
         {/* Actions */}
-        <div className="flex justify-end gap-3">
-          <button type="button" onClick={() => navigate(-1)} className="px-4 sm:px-6 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
-          <button type="submit" disabled={isSubmitting} className="px-4 sm:px-6 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-50 bg-primary-600 hover:bg-primary-700">
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={() => navigate(-1)} className="px-3 sm:px-5 py-1.5 border border-slate-300 rounded-[6px] text-[11.5px] font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+          <button type="submit" disabled={isSubmitting} className="px-3 sm:px-5 py-1.5 text-white rounded-[6px] text-[11.5px] font-medium disabled:opacity-50 bg-primary-600 hover:bg-primary-700">
             {isSubmitting ? 'Creating...' : 'Create Purchase Request'}
           </button>
         </div>

@@ -16,12 +16,12 @@ import { Plus, Trash2, SkipForward } from 'lucide-react';
 import FileAttachments, { uploadPendingFiles } from '../components/FileAttachments';
 import { PAYMENT_TERM_OPTIONS, FREIGHT_TERM_OPTIONS, withCurrent, paymentTermMessage } from '@/constants/purchaseTerms';
 
-// Base input classes pulled from this form's inline styling so the
-// field-permission lock state can reuse them.
-const inputClass = "w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
-const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
-const lineInputClass = "w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm";
-const lockedLineInputClass = `${lineInputClass} bg-slate-100 cursor-not-allowed`;
+// Float design — compact floating-label inputs
+const floatWrap = "relative";
+const floatLabel = "absolute top-[3px] left-[7px] text-[8px] font-semibold text-slate-400 uppercase tracking-[0.04em] pointer-events-none z-10";
+const floatInput = "w-full pt-[14px] pb-[3px] px-[7px] text-[11.5px] border border-slate-300 rounded-[6px] focus:ring-1 focus:ring-primary-500 focus:border-primary-500 bg-white";
+const floatLocked = `${floatInput} bg-slate-100 cursor-not-allowed`;
+const sectionTitle = "text-[11px] font-bold text-slate-500 uppercase tracking-wide";
 
 export default function CreatePurchaseOrder() {
   const navigate = useNavigate();
@@ -36,17 +36,8 @@ export default function CreatePurchaseOrder() {
   const { options: vendorOptions } = useLookup('/api/vendors/');
   const { options: companyOptions } = useLookup('/api/companies/');
   const { options: rfqOptions } = useLookup('/api/purchase/rfq/');
-  // Broker master — drives the Broker Name dropdown so users pick a
-  // pre-registered broker instead of free-typing a name.
   const { raw: brokerList } = useLookup('/api/brokers/');
-  // Unified item catalogue (Product + Machinery + Service Catalogue).
-  // Source of truth for the line item dropdown. See backend
-  // PurchaseItemsView. Each row: { item_type, item_id, item_name,
-  // item_code, uom, category, label }.
   const { raw: purchaseItems } = useLookup('/api/purchase/items/');
-  // Product master is still fetched separately for the skip-RFQ vendor
-  // narrowing (which reads `preferred_vendors` off each Product —
-  // metadata not exposed by the unified items endpoint).
   const { raw: productRaw } = useAllProducts();
   const { raw: prRaw } = useLookup('/api/purchase/requests/', { labelField: 'pr_no' });
   const { raw: allWarehousesRaw } = useLookup('/api/warehouses/');
@@ -83,9 +74,6 @@ export default function CreatePurchaseOrder() {
     formData.company ? `/api/warehouses/?company=${formData.company}&scope=true` : null
   );
 
-  // Skip-RFQ: narrow vendor dropdown to vendors that are 'preferred' on any of
-  // the line-item products. If no line products have preferred vendors set,
-  // fall back to all vendors so the user isn't blocked.
   const allowedVendorIds = (() => {
     if (!isSkipRfq) return null;
     const productIds = lineItems.map(l => String(l.product)).filter(Boolean);
@@ -101,7 +89,6 @@ export default function CreatePurchaseOrder() {
     ? vendorOptions.filter(o => allowedVendorIds.has(String(o.value)))
     : vendorOptions;
 
-  // Load skip-RFQ data from sessionStorage
   useEffect(() => {
     if (!isSkipRfq) return;
     try {
@@ -123,10 +110,6 @@ export default function CreatePurchaseOrder() {
         expected_delivery_end: data.required_by_date || '',
       }));
 
-      // Build line items from PR lines. Each PR line may be a Product,
-      // Machinery, or Service — preserve `item_type` so we route to the
-      // right FK on save. Older sessionStorage payloads that don't
-      // include item_type default to PRODUCT.
       if (data.lines?.length > 0) {
         setLineItems(data.lines.map((line, i) => ({
           item_type: (line.item_type || 'PRODUCT').toUpperCase(),
@@ -139,10 +122,6 @@ export default function CreatePurchaseOrder() {
           gst: '',
           delivery_schedule: line.required_date || '',
           pr_line_id: line.pr_line_id || '',
-          // Mirror PR category onto the PO line so the operator can
-          // see / edit it on the PO form. The backend persists this
-          // on POLine.category and the Receipt routing reads it first
-          // (see POLineSerializer.get_pr_line_category resolver).
           category: line.category || '',
         })));
       }
@@ -151,7 +130,6 @@ export default function CreatePurchaseOrder() {
     }
   }, [isSkipRfq]);
 
-  // When warehouse options load and skip-RFQ has a warehouse, re-set it
   useEffect(() => {
     if (!skipRfqData?.warehouse || !warehouseOptions.length) return;
     if (warehouseOptions.find(o => o.value === skipRfqData.warehouse)) {
@@ -159,9 +137,6 @@ export default function CreatePurchaseOrder() {
     }
   }, [warehouseOptions, skipRfqData]);
 
-  // Clear the selected vendor if it's no longer allowed by the product filter
-  // (e.g., user picked a vendor, then changed a line product and the previous
-  // vendor isn't preferred for the new product).
   useEffect(() => {
     if (!isSkipRfq || !allowedVendorIds || !formData.vendor) return;
     if (!allowedVendorIds.has(String(formData.vendor))) {
@@ -177,7 +152,6 @@ export default function CreatePurchaseOrder() {
     }
     if (name === 'linked_prs') {
       const pr = (prRaw || []).find(p => String(p.id) === String(value));
-      // Prefer PR's persisted company; fall back to deriving from warehouse for legacy data.
       let companyId = pr?.company || '';
       if (!companyId && pr) {
         const wh = (allWarehousesRaw || []).find(w => String(w.id) === String(pr.warehouse));
@@ -198,10 +172,6 @@ export default function CreatePurchaseOrder() {
     setLineItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
   };
 
-  // When a product is picked, pull the GST% / freight / payment used on the most
-  // recent PO for that same product and prefill them — but only fields the
-  // operator hasn't already set (never overwrite a typed value). Best-effort:
-  // any failure is silently ignored so it never blocks PO creation.
   const applyLastTerms = async (index, productId, itemType) => {
     if (!productId) return;
     try {
@@ -240,7 +210,6 @@ export default function CreatePurchaseOrder() {
     setIsLoading(true);
     try {
       const payload = cleanFormData({ ...formData });
-      // For skip-RFQ, ensure linked_rfq is empty
       if (isSkipRfq) {
         delete payload.linked_rfq;
       }
@@ -248,17 +217,11 @@ export default function CreatePurchaseOrder() {
       const res = await apiClient.post('/api/purchase/orders/', payload);
       const poId = res.data?.id;
 
-      // If we have line items, create them. Each line carries an
-      // item_type that decides which FK on POLine receives the id
-      // (product_service / machinery / service_catalogue). The backend
-      // `add-line` endpoint accepts whichever key is set.
       if (lineItems.length > 0 && poId) {
         const linePromises = lineItems
           .filter(l => l.product && l.quantity)
           .map((line, i) => {
             const itemType = (line.item_type || 'PRODUCT').toUpperCase();
-            // Machine spares are MACHINERY Products now, so they save to
-            // product_service like goods (the legacy `machinery` FK is retired).
             const fkField =
               itemType === 'SERVICE' ? 'service_catalogue' : 'product_service';
             const linePayload = {
@@ -270,9 +233,6 @@ export default function CreatePurchaseOrder() {
               unit_price: line.unit_price || '0',
               gst: line.gst || '0',
               delivery_schedule: line.delivery_schedule || null,
-              // Category drives downstream Receipt routing. Blank when
-              // the operator left it as '-' — backend resolver then
-              // falls back to PR linkage.
               category: line.category || '',
             };
             if (line.pr_line_id) {
@@ -310,342 +270,287 @@ export default function CreatePurchaseOrder() {
 
       {/* Skip RFQ Banner */}
       {isSkipRfq && (
-        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center flex-shrink-0">
-            <SkipForward size={20} className="text-white" />
+        <div className="mb-2 bg-amber-50 border border-amber-200 rounded-[6px] px-3 py-2 flex items-center gap-2">
+          <div className="w-7 h-7 rounded-[6px] bg-amber-500 flex items-center justify-center shrink-0">
+            <SkipForward size={14} className="text-white" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-amber-800">RFQ Skipped — Direct PO Creation</p>
-            <p className="text-xs text-amber-600">
-              Creating PO directly from PR {skipRfqData?.pr_no || ''}. Linked RFQ = <span className="font-bold">SKIP RFQ</span>. Fields auto-filled from PR — please select a Vendor and fill remaining required fields.
+            <p className="text-[11px] font-semibold text-amber-800">RFQ Skipped — Direct PO Creation</p>
+            <p className="text-[10px] text-amber-600">
+              Creating PO from PR {skipRfqData?.pr_no || ''}. Select a Vendor and fill remaining fields.
             </p>
           </div>
         </div>
       )}
 
       {(() => {
-        // Reflects the currently-picked Payment Terms in real time so
-        // the operator's deadline matches what they're about to save.
         const message = paymentTermMessage(formData?.payment_terms);
         if (!message) return null;
         return (
-          <div className="mb-4">
-            <p className="inline-block bg-amber-100 border border-amber-300 text-amber-800 text-sm font-semibold px-4 py-2 rounded-lg">
+          <div className="mb-2">
+            <p className="inline-block bg-amber-100 border border-amber-300 text-amber-800 text-[11px] font-semibold px-3 py-1.5 rounded-[6px]">
               {message}
             </p>
           </div>
         );
       })()}
 
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-        <form onSubmit={handleSubmit}>
-          <EditGate canEdit={editable} className="space-y-3">
-          <div>
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Order Details</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
-              {!isHidden('vendor') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Vendor <span className="text-red-500">*</span></label>
-                <CustomSelect name="vendor" value={formData.vendor} onChange={handleChange} required disabled={isReadOnly('vendor')} className={isReadOnly('vendor') ? lockedInputClass : inputClass}>
-                  <option value="">Select Vendor</option>
-                  {filteredVendorOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      <form onSubmit={handleSubmit}>
+        <EditGate canEdit={editable} className="space-y-2">
+        {/* Order Details + Terms — single compact card */}
+        <div className="bg-white rounded-[6px] border border-slate-200 px-3 py-2">
+          <p className={`${sectionTitle} mb-1.5`}>Order Details</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+            {!isHidden('vendor') && (
+            <div className={floatWrap}>
+              <label className={floatLabel}>Vendor *</label>
+              <CustomSelect name="vendor" value={formData.vendor} onChange={handleChange} required disabled={isReadOnly('vendor')} className={isReadOnly('vendor') ? floatLocked : floatInput}>
+                <option value="">Select Vendor</option>
+                {filteredVendorOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </CustomSelect>
+            </div>
+            )}
+            {!isHidden('company') && (
+            <div className={floatWrap}>
+              <label className={floatLabel}>Company *</label>
+              <CustomSelect name="company" value={formData.company} onChange={handleChange} required disabled={isReadOnly('company')} className={isReadOnly('company') ? floatLocked : floatInput}>
+                <option value="">Select Company</option>
+                {companyOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </CustomSelect>
+            </div>
+            )}
+            {!isHidden('warehouse') && (
+            <div className={floatWrap}>
+              <label className={floatLabel}>Warehouse *</label>
+              <CustomSelect name="warehouse" value={formData.warehouse} onChange={handleChange} required disabled={isReadOnly('warehouse') || !formData.company} className={isReadOnly('warehouse') ? floatLocked : `${floatInput} disabled:bg-slate-100 disabled:cursor-not-allowed`}>
+                <option value="">{formData.company ? 'Select Warehouse' : 'Select company first...'}</option>
+                {warehouseOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </CustomSelect>
+            </div>
+            )}
+            {!isHidden('linked_prs') && (
+            <div className={floatWrap}>
+              <label className={floatLabel}>Linked PR</label>
+              {isSkipRfq ? (
+                <input type="text" name="linked_prs" value={skipRfqData?.pr_no || formData.linked_prs} readOnly className={floatLocked} />
+              ) : (
+                <CustomSelect name="linked_prs" value={formData.linked_prs} onChange={handleChange} disabled={isReadOnly('linked_prs')} className={isReadOnly('linked_prs') ? floatLocked : floatInput}>
+                  <option value="">Select Purchase Request</option>
+                  {prOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </CustomSelect>
-                {isSkipRfq && allowedVendorIds && (
-                  <p className="text-xs text-slate-500 mt-1">
-                    Showing {filteredVendorOptions.length} preferred vendor(s) for the selected product(s).
-                  </p>
-                )}
-                {isSkipRfq && !allowedVendorIds && lineItems.some(l => l.product) && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    No preferred vendors set on the selected product(s). Showing all vendors.
-                  </p>
-                )}
-              </div>
               )}
-              {!isHidden('company') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Company <span className="text-red-500">*</span></label>
-                <CustomSelect name="company" value={formData.company} onChange={handleChange} required disabled={isReadOnly('company')} className={isReadOnly('company') ? lockedInputClass : inputClass}>
-                  <option value="">Select Company</option>
-                  {companyOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </div>
+            )}
+            {!isHidden('linked_rfq') && (
+            <div className={floatWrap}>
+              <label className={floatLabel}>Linked RFQ</label>
+              {isSkipRfq ? (
+                <div className={`${floatInput} border-amber-300 bg-amber-50 text-amber-700 font-semibold`}>
+                  <span className="invisible text-[8px]">x</span>SKIP RFQ
+                </div>
+              ) : (
+                <CustomSelect name="linked_rfq" value={formData.linked_rfq} onChange={handleChange} disabled={isReadOnly('linked_rfq')} className={isReadOnly('linked_rfq') ? floatLocked : floatInput}>
+                  <option value="">Select RFQ</option>
+                  {rfqOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </CustomSelect>
-              </div>
               )}
-              {!isHidden('warehouse') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Warehouse <span className="text-red-500">*</span></label>
-                <CustomSelect name="warehouse" value={formData.warehouse} onChange={handleChange} required disabled={isReadOnly('warehouse') || !formData.company} className={isReadOnly('warehouse') ? lockedInputClass : "w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-slate-100 disabled:cursor-not-allowed"}>
-                  <option value="">{formData.company ? 'Select Warehouse' : 'Select company first...'}</option>
-                  {warehouseOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </CustomSelect>
-              </div>
-              )}
-              {!isHidden('linked_prs') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Linked PR</label>
-                {isSkipRfq ? (
-                  <input type="text" name="linked_prs" value={skipRfqData?.pr_no || formData.linked_prs} readOnly className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm bg-slate-50 text-slate-600" />
-                ) : (
-                  <CustomSelect name="linked_prs" value={formData.linked_prs} onChange={handleChange} disabled={isReadOnly('linked_prs')} className={isReadOnly('linked_prs') ? lockedInputClass : inputClass}>
-                    <option value="">Select Purchase Request</option>
-                    {prOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </CustomSelect>
-                )}
-              </div>
-              )}
-              {!isHidden('linked_rfq') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Linked RFQ</label>
-                {isSkipRfq ? (
-                  <div className="w-full border border-amber-300 bg-amber-50 rounded-lg px-3 py-2 text-sm font-semibold text-amber-700">
-                    SKIP RFQ
-                  </div>
-                ) : (
-                  <CustomSelect name="linked_rfq" value={formData.linked_rfq} onChange={handleChange} disabled={isReadOnly('linked_rfq')} className={isReadOnly('linked_rfq') ? lockedInputClass : inputClass}>
-                    <option value="">Select RFQ</option>
-                    {rfqOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </CustomSelect>
-                )}
-              </div>
-              )}
-              {!isHidden('po_date') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">PO Date <span className="text-red-500">*</span></label>
-                <CustomDatePicker name="po_date" value={formData.po_date} onChange={handleChange} required disabled={isReadOnly('po_date')} className={isReadOnly('po_date') ? lockedInputClass : inputClass} />
-              </div>
-              )}
-              {!isHidden('expected_delivery_start') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Expected Delivery Start</label>
-                <CustomDatePicker name="expected_delivery_start" value={formData.expected_delivery_start} onChange={handleChange} disabled={isReadOnly('expected_delivery_start')} className={isReadOnly('expected_delivery_start') ? lockedInputClass : inputClass} />
-              </div>
-              )}
-              {!isHidden('expected_delivery_end') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Expected Delivery End</label>
-                <CustomDatePicker name="expected_delivery_end" value={formData.expected_delivery_end} onChange={handleChange} disabled={isReadOnly('expected_delivery_end')} className={isReadOnly('expected_delivery_end') ? lockedInputClass : inputClass} />
-              </div>
-              )}
+            </div>
+            )}
+            {!isHidden('po_date') && (
+            <div className={floatWrap}>
+              <label className={floatLabel}>PO Date *</label>
+              <CustomDatePicker name="po_date" value={formData.po_date} onChange={handleChange} required disabled={isReadOnly('po_date')} className={isReadOnly('po_date') ? floatLocked : floatInput} />
+            </div>
+            )}
+            {!isHidden('expected_delivery_start') && (
+            <div className={floatWrap}>
+              <label className={floatLabel}>Delivery Start</label>
+              <CustomDatePicker name="expected_delivery_start" value={formData.expected_delivery_start} onChange={handleChange} disabled={isReadOnly('expected_delivery_start')} className={isReadOnly('expected_delivery_start') ? floatLocked : floatInput} />
+            </div>
+            )}
+            {!isHidden('expected_delivery_end') && (
+            <div className={floatWrap}>
+              <label className={floatLabel}>Delivery End</label>
+              <CustomDatePicker name="expected_delivery_end" value={formData.expected_delivery_end} onChange={handleChange} disabled={isReadOnly('expected_delivery_end')} className={isReadOnly('expected_delivery_end') ? floatLocked : floatInput} />
+            </div>
+            )}
+            {!isHidden('freight_terms') && (
+            <div className={floatWrap}>
+              <label className={floatLabel}>Freight Terms *</label>
+              <CustomSelect name="freight_terms" value={formData.freight_terms} onChange={handleChange} required disabled={isReadOnly('freight_terms')} className={isReadOnly('freight_terms') ? floatLocked : floatInput}>
+                <option value="">Select Freight Terms</option>
+                {withCurrent(FREIGHT_TERM_OPTIONS, formData.freight_terms).map(o => <option key={o} value={o}>{o}</option>)}
+              </CustomSelect>
+            </div>
+            )}
+            {!isHidden('payment_terms') && (
+            <div className={floatWrap}>
+              <label className={floatLabel}>Payment Terms</label>
+              <CustomSelect name="payment_terms" value={formData.payment_terms} onChange={handleChange} disabled={isReadOnly('payment_terms')} className={isReadOnly('payment_terms') ? floatLocked : floatInput}>
+                <option value="">Select Payment Terms</option>
+                {withCurrent(PAYMENT_TERM_OPTIONS, formData.payment_terms).map(o => <option key={o} value={o}>{o}</option>)}
+              </CustomSelect>
+            </div>
+            )}
+            {!isHidden('currency') && (
+            <div className={floatWrap}>
+              <label className={floatLabel}>Currency *</label>
+              <CustomSelect name="currency" value={formData.currency} onChange={handleChange} required disabled={isReadOnly('currency')} className={isReadOnly('currency') ? floatLocked : floatInput}>
+                <option value="">Select Currency</option>
+                <option value="INR">INR</option>
+                <option value="USD">USD</option>
+              </CustomSelect>
+            </div>
+            )}
+            {!isHidden('broker_name') && (
+            <div className={floatWrap}>
+              <label className={floatLabel}>Broker Name</label>
+              <CustomSelect name="broker_name" value={formData.broker_name} onChange={handleChange} disabled={isReadOnly('broker_name')} className={isReadOnly('broker_name') ? floatLocked : floatInput}>
+                <option value="">Select broker (optional)</option>
+                {(brokerList || []).map((b) => (
+                  <option key={b.id} value={b.broker_name}>
+                    {b.broker_name}{b.broker_code ? ` (${b.broker_code})` : ''}
+                  </option>
+                ))}
+              </CustomSelect>
+            </div>
+            )}
+            {!isHidden('terms_and_conditions') && (
+            <div className={floatWrap}>
+              <label className={floatLabel}>Terms & Conditions</label>
+              <input type="text" name="terms_and_conditions" value={formData.terms_and_conditions} onChange={handleChange} disabled={isReadOnly('terms_and_conditions')} className={isReadOnly('terms_and_conditions') ? floatLocked : floatInput} placeholder=" " />
+            </div>
+            )}
+            <div className={floatWrap}>
+              <label className={floatLabel}>Notes</label>
+              <input type="text" name="notes" value={formData.notes} onChange={handleChange} className={floatInput} placeholder=" " />
             </div>
           </div>
+        </div>
 
-          <div>
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Terms & Currency</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
-              {!isHidden('freight_terms') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Freight Terms <span className="text-red-500">*</span></label>
-                <CustomSelect name="freight_terms" value={formData.freight_terms} onChange={handleChange} required disabled={isReadOnly('freight_terms')} className={isReadOnly('freight_terms') ? lockedInputClass : inputClass}>
-                  <option value="">Select Freight Terms</option>
-                  {withCurrent(FREIGHT_TERM_OPTIONS, formData.freight_terms).map(o => <option key={o} value={o}>{o}</option>)}
-                </CustomSelect>
-              </div>
-              )}
-              {!isHidden('payment_terms') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Payment Terms</label>
-                <CustomSelect name="payment_terms" value={formData.payment_terms} onChange={handleChange} disabled={isReadOnly('payment_terms')} className={isReadOnly('payment_terms') ? lockedInputClass : inputClass}>
-                  <option value="">Select Payment Terms</option>
-                  {withCurrent(PAYMENT_TERM_OPTIONS, formData.payment_terms).map(o => <option key={o} value={o}>{o}</option>)}
-                </CustomSelect>
-              </div>
-              )}
-              {!isHidden('currency') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Currency <span className="text-red-500">*</span></label>
-                <CustomSelect name="currency" value={formData.currency} onChange={handleChange} required disabled={isReadOnly('currency')} className={isReadOnly('currency') ? lockedInputClass : inputClass}>
-                  <option value="">Select Currency</option>
-                  <option value="INR">INR</option>
-                  <option value="USD">USD</option>
-                </CustomSelect>
-              </div>
-              )}
-              {!isHidden('broker_name') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Broker Name</label>
-                {/* Sourced from /api/brokers/ (Broker master). PO stores
-                    broker_name as a string for backward compat; the
-                    dropdown just constrains input to the master list. */}
-                <CustomSelect
-                  name="broker_name"
-                  value={formData.broker_name}
-                  onChange={handleChange}
-                  disabled={isReadOnly('broker_name')}
-                  className={isReadOnly('broker_name') ? lockedInputClass : inputClass}
-                >
-                  <option value="">Select broker (optional)</option>
-                  {(brokerList || []).map((b) => (
-                    <option key={b.id} value={b.broker_name}>
-                      {b.broker_name}{b.broker_code ? ` (${b.broker_code})` : ''}
-                    </option>
-                  ))}
-                </CustomSelect>
-              </div>
-              )}
-            </div>
+        {/* Line Items */}
+        <div className="bg-white rounded-[6px] border border-slate-200 px-3 py-2">
+          <div className="flex items-center justify-between mb-1.5">
+            <p className={sectionTitle}>Line Items</p>
+            <button type="button" onClick={addLineItem} className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-primary-700 bg-primary-50 rounded-[6px] hover:bg-primary-100 transition">
+              <Plus size={12} /> Add Item
+            </button>
           </div>
-
-          {/* Line Items Section */}
-          <div>
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Line Items</h3>
-              <button type="button" onClick={addLineItem} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition">
-                <Plus size={14} /> Add Item
-              </button>
-            </div>
-            {lineItems.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-4">No line items added. Click "Add Item" to add products.</p>
-            ) : (
-              <div className="space-y-3">
-                {lineItems.map((item, index) => (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-8 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 items-end">
-                    {!isLineHidden('product_service') && (
-                    <div className="col-span-2 md:col-span-2">
-                      <label className="block text-xs font-semibold text-slate-700 mb-0.5">Item <span className="text-red-500">*</span></label>
-                      {/* Encoded "<TYPE>:<ID>" so the change handler can
-                          recover the item_type without an extra lookup.
-                          Items are grouped by type so users can scan
-                          Products / Machinery / Services separately. */}
-                      <CustomSelect
-                        value={item.product ? `${item.item_type || 'PRODUCT'}:${item.product}` : ''}
-                        onChange={e => {
-                          const v = e.target.value;
-                          if (!v) {
-                            handleLineChange(index, 'product', '');
-                            return;
-                          }
-                          const i = v.indexOf(':');
-                          const type = i >= 0 ? v.slice(0, i) : 'PRODUCT';
-                          const id = i >= 0 ? v.slice(i + 1) : v;
-                          // GST% comes straight from the product master
-                          // (Product.gst_percentage) — autofilled on pick,
-                          // still editable.
-                          const prod = (productRaw || []).find(pr => String(pr.id) === String(id));
-                          const masterGst = (prod && prod.gst_percentage != null && prod.gst_percentage !== '')
-                            ? String(prod.gst_percentage) : '';
-                          setLineItems(prev => prev.map((row, ri) => ri === index ? {
-                            ...row,
-                            item_type: type,
-                            product: id,
-                            ...(masterGst !== '' ? { gst: masterGst } : {}),
-                          } : row));
-                          // Freight / payment (and GST as a fallback when the
-                          // product master has none) from the last PO for this
-                          // product — fills blanks only.
-                          applyLastTerms(index, id, type);
-                        }}
-                        required
-                        disabled={isLineRO('product_service')}
-                        className={isLineRO('product_service') ? lockedLineInputClass : lineInputClass}
-                      >
-                        <option value="">Select Item</option>
-                        {['PRODUCT', 'MACHINERY', 'SERVICE'].map(type => {
-                          const items = (purchaseItems || []).filter(it => it.item_type === type);
-                          if (items.length === 0) return null;
-                          const groupLabel = type === 'PRODUCT' ? 'Products' : type === 'MACHINERY' ? 'Machinery' : 'Services';
-                          return (
-                            <optgroup key={type} label={groupLabel}>
-                              {items
-                                .slice()
-                                .sort((a, b) => (a.item_name || '').localeCompare(b.item_name || ''))
-                                .map(it => (
+          {lineItems.length === 0 ? (
+            <p className="text-[11px] text-slate-400 text-center py-3">No line items added. Click "Add Item" to add products.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="text-[11px]">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>#</th>
+                    {!isLineHidden('product_service') && <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>ITEM *</th>}
+                    <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>CATEGORY</th>
+                    {!isLineHidden('quantity_ordered') && <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>QTY *</th>}
+                    {!isLineHidden('uom') && <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>UOM</th>}
+                    {!isLineHidden('unit_price') && <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>UNIT PRICE</th>}
+                    {!isLineHidden('gst') && <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>GST %</th>}
+                    <th className="text-center px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lineItems.map((item, index) => (
+                    <tr key={index} className="border-b border-slate-100">
+                      <td className="px-2 py-1 text-slate-500">{index + 1}</td>
+                      {!isLineHidden('product_service') && (
+                      <td className="px-2 py-1">
+                        <CustomSelect
+                          value={item.product ? `${item.item_type || 'PRODUCT'}:${item.product}` : ''}
+                          onChange={e => {
+                            const v = e.target.value;
+                            if (!v) { handleLineChange(index, 'product', ''); return; }
+                            const i = v.indexOf(':');
+                            const type = i >= 0 ? v.slice(0, i) : 'PRODUCT';
+                            const id = i >= 0 ? v.slice(i + 1) : v;
+                            const prod = (productRaw || []).find(pr => String(pr.id) === String(id));
+                            const masterGst = (prod && prod.gst_percentage != null && prod.gst_percentage !== '')
+                              ? String(prod.gst_percentage) : '';
+                            setLineItems(prev => prev.map((row, ri) => ri === index ? {
+                              ...row, item_type: type, product: id,
+                              ...(masterGst !== '' ? { gst: masterGst } : {}),
+                            } : row));
+                            applyLastTerms(index, id, type);
+                          }}
+                          required
+                          disabled={isLineRO('product_service')}
+                          className="w-full px-1.5 py-1 border border-slate-300 rounded-[4px] text-[11px]"
+                          style={{ minWidth: 160 }}
+                        >
+                          <option value="">Select Item</option>
+                          {['PRODUCT', 'MACHINERY', 'SERVICE'].map(type => {
+                            const items = (purchaseItems || []).filter(it => it.item_type === type);
+                            if (items.length === 0) return null;
+                            const groupLabel = type === 'PRODUCT' ? 'Products' : type === 'MACHINERY' ? 'Machinery' : 'Services';
+                            return (
+                              <optgroup key={type} label={groupLabel}>
+                                {items.slice().sort((a, b) => (a.item_name || '').localeCompare(b.item_name || '')).map(it => (
                                   <option key={`${it.item_type}:${it.item_id}`} value={`${it.item_type}:${it.item_id}`}>
                                     {it.label || it.item_name}
                                   </option>
                                 ))}
-                            </optgroup>
-                          );
-                        })}
-                      </CustomSelect>
-                    </div>
-                    )}
-                    <div>
-                      {/* Category dropdown — drives Receipt routing.
-                          PACKING_MATERIAL lines flow into the receipt
-                          Packing Materials subform; others go to
-                          Receipt Line Items. Pre-fills from the PR
-                          line on PR→PO; editable on the PO so the
-                          operator can override per order. */}
-                      <label className="block text-xs font-semibold text-slate-700 mb-0.5">Category</label>
-                      <CustomSelect
-                        value={item.category || ''}
-                        onChange={e => handleLineChange(index, 'category', e.target.value)}
-                        className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm"
-                      >
-                        <option value="">-</option>
-                        <option value="RAW_MATERIAL">Raw Material</option>
-                        <option value="PACKING_MATERIAL">Packing Material</option>
-                        <option value="FINISHED_GOODS">Finished Goods</option>
-                        {/* Preserve any free-form category text the
-                            PR line carried (Machinery / Services PRs
-                            store free-form values, not the goods enum). */}
-                        {item.category
-                          && !['RAW_MATERIAL', 'PACKING_MATERIAL', 'FINISHED_GOODS'].includes(item.category)
-                          && <option value={item.category}>{item.category}</option>}
-                      </CustomSelect>
-                    </div>
-                    {!isLineHidden('quantity_ordered') && (
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-0.5">Qty <span className="text-red-500">*</span></label>
-                      <input type="number" step="0.01" min="0.01" value={item.quantity} onChange={e => handleLineChange(index, 'quantity', e.target.value)} required disabled={isLineRO('quantity_ordered')} className={isLineRO('quantity_ordered') ? lockedLineInputClass : lineInputClass} />
-                    </div>
-                    )}
-                    {!isLineHidden('uom') && (
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-0.5">UOM</label>
-                      <input type="text" value={item.uom} onChange={e => handleLineChange(index, 'uom', e.target.value)} disabled={isLineRO('uom')} className={isLineRO('uom') ? lockedLineInputClass : lineInputClass} />
-                    </div>
-                    )}
-                    {!isLineHidden('unit_price') && (
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-0.5">Unit Price</label>
-                      <input type="number" step="0.01" min="0" value={item.unit_price} onChange={e => handleLineChange(index, 'unit_price', e.target.value)} disabled={isLineRO('unit_price')} className={isLineRO('unit_price') ? lockedLineInputClass : lineInputClass} />
-                    </div>
-                    )}
-                    {!isLineHidden('gst') && (
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-0.5">GST %</label>
-                      <input type="number" step="0.01" min="0" max="100" value={item.gst} onChange={e => handleLineChange(index, 'gst', e.target.value)} disabled={isLineRO('gst')} className={isLineRO('gst') ? lockedLineInputClass : lineInputClass} />
-                    </div>
-                    )}
-                    <div className="flex items-end">
-                      <button type="button" onClick={() => removeLineItem(index)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition" title="Remove line">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Additional Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {!isHidden('terms_and_conditions') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Terms and Conditions</label>
-                <textarea name="terms_and_conditions" value={formData.terms_and_conditions} onChange={handleChange} rows={2} disabled={isReadOnly('terms_and_conditions')} className={isReadOnly('terms_and_conditions') ? lockedInputClass : inputClass} />
-              </div>
-              )}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">Notes</label>
-                <textarea name="notes" value={formData.notes} onChange={handleChange} rows={2} className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
-              </div>
+                              </optgroup>
+                            );
+                          })}
+                        </CustomSelect>
+                      </td>
+                      )}
+                      <td className="px-2 py-1">
+                        <CustomSelect value={item.category || ''} onChange={e => handleLineChange(index, 'category', e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded-[4px] text-[11px]">
+                          <option value="">-</option>
+                          <option value="RAW_MATERIAL">Raw Material</option>
+                          <option value="PACKING_MATERIAL">Packing Material</option>
+                          <option value="FINISHED_GOODS">Finished Goods</option>
+                          {item.category && !['RAW_MATERIAL', 'PACKING_MATERIAL', 'FINISHED_GOODS'].includes(item.category) && <option value={item.category}>{item.category}</option>}
+                        </CustomSelect>
+                      </td>
+                      {!isLineHidden('quantity_ordered') && (
+                      <td className="px-2 py-1">
+                        <input type="number" step="0.01" min="0.01" value={item.quantity} onChange={e => handleLineChange(index, 'quantity', e.target.value)} required disabled={isLineRO('quantity_ordered')} className="w-20 px-1.5 py-1 border border-slate-300 rounded-[4px] text-[11px]" />
+                      </td>
+                      )}
+                      {!isLineHidden('uom') && (
+                      <td className="px-2 py-1">
+                        <input type="text" value={item.uom} onChange={e => handleLineChange(index, 'uom', e.target.value)} disabled={isLineRO('uom')} className="w-16 px-1.5 py-1 border border-slate-300 rounded-[4px] text-[11px]" />
+                      </td>
+                      )}
+                      {!isLineHidden('unit_price') && (
+                      <td className="px-2 py-1">
+                        <input type="number" step="0.01" min="0" value={item.unit_price} onChange={e => handleLineChange(index, 'unit_price', e.target.value)} disabled={isLineRO('unit_price')} className="w-24 px-1.5 py-1 border border-slate-300 rounded-[4px] text-[11px]" />
+                      </td>
+                      )}
+                      {!isLineHidden('gst') && (
+                      <td className="px-2 py-1">
+                        <input type="number" step="0.01" min="0" max="100" value={item.gst} onChange={e => handleLineChange(index, 'gst', e.target.value)} disabled={isLineRO('gst')} className="w-16 px-1.5 py-1 border border-slate-300 rounded-[4px] text-[11px]" />
+                      </td>
+                      )}
+                      <td className="px-2 py-1 text-center">
+                        <button type="button" onClick={() => removeLineItem(index)} className="p-0.5 text-red-500 hover:bg-red-50 rounded transition" title="Remove line">
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
+          )}
+        </div>
 
-          <FileAttachments module="PO" recordId={null} onPendingChange={(files) => { pendingAttachmentsRef.current = files; setPendingAttachments(files); }} />
+        <FileAttachments module="PO" recordId={null} onPendingChange={(files) => { pendingAttachmentsRef.current = files; setPendingAttachments(files); }} />
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={() => navigate(-1)} className="px-4 sm:px-6 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
-            <button type="submit" disabled={isLoading} className="px-4 sm:px-6 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
-              {isLoading ? 'Saving...' : isSkipRfq ? 'Create PO (Skip RFQ)' : 'Save'}
-            </button>
-          </div>
-          </EditGate>
-        </form>
-      </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={() => navigate(-1)} className="px-4 py-1.5 border border-slate-300 rounded-[6px] text-[11.5px] font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+          <button type="submit" disabled={isLoading} className="px-4 py-1.5 bg-primary-600 text-white rounded-[6px] text-[11.5px] font-medium hover:bg-primary-700 disabled:opacity-50">
+            {isLoading ? 'Saving...' : isSkipRfq ? 'Create PO (Skip RFQ)' : 'Save'}
+          </button>
+        </div>
+        </EditGate>
+      </form>
     </MainLayout>
   );
 }

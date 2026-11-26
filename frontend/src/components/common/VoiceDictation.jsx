@@ -37,7 +37,7 @@ const LANGUAGES = [
  *   onAudio(file)        the recorded audio File (optional — to attach)
  *   disabled             optional
  */
-export default function VoiceDictation({ onText, onAudio, disabled = false }) {
+export default function VoiceDictation({ onText, onAudio, disabled = false, compact = false }) {
   const [lang, setLang] = useState('en-IN');
   const [state, setState] = useState('idle'); // 'idle' | 'recording' | 'processing'
   const recognitionRef = useRef(null);
@@ -151,12 +151,14 @@ export default function VoiceDictation({ onText, onAudio, disabled = false }) {
   if (!speechSupported) return null;
 
   return (
-    <div className="inline-flex items-center gap-1">
+    <div className={`inline-flex items-center ${compact ? 'gap-0.5' : 'gap-1'}`}>
       <CustomSelect
         value={lang}
         onChange={(e) => setLang(e.target.value)}
         disabled={disabled || state !== 'idle'}
-        className="text-xs border border-slate-200 rounded-md py-1 px-1.5 bg-white text-slate-600"
+        className={compact
+          ? "text-[9px] border border-slate-200 rounded py-0 px-1 bg-white text-slate-500"
+          : "text-xs border border-slate-200 rounded-md py-1 px-1.5 bg-white text-slate-600"}
         title="Dictation language"
       >
         {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
@@ -166,15 +168,15 @@ export default function VoiceDictation({ onText, onAudio, disabled = false }) {
         onClick={toggle}
         disabled={disabled || state === 'processing'}
         title={state === 'recording' ? 'Stop dictation' : 'Dictate (any language → English)'}
-        className={`p-1.5 rounded-lg transition-all disabled:opacity-50 ${
+        className={`${compact ? 'p-0.5 rounded' : 'p-1.5 rounded-lg'} transition-all disabled:opacity-50 ${
           state === 'recording'
             ? 'bg-red-100 text-red-600 animate-pulse'
             : 'bg-slate-100 text-slate-500 hover:bg-primary-100 hover:text-primary-600'
         }`}
       >
         {state === 'processing'
-          ? <Loader2 size={16} className="animate-spin" />
-          : state === 'recording' ? <MicOff size={16} /> : <Mic size={16} />}
+          ? <Loader2 size={compact ? 11 : 16} className="animate-spin" />
+          : state === 'recording' ? <MicOff size={compact ? 11 : 16} /> : <Mic size={compact ? 11 : 16} />}
       </button>
     </div>
   );

@@ -329,8 +329,14 @@ export default function CreateQuoteResponse() {
   const { isHidden: isLineHidden, isReadOnly: isLineRO } = useFieldPermissions('Quote Line');
   // Base input styling shared by the gated header fields; the locked
   // variant is applied when a field is READ_ONLY for the role.
-  const inputClass = 'w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500';
-  const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
+  // Float design — compact floating-label inputs
+  const floatWrap = "relative";
+  const floatLabel = "absolute top-[3px] left-[7px] text-[8px] font-semibold text-slate-400 uppercase tracking-[0.04em] pointer-events-none z-10";
+  const floatInput = "w-full pt-[14px] pb-[3px] px-[7px] text-[11.5px] border border-slate-300 rounded-[6px] focus:ring-1 focus:ring-primary-500 focus:border-primary-500 bg-white";
+  const floatLocked = `${floatInput} bg-slate-100 cursor-not-allowed`;
+  const sectionTitle = "text-[11px] font-bold text-slate-500 uppercase tracking-wide";
+  const inputClass = floatInput;
+  const lockedInputClass = floatLocked;
   const { options: rfqOptions, raw: rfqRaw } = useLookup('/api/purchase/rfq/');
   const { raw: evalRaw } = useLookup('/api/purchase/evaluations/');
   const { options: vendorOptions, raw: vendorRaw } = useLookup('/api/vendors/');
@@ -2063,30 +2069,28 @@ export default function CreateQuoteResponse() {
 
       {/* ====== FILL MODE SELECTOR ====== */}
       {!isEditMode && (
-        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-slate-700">Fill Mode:</span>
-            <label className={`flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition border-2 ${fillMode === 'manual' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
-              <input type="radio" name="fillMode" value="manual" checked={fillMode === 'manual'} onChange={() => setFillMode('manual')} className="text-primary-600 focus:ring-primary-500" />
-              <div>
-                <span className="font-medium text-sm">Manual Fill</span>
-                <span className="text-xs text-slate-500 block">Select RFQ to auto-fill from linked PR data</span>
-              </div>
-            </label>
-            <label className={`flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition border-2 ${fillMode === 'autofill' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
-              <input type="radio" name="fillMode" value="autofill" checked={fillMode === 'autofill'} onChange={() => setFillMode('autofill')} className="text-emerald-600 focus:ring-emerald-500" />
-              <div>
-                <span className="font-medium text-sm">Auto Fill (AI)</span>
-                <span className="text-xs text-slate-500 block">Upload document to extract & auto-fill fields</span>
-              </div>
-            </label>
-          </div>
+        <div className="bg-white rounded-[6px] border border-slate-200 px-3 py-1.5 mb-2 flex items-center gap-2">
+          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mr-1">Fill Mode:</span>
+          <label className={`flex items-center gap-1.5 px-3 py-1 rounded-[6px] cursor-pointer transition border ${fillMode === 'manual' ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
+            <input type="radio" name="fillMode" value="manual" checked={fillMode === 'manual'} onChange={() => setFillMode('manual')} className="text-primary-600 focus:ring-primary-500 h-3 w-3" />
+            <div>
+              <span className="font-medium text-[11.5px]">Manual Fill</span>
+              <span className="text-[10px] text-slate-500 block leading-tight">Select RFQ to auto-fill from linked PR data</span>
+            </div>
+          </label>
+          <label className={`flex items-center gap-1.5 px-3 py-1 rounded-[6px] cursor-pointer transition border ${fillMode === 'autofill' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
+            <input type="radio" name="fillMode" value="autofill" checked={fillMode === 'autofill'} onChange={() => setFillMode('autofill')} className="text-emerald-600 focus:ring-emerald-500 h-3 w-3" />
+            <div>
+              <span className="font-medium text-[11.5px]">Auto Fill (AI)</span>
+              <span className="text-[10px] text-slate-500 block leading-tight">Upload document to extract & auto-fill fields</span>
+            </div>
+          </label>
         </div>
       )}
 
       {/* ====== FILE UPLOAD SECTION (only in autofill mode) ====== */}
-      {fillMode === 'autofill' && <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 mb-3">
-        <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Extract Quote Data</h3>
+      {fillMode === 'autofill' && <div className="bg-white rounded-[6px] border border-slate-200 px-3 py-2 mb-2">
+        <p className={`${sectionTitle} mb-1.5`}>Extract Quote Data</p>
 
         {/* Drop zone */}
         {!uploadedFile && (
@@ -2095,21 +2099,19 @@ export default function CreateQuoteResponse() {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 sm:px-6 py-10 cursor-pointer transition-colors ${
+            className={`relative flex items-center justify-center gap-3 rounded-[6px] border-2 border-dashed px-4 py-3 cursor-pointer transition-colors ${
               isDragOver
                 ? 'border-primary-400 bg-primary-50'
                 : 'border-slate-300 bg-slate-50 hover:border-primary-300 hover:bg-primary-50/50'
             }`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <p className="text-xs font-semibold text-slate-700 mb-0.5">
-              Drag &amp; drop or click to upload
-            </p>
-            <p className="text-xs text-slate-500">
-              Supports: PDF, JPG, PNG, DOCX, XLSX
-            </p>
+            <div className="text-center">
+              <p className="text-[11px] font-semibold text-slate-700">Drag & drop or click to upload</p>
+              <p className="text-[10px] text-slate-500">PDF, JPG, PNG, DOCX, XLSX</p>
+            </div>
 
             <input
               ref={fileInputRef}
@@ -2119,19 +2121,19 @@ export default function CreateQuoteResponse() {
               className="hidden"
             />
 
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                className="inline-flex items-center gap-1 rounded-[6px] border border-slate-300 bg-white px-3 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
                 onClick={(e) => {
                   e.stopPropagation();
                   fileInputRef.current?.click();
                 }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
-                Browse Files
+                Browse
               </button>
               <ScanCaptureButton onCapture={(file) => processFile(file)} />
             </div>
@@ -2389,28 +2391,28 @@ export default function CreateQuoteResponse() {
       </div>}
 
       {/* ====== EXISTING FORM ====== */}
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+      <div className="bg-white rounded-[6px] border border-slate-200 px-3 py-2">
         <form onSubmit={handleSubmit}>
-          <EditGate canEdit={editable} className="space-y-3">
+          <EditGate canEdit={editable} className="space-y-2">
           <div>
-            <div className="flex items-center justify-between gap-3 mb-2 pb-1.5 border-b">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Quote Details</h3>
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <p className={sectionTitle}>Quote Details</p>
               {formData.rfq && invitedVendorIds && invitedVendorIds.size > 0 && (
                 <span className={`shrink-0 inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full ${respondedVendorIds.size >= invitedVendorIds.size ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
                   {respondedVendorIds.size} of {invitedVendorIds.size} vendor responses recorded
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
               {!isHidden('rfq') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
-                  RFQ <span className="text-red-500 ml-0.5">*</span>
+              <div className={floatWrap}>
+                <label className={`${floatLabel} flex items-center gap-0.5`}>
+                  RFQ *
                   <AutoFillDot confidence={autoFilledFields.rfq} />
                   {fieldSources.rfq && <SourceTooltip text={fieldSources.rfq} />}
                 </label>
                 {rfqFromUrl && formData.rfq ? (
-                  <input type="text" readOnly value={prefillRfqNo || rfqRaw.find(r => r.id === formData.rfq)?.rfq_no || 'Loading...'} className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm bg-slate-50 cursor-not-allowed" />
+                  <input type="text" readOnly value={prefillRfqNo || rfqRaw.find(r => r.id === formData.rfq)?.rfq_no || 'Loading...'} className={floatLocked} />
                 ) : (
                   <CustomSelect name="rfq" value={formData.rfq} onChange={handleRfqChange} required disabled={isReadOnly('rfq')} className={isReadOnly('rfq') ? lockedInputClass : inputClass}>
                     <option value="">Select RFQ</option>
@@ -2426,9 +2428,9 @@ export default function CreateQuoteResponse() {
               </div>
               )}
               {!isHidden('vendor') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
-                  Vendor <span className="text-red-500 ml-0.5">*</span>
+              <div className={floatWrap}>
+                <label className={`${floatLabel} flex items-center gap-0.5`}>
+                  Vendor *
                   <AutoFillDot confidence={autoFilledFields.vendor} />
                   {fieldSources.vendor && <SourceTooltip text={fieldSources.vendor} />}
                 </label>
@@ -2438,7 +2440,7 @@ export default function CreateQuoteResponse() {
                   onChange={handleChange}
                   required
                   disabled={isReadOnly('vendor') || !formData.rfq || vendorDropdownLoading}
-                  className={isReadOnly('vendor') ? lockedInputClass : "w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:bg-slate-100 disabled:cursor-not-allowed"}
+                  className={isReadOnly('vendor') ? floatLocked : `${floatInput} disabled:bg-slate-100 disabled:cursor-not-allowed`}
                 >
                   <option value="">
                     {!formData.rfq
@@ -2456,9 +2458,9 @@ export default function CreateQuoteResponse() {
               </div>
               )}
               {!isHidden('quote_date') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
-                  Quote Date <span className="text-red-500 ml-0.5">*</span>
+              <div className={floatWrap}>
+                <label className={`${floatLabel} flex items-center gap-0.5`}>
+                  Quote Date *
                   <AutoFillDot confidence={autoFilledFields.quote_date} />
                   {fieldSources.quote_date && <SourceTooltip text={fieldSources.quote_date} />}
                 </label>
@@ -2466,8 +2468,8 @@ export default function CreateQuoteResponse() {
               </div>
               )}
               {!isHidden('price_valid_till') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
+              <div className={floatWrap}>
+                <label className={`${floatLabel} flex items-center gap-0.5`}>
                   Price Valid Till
                   <AutoFillDot confidence={autoFilledFields.price_valid_till} />
                   {fieldSources.price_valid_till && <SourceTooltip text={fieldSources.price_valid_till} />}
@@ -2476,9 +2478,9 @@ export default function CreateQuoteResponse() {
               </div>
               )}
               {!isHidden('currency') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
-                  Currency <span className="text-red-500 ml-0.5">*</span>
+              <div className={floatWrap}>
+                <label className={`${floatLabel} flex items-center gap-0.5`}>
+                  Currency *
                   <AutoFillDot confidence={autoFilledFields.currency} />
                   {fieldSources.currency && <SourceTooltip text={fieldSources.currency} />}
                 </label>
@@ -2491,16 +2493,21 @@ export default function CreateQuoteResponse() {
               </div>
               )}
               {!isHidden('payment_terms') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
-                  Payment Terms <span className="text-red-500 ml-0.5">*</span>
+              <div className={floatWrap}>
+                <label className={`${floatLabel} flex items-center gap-0.5`}>
+                  Payment Terms *
                   <AutoFillDot confidence={autoFilledFields.payment_terms} />
                   {fieldSources.payment_terms && <SourceTooltip text={fieldSources.payment_terms} />}
                 </label>
                 <CustomSelect name="payment_terms" value={formData.payment_terms} onChange={handleChange} disabled={isReadOnly('payment_terms')} className={isReadOnly('payment_terms') ? lockedInputClass : inputClass}>
                   <option value="">Select Payment Terms</option>
+                  <option value="NET_7">Net 7</option>
                   <option value="NET_15">Net 15</option>
                   <option value="NET_30">Net 30</option>
+                  <option value="NET_45">Net 45</option>
+                  <option value="NET_60">Net 60</option>
+                  <option value="NET_90">Net 90</option>
+                  <option value="CASH">Cash / Advance</option>
                   <option value="CUSTOM">Custom</option>
                 </CustomSelect>
                 {formData.payment_terms === 'CUSTOM' && (
@@ -2512,42 +2519,37 @@ export default function CreateQuoteResponse() {
                     required
                     disabled={isReadOnly('payment_terms')}
                     placeholder="Enter custom payment terms (e.g. 50% advance, 50% on delivery)"
-                    className={isReadOnly('payment_terms') ? `mt-2 ${lockedInputClass}` : "mt-2 w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"}
+                    className={isReadOnly('payment_terms') ? `mt-1 ${floatLocked}` : `mt-1 ${floatInput}`}
                   />
                 )}
               </div>
               )}
-            </div>
-          </div>
-          <div>
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Additional Information</h3>
-            <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
               {!isHidden('delivery_terms') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
+              <div className={floatWrap}>
+                <label className={`${floatLabel} flex items-center gap-0.5`}>
                   Delivery Terms
                   <AutoFillDot confidence={autoFilledFields.delivery_terms} />
                   {fieldSources.delivery_terms && <SourceTooltip text={fieldSources.delivery_terms} />}
                 </label>
-                <textarea name="delivery_terms" value={formData.delivery_terms} onChange={handleChange} rows={2} disabled={isReadOnly('delivery_terms')} className={isReadOnly('delivery_terms') ? lockedInputClass : inputClass} />
+                <input type="text" name="delivery_terms" value={formData.delivery_terms} onChange={handleChange} disabled={isReadOnly('delivery_terms')} className={isReadOnly('delivery_terms') ? floatLocked : floatInput} placeholder=" " />
               </div>
               )}
               {!isHidden('remarks') && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5 flex items-center">
+              <div className={floatWrap}>
+                <label className={`${floatLabel} flex items-center gap-0.5`}>
                   Remarks
                   <AutoFillDot confidence={autoFilledFields.remarks} />
                   {fieldSources.remarks && <SourceTooltip text={fieldSources.remarks} />}
                 </label>
-                <textarea name="remarks" value={formData.remarks} onChange={handleChange} rows={2} disabled={isReadOnly('remarks')} className={isReadOnly('remarks') ? lockedInputClass : inputClass} />
+                <input type="text" name="remarks" value={formData.remarks} onChange={handleChange} disabled={isReadOnly('remarks')} className={isReadOnly('remarks') ? floatLocked : floatInput} placeholder=" " />
               </div>
               )}
             </div>
           </div>
           {/* Line Items */}
           <div>
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Line Items</h3>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className={sectionTitle}>Line Items</p>
               <div className="flex items-center gap-2">
                 {lineItems.some(l => l._unresolved) && (
                   <button
@@ -2599,24 +2601,24 @@ export default function CreateQuoteResponse() {
                     Resolve {lineItems.filter(l => l._unresolved).length} mismatch{lineItems.filter(l => l._unresolved).length > 1 ? 'es' : ''}
                   </button>
                 )}
-                <button type="button" onClick={addLine} className="flex items-center gap-1 px-3 py-1.5 text-sm text-primary-600 border border-primary-300 rounded-lg hover:bg-primary-50">
+                <button type="button" onClick={addLine} className="flex items-center gap-1 px-2 py-1 text-[11px] text-primary-600 border border-primary-300 rounded-[6px] hover:bg-primary-50">
                   + Add Item
                 </button>
               </div>
             </div>            <div className="overflow-x-auto ios-scroll">
-              <table className="w-full text-sm">
+              <table className="text-[11px]">
                 <thead>
-                  <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b">
-                    <th className="text-left px-3 py-2 font-medium text-slate-600 w-10">#</th>
-                    {!isLineHidden('product_service') && <th className="text-left px-3 py-2 font-medium text-slate-600">Product</th>}
-                    {!isLineHidden('quantity_offered') && <th className="text-left px-3 py-2 font-medium text-slate-600 w-24">Quantity <span className="text-red-500">*</span></th>}
-                    {!isLineHidden('uom') && <th className="text-left px-3 py-2 font-medium text-slate-600 w-20">UOM</th>}
-                    {!isLineHidden('unit_price') && <th className="text-left px-3 py-2 font-medium text-slate-600 w-28">Unit Price <span className="text-red-500">*</span></th>}
-                    {!isLineHidden('gst') && <th className="text-left px-3 py-2 font-medium text-slate-600 w-20">GST %</th>}
-                    {!isLineHidden('specification') && <th className="text-left px-3 py-2 font-medium text-slate-600">Description</th>}
-                    <th className="text-right px-3 py-2 font-medium text-slate-600 w-28">Total Amount</th>
-                    <th className="text-center px-3 py-2 font-medium text-slate-600 w-16">Status</th>
-                    <th className="text-center px-3 py-2 font-medium text-slate-600 w-12">Del</th>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>#</th>
+                    {!isLineHidden('product_service') && <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>PRODUCT</th>}
+                    {!isLineHidden('quantity_offered') && <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>QTY *</th>}
+                    {!isLineHidden('uom') && <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>UOM</th>}
+                    {!isLineHidden('unit_price') && <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>UNIT PRICE *</th>}
+                    {!isLineHidden('gst') && <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>GST %</th>}
+                    {!isLineHidden('specification') && <th className="text-left px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>DESCRIPTION</th>}
+                    <th className="text-right px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>TOTAL</th>
+                    <th className="text-center px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}>STATUS</th>
+                    <th className="text-center px-2 py-1 whitespace-nowrap" style={{ fontSize: 9 }}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2626,7 +2628,7 @@ export default function CreateQuoteResponse() {
                     return (
                     <Fragment key={idx}>
                     <tr className="border-b border-slate-100">
-                      <td className="px-3 py-2 text-slate-500">
+                      <td className="px-2 py-1 text-slate-500">
                         {packing ? (
                           <div className="flex items-center gap-1">
                             <button type="button" onClick={() => toggleLine(idx)} title={expanded ? 'Hide dimensions' : 'Add dimensions (packing material)'} className="p-0.5 rounded hover:bg-slate-200 text-slate-400">
@@ -2638,7 +2640,7 @@ export default function CreateQuoteResponse() {
                         ) : (idx + 1)}
                       </td>
                       {!isLineHidden('product_service') && (
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-1">
                         {/* Encoded "<TYPE>:<ID>" so the change handler
                             stores both item_type and the picked id in
                             a single setState. Items are grouped by
@@ -2662,7 +2664,7 @@ export default function CreateQuoteResponse() {
                               product: id,
                             } : row));
                           }}
-                          className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm"
+                          className="w-full px-1.5 py-1 border border-slate-300 rounded-[4px] text-[11px]"
                         >
                           <option value="">Select Item...</option>
                           {['PRODUCT', 'MACHINERY', 'SERVICE'].map(type => {
@@ -2686,8 +2688,8 @@ export default function CreateQuoteResponse() {
                       </td>
                       )}
                       {!isLineHidden('quantity_offered') && (
-                      <td className="px-3 py-2">
-                        <input type="number" min="0.01" step="any" required value={item.quantity} onChange={e => handleLineChange(idx, 'quantity', e.target.value)} disabled={isLineRO('quantity_offered')} className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm" />
+                      <td className="px-2 py-1">
+                        <input type="number" min="0.01" step="any" required value={item.quantity} onChange={e => handleLineChange(idx, 'quantity', e.target.value)} disabled={isLineRO('quantity_offered')} className="w-full px-1.5 py-1 border border-slate-300 rounded-[4px] text-[11px]" />
                         {/* UI-only hint when the offered qty drifts from the PR's
                             requested qty — vendors may legitimately quote a
                             different lot, so this never blocks anything. */}
@@ -2697,8 +2699,8 @@ export default function CreateQuoteResponse() {
                       </td>
                       )}
                       {!isLineHidden('uom') && (
-                      <td className="px-3 py-2">
-                        <CustomSelect value={item.uom} onChange={e => handleLineChange(idx, 'uom', e.target.value)} disabled={isLineRO('uom')} className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm">
+                      <td className="px-2 py-1">
+                        <CustomSelect value={item.uom} onChange={e => handleLineChange(idx, 'uom', e.target.value)} disabled={isLineRO('uom')} className="w-full px-1.5 py-1 border border-slate-300 rounded-[4px] text-[11px]">
                           {item.uom && !UOM_VALUES.includes(item.uom) && (
                             <option value={item.uom}>{item.uom}</option>
                           )}
@@ -2709,11 +2711,11 @@ export default function CreateQuoteResponse() {
                       </td>
                       )}
                       {!isLineHidden('unit_price') && (
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-1">
                         <div className="flex items-center gap-1">
-                          <div className={`flex items-center border border-slate-300 rounded focus-within:ring-2 focus-within:ring-primary-500 ${isLineRO('unit_price') ? 'bg-slate-50' : 'bg-white'}`}>
-                            <span className="pl-2 text-slate-400 text-sm select-none">₹</span>
-                            <input type="number" min="0.01" step="any" required value={item.unit_price} onChange={e => handleLineChange(idx, 'unit_price', e.target.value)} disabled={isLineRO('unit_price')} placeholder="0.00" className="w-24 px-1.5 py-1.5 text-sm text-right bg-transparent border-0 focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                          <div className={`flex items-center border border-slate-300 rounded-[4px] focus-within:ring-1 focus-within:ring-primary-500 ${isLineRO('unit_price') ? 'bg-slate-50' : 'bg-white'}`}>
+                            <span className="pl-1.5 text-slate-400 text-[11px] select-none">₹</span>
+                            <input type="number" min="0.01" step="any" required value={item.unit_price} onChange={e => handleLineChange(idx, 'unit_price', e.target.value)} disabled={isLineRO('unit_price')} placeholder="0.00" className="w-20 px-1 py-1 text-[11px] text-right bg-transparent border-0 focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
                           </div>
                           <PreviousRates vendor={formData.vendor} product={item.product} />
                         </div>
@@ -2729,27 +2731,27 @@ export default function CreateQuoteResponse() {
                         const gstLocked = masterGst !== null;
                         const gstValue = gstLocked ? String(masterGst) : item.gst;
                         return (
-                      <td className="px-3 py-2">
-                        <div className={`flex items-center border border-slate-300 rounded focus-within:ring-2 focus-within:ring-primary-500 ${(isLineRO('gst') || gstLocked) ? 'bg-slate-50' : 'bg-white'}`}>
-                          <input type="number" min="0" max="100" step="0.01" value={gstValue} onChange={e => handleLineChange(idx, 'gst', e.target.value)} disabled={isLineRO('gst') || gstLocked} title={gstLocked ? 'GST is set on the product master and is the same for every vendor' : undefined} placeholder="18" className="w-14 px-1.5 py-1.5 text-sm text-right bg-transparent border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-                          <span className="pr-2 text-slate-400 text-sm select-none">%</span>
+                      <td className="px-2 py-1">
+                        <div className={`flex items-center border border-slate-300 rounded-[4px] focus-within:ring-1 focus-within:ring-primary-500 ${(isLineRO('gst') || gstLocked) ? 'bg-slate-50' : 'bg-white'}`}>
+                          <input type="number" min="0" max="100" step="0.01" value={gstValue} onChange={e => handleLineChange(idx, 'gst', e.target.value)} disabled={isLineRO('gst') || gstLocked} title={gstLocked ? 'GST is set on the product master and is the same for every vendor' : undefined} placeholder="18" className="w-12 px-1 py-1 text-[11px] text-right bg-transparent border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                          <span className="pr-1.5 text-slate-400 text-[11px] select-none">%</span>
                         </div>
                       </td>
                         );
                       })()}
                       {!isLineHidden('specification') && (
-                      <td className="px-3 py-2">
-                        <input type="text" value={item.description} onChange={e => handleLineChange(idx, 'description', e.target.value)} disabled={isLineRO('specification')} placeholder="Specification / remarks" className="w-full px-2 py-1.5 border border-slate-300 rounded text-sm" style={{ minWidth: '160px' }} />
+                      <td className="px-2 py-1">
+                        <input type="text" value={item.description} onChange={e => handleLineChange(idx, 'description', e.target.value)} disabled={isLineRO('specification')} placeholder="Specification" className="w-full px-1.5 py-1 border border-slate-300 rounded-[4px] text-[11px]" style={{ minWidth: '120px' }} />
                       </td>
                       )}
-                      <td className="px-3 py-2 text-right">
-                        <span className="font-semibold text-slate-800">
+                      <td className="px-2 py-1 text-right">
+                        <span className="font-semibold text-slate-800 text-[11px]">
                           {(Number(item.quantity || 0) * Number(item.unit_price || 0)) > 0
                             ? formatCurrency(Number(item.quantity || 0) * Number(item.unit_price || 0))
                             : '-'}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-center">
+                      <td className="px-2 py-1 text-center">
                         {item._unresolved && (
                           <span className="inline-flex items-center gap-1 text-xs text-red-700 font-semibold" title={`Unresolved: "${item._extractedName || item._productName || ''}" not on this RFQ`}>
                             <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
@@ -2786,8 +2788,8 @@ export default function CreateQuoteResponse() {
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-center">
-                        <button type="button" onClick={() => removeLine(idx)} disabled={lineItems.length <= 1} className="p-1 text-red-500 hover:bg-red-50 rounded disabled:opacity-30">
+                      <td className="px-2 py-1 text-center">
+                        <button type="button" onClick={() => removeLine(idx)} disabled={lineItems.length <= 1} className="p-0.5 text-red-500 hover:bg-red-50 rounded disabled:opacity-30">
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                         </button>
                       </td>
@@ -2860,14 +2862,14 @@ export default function CreateQuoteResponse() {
             <p className="mt-2 text-xs text-amber-600">A quote document is required — upload the vendor's quotation (via AI auto-fill above or Attachments) before saving.</p>
           )}
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={() => navigate(-1)} className="px-4 sm:px-6 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <button type="button" onClick={() => navigate(-1)} className="px-4 py-1.5 border border-slate-300 rounded-[6px] text-[11.5px] font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
             {((isEditMode && canEdit('Quote')) || (!isEditMode && canCreate('Quote'))) && (
               <button
                 type="submit"
                 disabled={isLoading || (!isEditMode && !uploadedFile && pendingAttachments.length === 0)}
                 title={(!isEditMode && !uploadedFile && pendingAttachments.length === 0) ? 'Upload the quote document first' : undefined}
-                className="px-4 sm:px-6 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">{isLoading ? 'Saving...' : (isEditMode ? 'Update' : 'Save')}</button>
+                className="px-4 py-1.5 bg-primary-600 text-white rounded-[6px] text-[11.5px] font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">{isLoading ? 'Saving...' : (isEditMode ? 'Update' : 'Save')}</button>
             )}
           </div>
           </EditGate>
