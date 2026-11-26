@@ -28,7 +28,7 @@ import useLookup from '../../../hooks/useLookup.js';
 import { UOM_OPTIONS, UOM_VALUES } from '../../../constants/uom.js';
 import useAllProducts from '../components/useAllProducts.js';
 import FileAttachments, { uploadPendingFiles } from '../components/FileAttachments';
-import ActivityLog from '@/components/common/ActivityLog';
+// ActivityLog removed — activity shows in the collapsible Timeline section
 import { formatDate as fmtSharedDate, formatDateTime as fmtSharedDateTime } from '@/utils/formatters';
 import { getApiErrorMessage } from '@/utils/formHelpers';
 import { PAYMENT_TERM_OPTIONS, FREIGHT_TERM_OPTIONS, withCurrent } from '@/constants/purchaseTerms';
@@ -968,371 +968,263 @@ export default function PurchaseRequestDetailPage() {
 
   return (
     <MainLayout breadcrumbs={breadcrumbs}>
-      <div className="max-w-6xl space-y-3">
-        {/* Header with title, status badge, and action buttons */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 sm:gap-3 mb-1.5 sm:mb-2">
-              <button
-                onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/requests'))}
-                className="p-1 text-slate-500 hover:text-slate-700 transition shrink-0"
-                title="Back to list"
-              >
-                <ArrowLeft size={18} className="sm:w-5 sm:h-5" />
-              </button>
-              <h1 className="text-xl sm:text-xl sm:text-3xl font-bold text-slate-900 truncate">
-                {prNumber}
-              </h1>
+      <div className="max-w-6xl space-y-2">
+
+        {/* ── Design E: Approval-First Banner ── */}
+        {!isEditing && (isPendingApproval || isSubmitted) && canApproveAccess && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-lg border border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50">
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-bold text-amber-900">
+                {isPendingApproval ? '⏳ Awaiting Your Approval' : '⏳ Awaiting Review'}
+              </p>
+              <p className="text-[11px] text-amber-700 mt-0.5">
+                Submitted by {pr.created_by_name || '—'} on {formatDate(pr.createdDate || pr.created_at || pr.created_date)}
+              </p>
             </div>
-            <div className="flex items-center gap-2 sm:gap-4 ml-7 sm:ml-8 flex-wrap">
-              <StatusBadge
-                status={approvalStatus}
-                label={approvalStatus.replace('_', ' ')}
-              />
-              <p className="text-slate-600 text-xs sm:text-sm">
-                Created on {formatDate(pr.createdDate || pr.created_at || pr.created_date)}
+            <div className="flex items-center gap-2">
+              {isPendingApproval && (
+                <button onClick={openRouteModal} disabled={isApproving} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-md text-xs font-semibold hover:bg-green-700 transition disabled:opacity-50">
+                  <CheckCircle size={13} /> {isApproving ? 'Approving...' : 'Approve'}
+                </button>
+              )}
+              {canProceedPR && (
+                <button onClick={handleProceedToApprove} disabled={isProceeding} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-md text-xs font-semibold hover:bg-amber-600 transition disabled:opacity-50">
+                  <CheckCircle size={13} /> {isProceeding ? 'Sending...' : 'Proceed to Approve'}
+                </button>
+              )}
+              {canRejectPR && (
+                <button onClick={handleReject} disabled={isRejecting} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-md text-xs font-semibold hover:bg-red-100 transition disabled:opacity-50">
+                  <XCircle size={13} /> {isRejecting ? 'Rejecting...' : 'Reject'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Approved banner ── */}
+        {isApproved && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-lg border border-green-300 bg-gradient-to-r from-green-50 to-emerald-50">
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-bold text-green-900 flex items-center gap-1.5">
+                <CheckCircle size={14} className="text-green-600" /> Approved
+              </p>
+              <p className="text-[11px] text-green-700 mt-0.5">
+                {pr.approved_by || pr.approvedBy ? `By ${pr.approved_by || pr.approvedBy}` : ''}
+                {(pr.approved_at || pr.approvedAt) ? ` on ${formatDateTime(pr.approved_at || pr.approvedAt)}` : ''}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {(pr.linked_rfq_no || pr.rfq_no) && (
+                <Link to={`/purchase/rfq/${pr.linked_rfq_id || pr.rfq_id || ''}`} className="flex items-center gap-1 px-2.5 py-1 bg-white border border-green-200 rounded-md text-xs font-medium text-green-800 hover:bg-green-50 transition">
+                  <LinkIcon size={12} /> RFQ {pr.linked_rfq_no || pr.rfq_no}
+                </Link>
+              )}
+              {showSkipRfqButton && (
+                <button onClick={openSkipRfqWizard} disabled={isSkippingRfq} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-md text-xs font-semibold hover:bg-amber-600 transition disabled:opacity-50">
+                  <SkipForward size={13} /> {isSkippingRfq ? 'Creating PO...' : 'Skip RFQ'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Rejected banner ── */}
+        {isRejected && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-lg border border-red-300 bg-gradient-to-r from-red-50 to-rose-50">
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-bold text-red-900 flex items-center gap-1.5">
+                <XCircle size={14} className="text-red-600" /> Rejected
+              </p>
+              <p className="text-[11px] text-red-700 mt-0.5">
+                {pr.rejected_by ? `By ${pr.rejected_by}` : ''}
+                {pr.rejected_at ? ` on ${formatDateTime(pr.rejected_at)}` : ''}
+                {(pr.reject_reason || pr.rejection_reason) ? ` — "${pr.reject_reason || pr.rejection_reason}"` : ''}
               </p>
             </div>
           </div>
+        )}
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3 flex-wrap ml-8 sm:ml-0">
-            {/* Edit button */}
+        {/* ── Header row: Back + PR# + badge + chips + actions ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button
+              onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/requests'))}
+              className="p-1 text-slate-400 hover:text-slate-700 transition shrink-0"
+              title="Back to list"
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">{prNumber}</h1>
+            <StatusBadge status={approvalStatus} label={approvalStatus.replace('_', ' ')} />
+            {/* Inline chips */}
+            <div className="hidden sm:flex items-center gap-1.5 ml-1">
+              {pr.company_name && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{pr.company_name}</span>}
+              {pr.priority && <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${pr.priority === 'HIGH' ? 'bg-red-50 text-red-600' : pr.priority === 'MEDIUM' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'}`}>{pr.priority}</span>}
+              {(pr.required_by_date || pr.deliveryDate) && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">Due {formatDate(pr.required_by_date || pr.deliveryDate)}</span>}
+              {pr.requestor_role && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{pr.requestor_role}</span>}
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 flex-wrap ml-6 sm:ml-0">
             {!isEditing && canEditPR && !isApproved && !isRejected && (
-              <button
-                onClick={handleEdit}
-                className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition text-sm font-medium"
-              >
-                <Edit3 size={16} />
-                Edit
+              <button onClick={handleEdit} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition text-xs font-medium">
+                <Edit3 size={13} /> Edit
               </button>
             )}
-
-            {/* Delete button — privileged roles only, never after the PR
-                has been approved or rejected. Decoupled from Edit so an
-                Edit-only user (e.g. requester re-saving a DRAFT) no longer
-                sees a non-functional Delete next to it. */}
             {!isEditing && canDeletePR && !isApproved && !isRejected && (
-              <button
-                onClick={handleDelete}
-                className="flex items-center gap-2 px-4 py-2 border border-red-300 rounded-lg text-red-600 hover:bg-red-50 transition text-sm font-medium"
-              >
-                <Trash2 size={16} />
-                Delete
+              <button onClick={handleDelete} className="flex items-center gap-1.5 px-3 py-1.5 border border-red-200 rounded-md text-red-600 hover:bg-red-50 transition text-xs font-medium">
+                <Trash2 size={13} /> Delete
               </button>
             )}
-
-            {/* Save / Cancel buttons (only when editing) */}
             {isEditing && (
               <>
-                <button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Save size={16} />
-                  {isSaving ? 'Saving...' : 'Save'}
+                <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-semibold hover:bg-blue-700 transition disabled:opacity-50">
+                  <Save size={13} /> {isSaving ? 'Saving...' : 'Save'}
                 </button>
-                <button
-                  onClick={handleCancelEdit}
-                  disabled={isSaving}
-                  className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition text-sm font-medium"
-                >
-                  <X size={16} />
-                  Cancel
+                <button onClick={handleCancelEdit} disabled={isSaving} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition text-xs font-medium">
+                  <X size={13} /> Cancel
                 </button>
               </>
             )}
-
-            {/* Stage 1 — Submit (Draft → Pending). e.g. Warehouse Coordinator. */}
             {!isEditing && canSubmitPR && (
-              <button
-                onClick={handlePrSubmit}
-                disabled={isSubmitting}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50"
-              >
-                <CheckCircle size={16} />
-                {isSubmitting ? 'Submitting...' : 'Submit'}
+              <button onClick={handlePrSubmit} disabled={isSubmitting} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-semibold hover:bg-blue-700 transition disabled:opacity-50">
+                <CheckCircle size={13} /> {isSubmitting ? 'Submitting...' : 'Submit'}
               </button>
             )}
-
-            {/* Stage 2 — Proceed to Approve (Pending → Pending Approval). e.g. Warehouse Manager. */}
-            {!isEditing && canProceedPR && (
-              <button
-                onClick={handleProceedToApprove}
-                disabled={isProceeding}
-                className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition disabled:opacity-50"
-              >
-                <CheckCircle size={16} />
-                {isProceeding ? 'Sending...' : 'Proceed to Approve'}
-              </button>
-            )}
-
-            {/* Approve button (only for Pending Approval state). Approving a
-                normal PR auto-creates the RFQ, so it reads "Proceed to RFQ";
-                a skip-RFQ PR goes straight to a PO, so it keeps "Approve". */}
-            {!isEditing && isPendingApproval && canApproveAccess && (
-              <button
-                onClick={openRouteModal}
-                disabled={isApproving}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition disabled:opacity-50"
-              >
-                <CheckCircle size={16} />
-                {isApproving ? 'Approving...' : 'Approve'}
-              </button>
-            )}
-
-            {/* Skip RFQ — RECOVERY path only: an APPROVED PR with no RFQ
-                and no PO. Pre-approval, the per-product routing modal on
-                the Approve button owns the RFQ-vs-Skip decision (per line),
-                so this whole-PR button no longer shows at that stage. */}
-            {!isEditing && showSkipRfqButton && (
-              <button
-                onClick={openSkipRfqWizard}
-                disabled={isSkippingRfq}
-                title="Create Purchase Order(s) directly from this approved PR (no RFQ was raised)"
-                className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <SkipForward size={16} />
-                {isSkippingRfq ? 'Creating PO...' : 'Skip RFQ'}
-              </button>
-            )}
-
-            {/* Reject button */}
-            {!isEditing && canRejectPR && (
-              <button
-                onClick={handleReject}
-                disabled={isRejecting}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium disabled:opacity-50"
-              >
-                <XCircle size={16} />
-                {isRejecting ? 'Rejecting...' : 'Reject'}
-              </button>
-            )}
-
+            {/* Approve/Reject/Proceed are in the banner above, not duplicated here */}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          {/* Main content (2 cols) */}
-          <div className="lg:col-span-2 space-y-3">
+        {/* Mobile chips row (hidden on desktop) */}
+        <div className="flex sm:hidden items-center gap-1.5 flex-wrap ml-7">
+          {pr.company_name && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{pr.company_name}</span>}
+          {pr.priority && <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${pr.priority === 'HIGH' ? 'bg-red-50 text-red-600' : pr.priority === 'MEDIUM' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'}`}>{pr.priority}</span>}
+          {(pr.required_by_date || pr.deliveryDate) && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">Due {formatDate(pr.required_by_date || pr.deliveryDate)}</span>}
+          {pr.requestor_role && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{pr.requestor_role}</span>}
+        </div>
 
-            {/* PR Details Form */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-              <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-2 pb-1.5 border-b">Request Details</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
-                {/* PR Number */}
-                {!isHidden('pr_no') && (
+        {/* ── Single-row field strip ── */}
+        <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+          {!isEditing ? (
+            <div className="flex items-start gap-4 overflow-x-auto" style={{ fontSize: 0 }}>
+              {!isHidden('warehouse') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Warehouse</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{pr.warehouse_name || getWarehouseName(pr.warehouse) || '-'}</p></div>
+              )}
+              {!isHidden('godown') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Godown</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{pr.godown_name || '-'}</p></div>
+              )}
+              {!isHidden('requirement_type') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Requirement</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{pr.requirement_type_display || pr.requirement_type || '-'}</p></div>
+              )}
+              {!isHidden('preferred_vendor') && (pr.allow_rfq_skip || pr.preferred_vendor || pr.preferred_vendor_name) && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Pref. Vendor</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{pr.preferred_vendor_name || pr.preferred_vendor || '-'}</p></div>
+              )}
+              <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">SO Ref</p>
+                {pr.sales_order ? (
+                  <button type="button" onClick={() => navigate(`/sales/orders/${pr.sales_order}`)} style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-blue-600 hover:underline whitespace-nowrap">{pr.sales_order_no || 'View SO'}</button>
+                ) : (<p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800">-</p>)}
+              </div>
+              {pr.created_by_name && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Created By</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{pr.created_by_name}</p></div>
+              )}
+              {!isHidden('justification') && pr.justification && (
+                <div className="min-w-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Justification</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-700 truncate max-w-[260px]" title={pr.justification}>{pr.justification}</p></div>
+              )}
+              {!isHidden('notes') && pr.notes && (
+                <div className="min-w-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Notes</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-700 truncate max-w-[200px]" title={pr.notes}>{pr.notes}</p></div>
+              )}
+            </div>
+          ) : (
+            /* Edit mode: 2-col grid on mobile, 4-col on desktop */
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
+              {!isHidden('warehouse') && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-700 mb-0.5">PR Number</p>
-                  <p className="text-sm text-slate-900 font-medium break-words">{prNumber}</p>
-                </div>
-                )}
-
-                {/* Status */}
-                {!isHidden('approval_status') && (
-                <div>
-                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Status</p>
-                  <p className="text-sm text-slate-900 font-medium break-words">{approvalStatus.replace('_', ' ')}</p>
-                </div>
-                )}
-
-                {/* Company */}
-                {!isHidden('company') && (
-                <div>
-                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Company</p>
-                  <p className="text-sm text-slate-900 font-medium break-words">{pr.company_name || '-'}</p>
-                </div>
-                )}
-
-                {/* Requestor Role */}
-                {!isHidden('requestor_role') && (
-                <div>
-                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Requestor Role</p>
-                  {isEditing && !isReadOnly('requestor_role') ? (
-                    <input
-                      type="text"
-                      name="requestor_role"
-                      value={editData.requestor_role || ''}
-                      onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  ) : (
-                    <p className="text-sm text-slate-900 font-medium break-words">{pr.requestor_role || '-'}</p>
-                  )}
-                </div>
-                )}
-
-                {/* Warehouse */}
-                {!isHidden('warehouse') && (
-                <div>
-                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Warehouse</p>
-                  {isEditing && !isReadOnly('warehouse') ? (
-                    <CustomSelect
-                      name="warehouse"
-                      value={editData.warehouse || ''}
-                      onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select Warehouse...</option>
-                      {warehouseOptions.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Warehouse</p>
+                  {!isReadOnly('warehouse') ? (
+                    <CustomSelect name="warehouse" value={editData.warehouse || ''} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
+                      <option value="">Select...</option>
+                      {warehouseOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                     </CustomSelect>
-                  ) : (
-                    <p className="text-sm text-slate-900 font-medium break-words">{pr.warehouse_name || getWarehouseName(pr.warehouse) || '-'}</p>
-                  )}
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{pr.warehouse_name || getWarehouseName(pr.warehouse) || '-'}</p>)}
                 </div>
-                )}
-
-                {/* Godown */}
-                {!isHidden('godown') && (
+              )}
+              {!isHidden('godown') && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Godown</p>
-                  {isEditing && !isReadOnly('godown') ? (
-                    <GodownEditSelect
-                      warehouse={editData.warehouse}
-                      value={editData.godown || ''}
-                      onChange={handleChange}
-                    />
-                  ) : (
-                    <p className="text-sm text-slate-900 font-medium break-words">{pr.godown_name || '-'}</p>
-                  )}
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Godown</p>
+                  {!isReadOnly('godown') ? (
+                    <GodownEditSelect warehouse={editData.warehouse} value={editData.godown || ''} onChange={handleChange} />
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{pr.godown_name || '-'}</p>)}
                 </div>
-                )}
-
-                {/* Requirement Type */}
-                {!isHidden('requirement_type') && (
+              )}
+              {!isHidden('requirement_type') && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Requirement Type</p>
-                  {isEditing && !isReadOnly('requirement_type') ? (
-                    <CustomSelect
-                      name="requirement_type"
-                      value={editData.requirement_type || 'GOODS'}
-                      onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Requirement Type</p>
+                  {!isReadOnly('requirement_type') ? (
+                    <CustomSelect name="requirement_type" value={editData.requirement_type || 'GOODS'} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <option value="GOODS">Goods</option>
                       <option value="MACHINERY">Machinery</option>
                     </CustomSelect>
-                  ) : (
-                    <p className="text-sm text-slate-900 font-medium break-words">{pr.requirement_type_display || pr.requirement_type || '-'}</p>
-                  )}
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{pr.requirement_type_display || pr.requirement_type || '-'}</p>)}
                 </div>
-                )}
-
-                {/* Priority */}
-                {!isHidden('priority') && (
+              )}
+              {!isHidden('priority') && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Priority</p>
-                  {isEditing && !isReadOnly('priority') ? (
-                    <CustomSelect
-                      name="priority"
-                      value={editData.priority || ''}
-                      onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select Priority...</option>
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Priority</p>
+                  {!isReadOnly('priority') ? (
+                    <CustomSelect name="priority" value={editData.priority || ''} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
+                      <option value="">Select...</option>
                       <option value="LOW">Low</option>
                       <option value="MEDIUM">Medium</option>
                       <option value="HIGH">High</option>
                     </CustomSelect>
-                  ) : (
-                    <p className="text-sm text-slate-900 font-medium break-words">{pr.priority || '-'}</p>
-                  )}
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{pr.priority || '-'}</p>)}
                 </div>
-                )}
-
-                {/* Required By Date */}
-                {!isHidden('required_by_date') && (
+              )}
+              {!isHidden('required_by_date') && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Required By Date</p>
-                  {isEditing && !isReadOnly('required_by_date') ? (
-                    <CustomDatePicker
-                      name="required_by_date"
-                      value={editData.required_by_date || ''}
-                      onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  ) : (
-                    <p className="text-sm text-slate-900 font-medium break-words">{formatDate(pr.required_by_date || pr.deliveryDate)}</p>
-                  )}
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Required By</p>
+                  {!isReadOnly('required_by_date') ? (
+                    <CustomDatePicker name="required_by_date" value={editData.required_by_date || ''} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{formatDate(pr.required_by_date || pr.deliveryDate)}</p>)}
                 </div>
-                )}
-
-                {/* Preferred Vendor */}
-                {!isHidden('preferred_vendor') && (pr.allow_rfq_skip || pr.preferred_vendor || pr.preferred_vendor_name) && (
-                  <div>
-                    <p className="text-xs font-semibold text-slate-700 mb-0.5">Preferred Vendor</p>
-                    <p className="text-sm text-slate-900 font-medium break-words">{pr.preferred_vendor_name || pr.preferred_vendor || '-'}</p>
-                  </div>
-                )}
-
-                {/* Sales Order Ref */}
+              )}
+              {!isHidden('requestor_role') && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Sales Order Ref</p>
-                  {isEditing ? (
-                    <CustomSelect
-                      name="sales_order"
-                      value={editData.sales_order || ''}
-                      onChange={handleChange}
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">None (optional)</option>
-                      {soOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </CustomSelect>
-                  ) : pr.sales_order ? (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/sales/orders/${pr.sales_order}`)}
-                      className="text-sm text-primary-600 hover:text-primary-800 hover:underline font-medium"
-                    >
-                      {pr.sales_order_no || 'View Sales Order'}
-                    </button>
-                  ) : (
-                    <p className="text-sm text-slate-700">-</p>
-                  )}
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Requestor Role</p>
+                  {!isReadOnly('requestor_role') ? (
+                    <input type="text" name="requestor_role" value={editData.requestor_role || ''} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{pr.requestor_role || '-'}</p>)}
                 </div>
-
-                {/* Justification + Notes span full width */}
-                {!isHidden('justification') && (
-                <div className="col-span-2 md:col-span-3 lg:col-span-4">
-                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Justification</p>
-                  {isEditing && !isReadOnly('justification') ? (
-                    <textarea
-                      name="justification"
-                      value={editData.justification || ''}
-                      onChange={handleChange}
-                      rows={2}
-                      placeholder="Justification for this request..."
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  ) : (
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{pr.justification || '-'}</p>
-                  )}
-                </div>
-                )}
-
-                {/* Notes */}
-                {!isHidden('notes') && (
-                <div className="col-span-2 md:col-span-3 lg:col-span-4">
-                  <p className="text-xs font-semibold text-slate-700 mb-0.5">Notes</p>
-                  {isEditing && !isReadOnly('notes') ? (
-                    <textarea
-                      name="notes"
-                      value={editData.notes || ''}
-                      onChange={handleChange}
-                      rows={2}
-                      placeholder="Additional notes..."
-                      className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  ) : (
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">{pr.notes || '-'}</p>
-                  )}
-                </div>
-                )}
+              )}
+              <div>
+                <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Sales Order Ref</p>
+                <CustomSelect name="sales_order" value={editData.sales_order || ''} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
+                  <option value="">None</option>
+                  {soOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </CustomSelect>
               </div>
+              {!isHidden('justification') && (
+                <div className="col-span-2 sm:col-span-4">
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Justification</p>
+                  {!isReadOnly('justification') ? (
+                    <textarea name="justification" value={editData.justification || ''} onChange={handleChange} rows={1} placeholder="Justification..." className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  ) : (<p className="text-[12px] text-slate-700">{pr.justification || '-'}</p>)}
+                </div>
+              )}
+              {!isHidden('notes') && (
+                <div className="col-span-2 sm:col-span-4">
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Notes</p>
+                  {!isReadOnly('notes') ? (
+                    <textarea name="notes" value={editData.notes || ''} onChange={handleChange} rows={1} placeholder="Notes..." className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  ) : (<p className="text-[12px] text-slate-700">{pr.notes || '-'}</p>)}
+                </div>
+              )}
             </div>
+          )}
+        </div>
+
+        {/* ── Full-width content below ── */}
 
             {/* Held Lines — only when the PR has any PENDING_PRICE
                 lines. Surfaces exactly the work the operator still owes
@@ -1352,9 +1244,9 @@ export default function PurchaseRequestDetailPage() {
               const heldSelected = held.filter((l) => bulkSelected.includes(l.id));
               const allHeldSelected = held.length > 0 && heldSelected.length === held.length;
               return (
-                <div className="bg-blue-50/60 rounded-lg border border-blue-300 p-3.5 sm:p-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                    <h2 className="text-base sm:text-lg font-semibold text-blue-900">
+                <div className="bg-blue-50/60 rounded-lg border border-blue-300 p-2.5 sm:p-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                    <h2 className="text-[11px] font-semibold text-blue-900 uppercase tracking-wide">
                       Pending routing ({held.length})
                     </h2>
                     <p className="text-xs text-blue-700">
@@ -1441,16 +1333,16 @@ export default function PurchaseRequestDetailPage() {
             })()}
 
             {/* Line Items */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3.5 sm:p-5">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <h2 className="text-base sm:text-lg font-semibold text-slate-900">Line Items ({(isEditing ? editLines : lineItems).length})</h2>
+            <div className="bg-white rounded-lg border border-slate-200">
+              <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-100">
+                <h2 style={{ fontSize: 10, letterSpacing: '0.06em' }} className="font-bold text-slate-600 uppercase">Line Items ({(isEditing ? editLines : lineItems).length})</h2>
                 {isEditing && (
                   <button
                     type="button"
                     onClick={handleAddEditLine}
                     disabled={editLines.length >= MAX_PR_LINES}
                     title={editLines.length >= MAX_PR_LINES ? `Maximum ${MAX_PR_LINES} lines per PR` : ''}
-                    className="flex items-center gap-1 px-3 py-1.5 text-sm text-primary-600 border border-primary-300 rounded-lg hover:bg-primary-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs text-primary-600 border border-primary-300 rounded hover:bg-primary-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     + Add Item {editLines.length >= MAX_PR_LINES && `(${MAX_PR_LINES} max)`}
                   </button>
@@ -1574,18 +1466,18 @@ export default function PurchaseRequestDetailPage() {
 
                   {/* Desktop table — hidden on phones. */}
                   <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="text-[12px]">
                       <thead>
-                        <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b">
-                          <th className="text-left px-3 py-2 font-medium text-slate-600 w-10">#</th>
-                          {!isLineHidden('category') && <th className="text-left px-3 py-2 font-medium text-slate-600 w-44">Category {isEditing && <span className="text-red-500">*</span>}</th>}
-                          {!isLineHidden('product_service') && <th className="text-left px-3 py-2 font-medium text-slate-600">Product {isEditing && <span className="text-red-500">*</span>}</th>}
-                          <th className="text-right px-3 py-2 font-medium text-slate-600 w-28">Available Stock</th>
-                          {!isLineHidden('description_override') && <th className="text-left px-3 py-2 font-medium text-slate-600">Description</th>}
-                          {!isLineHidden('quantity_requested') && <th className="text-left px-3 py-2 font-medium text-slate-600 w-28">Qty {isEditing && <span className="text-red-500">*</span>}</th>}
-                          {!isLineHidden('uom') && <th className="text-left px-3 py-2 font-medium text-slate-600 w-20">UOM</th>}
-                          {!isLineHidden('purpose') && <th className="text-left px-3 py-2 font-medium text-slate-600 w-24">Purpose</th>}
-                          {isEditing && <th className="text-center px-3 py-2 font-medium text-slate-600 w-16"></th>}
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="text-left px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">#</th>
+                          {!isLineHidden('category') && <th className="text-left px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">Category {isEditing && <span className="text-red-500">*</span>}</th>}
+                          {!isLineHidden('product_service') && <th className="text-left px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">Product {isEditing && <span className="text-red-500">*</span>}</th>}
+                          <th className="text-right px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">Stock</th>
+                          {!isLineHidden('description_override') && <th className="text-left px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">Description</th>}
+                          {!isLineHidden('quantity_requested') && <th className="text-right px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">Qty {isEditing && <span className="text-red-500">*</span>}</th>}
+                          {!isLineHidden('uom') && <th className="text-left px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">UOM</th>}
+                          {!isLineHidden('purpose') && <th className="text-left px-2 py-1.5 font-semibold text-slate-500 uppercase text-[9px] tracking-wide whitespace-nowrap">Purpose</th>}
+                          {isEditing && <th className="px-2 py-1.5" style={{ width: 32 }}></th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -1594,19 +1486,18 @@ export default function PurchaseRequestDetailPage() {
                           const isGoods = reqType === 'GOODS';
                           const lineCategory = line.category || line._category || '';
                           return (
-                          <tr key={line.id || `new-${idx}`} className="border-b border-slate-100 hover:bg-primary-50/40 transition-colors">
-                            <td className="px-3 py-2 text-slate-500">{line.line_no || idx + 1}</td>
+                          <tr key={line.id || `new-${idx}`} className="border-b border-slate-100 hover:bg-slate-50/60 transition-colors">
+                            <td className="px-2 py-1.5 text-slate-400">{line.line_no || idx + 1}</td>
                             {!isLineHidden('category') && (
-                            <td className="px-3 py-2">
+                            <td className="px-2 py-1.5">
                               {isEditing && !isLineRO('category') ? (
                                 isGoods ? (
                                   <CustomSelect
                                     value={lineCategory}
                                     onChange={e => handleEditLineChange(idx, 'category', e.target.value)}
-                                    className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
-                                    style={{ minWidth: '140px' }}
+                                    className="w-full px-1.5 py-1 border border-slate-300 rounded text-[11px]"
                                   >
-                                    <option value="">Select Category...</option>
+                                    <option value="">Select...</option>
                                     {GOODS_CATEGORY_CHOICES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                                   </CustomSelect>
                                 ) : (
@@ -1614,79 +1505,75 @@ export default function PurchaseRequestDetailPage() {
                                     type="text"
                                     value={lineCategory}
                                     onChange={e => handleEditLineChange(idx, 'category', e.target.value)}
-                                    placeholder="Type category..."
-                                    className="w-full px-2 py-1 border border-slate-300 rounded text-sm"
-                                    style={{ minWidth: '140px' }}
+                                    placeholder="Category..."
+                                    className="w-full px-1.5 py-1 border border-slate-300 rounded text-[11px]"
                                   />
                                 )
                               ) : (
-                                <span className="text-slate-700">
+                                <span className="text-slate-700 text-[11px]">
                                   {lineCategory ? (CATEGORY_LABEL[lineCategory] || lineCategory) : '-'}
                                 </span>
                               )}
                             </td>
                             )}
                             {!isLineHidden('product_service') && (
-                            <td className="px-3 py-2">
+                            <td className="px-2 py-1.5">
                               {isEditing && !isLineRO('product_service') ? (
-                                <CustomSelect value={line.product_service || ''} onChange={e => handleEditLineChange(idx, 'product_service', e.target.value)} className="w-full px-2 py-1 border border-slate-300 rounded text-sm" style={{ minWidth: '160px' }}>
-                                  <option value="">{(isGoods && lineCategory) || !isGoods ? 'Select Product' : 'Select Category first'}</option>
+                                <CustomSelect value={line.product_service || ''} onChange={e => handleEditLineChange(idx, 'product_service', e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-[11px]">
+                                  <option value="">{(isGoods && lineCategory) || !isGoods ? 'Select Product' : 'Category first'}</option>
                                   {(() => {
                                     const used = productsUsedExcept(displayLines, idx);
                                     const opts = isGoods ? getFilteredProducts(lineCategory, used) : productOptions.filter(o => !used.has(String(o.value)));
                                     return opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>);
                                   })()}
                                 </CustomSelect>
-                              ) : (<span className="font-medium">{line.product_name || line.product_code || '-'}</span>)}
+                              ) : (<span className="font-medium truncate block">{line.product_name || line.product_code || '-'}</span>)}
                             </td>
                             )}
-                            {/* Available Stock — read-only in both modes. Sourced
-                                from the line payload (current_stock) when the
-                                backend includes it; falls back to em-dash. */}
-                            <td className="px-3 py-2 text-right text-slate-600 tabular-nums">
+                            <td className="px-2 py-1.5 text-right text-slate-600 tabular-nums">
                               {(() => {
                                 const stock = line.current_stock ?? line.available_stock;
-                                if (stock === null || stock === undefined || stock === '') return <span className="text-xs text-slate-300">—</span>;
+                                if (stock === null || stock === undefined || stock === '') return <span className="text-[10px] text-slate-300">—</span>;
                                 const n = Number(stock);
                                 const tone = Number.isFinite(n) && n < 0
                                   ? 'bg-red-50 border-red-200 text-red-800'
                                   : 'bg-sky-50 border-sky-200 text-sky-900';
                                 return (
-                                  <span className={`inline-block px-2 py-0.5 text-xs rounded border ${tone}`}>
+                                  <span className={`inline-block px-1.5 py-0.5 text-[10px] rounded border ${tone}`}>
                                     {n.toLocaleString('en-IN')}
-                                    {line.uom && <span className="text-[10px] text-slate-400 ml-1">{line.uom}</span>}
+                                    {line.uom && <span className="text-[9px] text-slate-400 ml-0.5">{line.uom}</span>}
                                   </span>
                                 );
                               })()}
                             </td>
                             {!isLineHidden('description_override') && (
-                            <td className="px-3 py-2">
+                            <td className="px-2 py-1.5">
                               {isEditing && !isLineRO('description_override') ? (
-                                <input type="text" value={line.description_override || ''} onChange={e => handleEditLineChange(idx, 'description_override', e.target.value)} className="w-full px-2 py-1 border border-slate-300 rounded text-sm" />
-                              ) : (line.description_override || '-')}
+                                <input type="text" value={line.description_override || ''} onChange={e => handleEditLineChange(idx, 'description_override', e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-[11px]" />
+                              ) : (<span className="truncate block">{line.description_override || '-'}</span>)}
                             </td>
                             )}
                             {!isLineHidden('quantity_requested') && (
-                            <td className="px-3 py-2">
+                            <td className="px-2 py-1.5 text-right tabular-nums">
                               {isEditing && !isLineRO('quantity_requested') ? (
-                                <input type="number" min="0.01" step="any" required value={line.quantity_requested ?? ''} onChange={e => handleEditLineChange(idx, 'quantity_requested', e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm" style={{ width: '100px' }} />
+                                <input type="number" min="0.01" step="any" required value={line.quantity_requested ?? ''} onChange={e => handleEditLineChange(idx, 'quantity_requested', e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-[11px] text-right" />
                               ) : (
                                 <>
-                                  {parseFloat(line.quantity_requested) || '-'}
+                                  <span className="font-medium">{parseFloat(line.quantity_requested) || '-'}</span>
                                   {!isEditing && pr?.has_po && line.ordered_quantity != null && (
-                                    <p className="text-[11px] text-slate-500 mt-0.5">Ordered {line.ordered_quantity} · Bal {line.balance_quantity ?? '-'}</p>
+                                    <p className="text-[9px] text-slate-500 mt-0.5">Ord {line.ordered_quantity} · Bal {line.balance_quantity ?? '-'}</p>
                                   )}
                                   {!isEditing && line.allow_rfq_skip && (
-                                    <span className="inline-flex mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">RFQ skipped → PO</span>
+                                    <span className="inline-flex mt-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-amber-100 text-amber-700">Skip→PO</span>
                                   )}
                                 </>
                               )}
                             </td>
                             )}
                             {!isLineHidden('uom') && (
-                            <td className="px-3 py-2">
+                            <td className="px-2 py-1.5 text-slate-600">
                               {isEditing && !isLineRO('uom') ? (
-                                <CustomSelect value={line.uom || 'KG'} onChange={e => handleEditLineChange(idx, 'uom', e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm">
+                                <CustomSelect value={line.uom || 'KG'} onChange={e => handleEditLineChange(idx, 'uom', e.target.value)} className="w-full px-1 py-1 border border-slate-300 rounded text-[11px]">
                                   {line.uom && !UOM_VALUES.includes(line.uom) && (
                                     <option value={line.uom}>{line.uom}</option>
                                   )}
@@ -1698,15 +1585,15 @@ export default function PurchaseRequestDetailPage() {
                             </td>
                             )}
                             {!isLineHidden('purpose') && (
-                            <td className="px-3 py-2">
+                            <td className="px-2 py-1.5">
                               {isEditing && !isLineRO('purpose') ? (
-                                <input type="text" value={line.purpose || ''} onChange={e => handleEditLineChange(idx, 'purpose', e.target.value)} className="w-full px-2 py-1 border border-slate-300 rounded text-sm" />
-                              ) : (line.purpose || '-')}
+                                <input type="text" value={line.purpose || ''} onChange={e => handleEditLineChange(idx, 'purpose', e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-[11px]" />
+                              ) : (<span className="truncate block">{line.purpose || '-'}</span>)}
                             </td>
                             )}
                             {isEditing && (
-                              <td className="px-3 py-2 text-center">
-                                <button onClick={() => handleRemoveEditLine(idx)} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Remove"><Trash2 size={14} /></button>
+                              <td className="px-2 py-1.5 text-center">
+                                <button onClick={() => handleRemoveEditLine(idx)} className="p-0.5 text-red-500 hover:bg-red-50 rounded" title="Remove"><Trash2 size={12} /></button>
                               </td>
                             )}
                           </tr>
@@ -1724,184 +1611,70 @@ export default function PurchaseRequestDetailPage() {
                 );
               })()}
             </div>
+
+        {/* ── Collapsible bottom sections: Attachments + Activity ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="bg-white rounded-lg border border-slate-200">
+            <FileAttachments module="PR" recordId={id} readOnly={!isEditing} />
           </div>
-
-          {/* Sidebar (1 col) */}
-          <div className="space-y-3">
-
-            {/* Approval Info (shown after approval) */}
-            {isApproved && (
-              <div className="bg-green-50 rounded-lg border border-green-200 p-3 sm:p-4">
-                <div className="flex items-center justify-between mb-2 gap-2">
-                  <h3 className="text-sm sm:text-base font-semibold text-green-900 flex items-center gap-2">
-                    <CheckCircle size={20} className="text-green-600" />
-                    Approved
-                  </h3>
-                  <StatusBadge status={approvalStatus} label={approvalStatus.replace('_', ' ')} />
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  {(pr.approved_by || pr.approvedBy) && (
-                    <div>
-                      <p className="text-xs text-green-700 font-medium">Approved By</p>
-                      <p className="text-green-900 font-semibold mt-0.5">
-                        {pr.approved_by || pr.approvedBy}
-                      </p>
-                    </div>
-                  )}
-                  {(pr.approved_at || pr.approvedAt) && (
-                    <div>
-                      <p className="text-xs text-green-700 font-medium">Approved At</p>
-                      <p className="text-green-900 text-xs sm:text-sm font-medium mt-0.5 break-words">
-                        {formatDateTime(pr.approved_at || pr.approvedAt)}
-                      </p>
-                    </div>
-                  )}
-                  {(pr.linked_rfq_no || pr.rfq_no) && (
-                    <div>
-                      <p className="text-xs text-green-700 font-medium">Linked RFQ</p>
-                      <Link
-                        to={`/purchase/rfq/${pr.linked_rfq_id || pr.rfq_id || ''}`}
-                        className="inline-flex items-center gap-1.5 text-blue-700 hover:text-blue-900 font-semibold mt-0.5 transition"
-                      >
-                        <LinkIcon size={14} />
-                        {pr.linked_rfq_no || pr.rfq_no}
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Rejection Info (shown after rejection) */}
-            {isRejected && (
-              <div className="bg-red-50 rounded-lg border border-red-200 p-3 sm:p-4">
-                <h3 className="text-sm sm:text-base font-semibold text-red-900 mb-2 flex items-center gap-2">
-                  <XCircle size={20} className="text-red-600" />
-                  Rejected
-                </h3>
-                <div className="space-y-3">
-                  {pr.rejected_by && (
-                    <div>
-                      <p className="text-sm text-red-700 font-medium">Rejected By</p>
-                      <p className="text-red-900 font-semibold mt-0.5">{pr.rejected_by}</p>
-                    </div>
-                  )}
-                  {pr.rejected_at && (
-                    <div>
-                      <p className="text-sm text-red-700 font-medium">Rejected At</p>
-                      <p className="text-red-900 mt-0.5">{formatDateTime(pr.rejected_at)}</p>
-                    </div>
-                  )}
-                  {(pr.reject_reason || pr.rejection_reason) && (
-                    <div>
-                      <p className="text-sm text-red-700 font-medium">Reason</p>
-                      <p className="text-red-900 mt-0.5">{(pr.reject_reason || pr.rejection_reason)}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Summary — only render when it actually has something to show.
-                Status appears here only while pending (it's in the
-                Approved/Rejected card otherwise); total amount and created-by
-                may be empty — so without this guard the card would be blank. */}
-            {((!isApproved && !isRejected) || pr.totalAmount != null || pr.created_by_name) && (
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-2 pb-1.5 border-b">Summary</h3>
-              <div className="space-y-3">
-                {/* Current Status is shown in the Approved/Rejected card once
-                    the PR is decided; show it here only while still pending
-                    so the state isn't duplicated. */}
-                {!isApproved && !isRejected && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600">Current Status</span>
-                    <StatusBadge
-                      status={approvalStatus}
-                      label={approvalStatus.replace('_', ' ')}
-                    />
-                  </div>
-                )}
-                {pr.totalAmount != null && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600">Total Amount</span>
-                    <span className="text-lg font-bold text-slate-900">
-                      ₹{Number(pr.totalAmount || pr.total_amount || 0).toLocaleString()}
-                    </span>
-                  </div>
-                )}
-                {pr.created_by_name ? (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-600">Created By</span>
-                    <span className="text-sm font-medium text-slate-900">
-                      {pr.created_by_name || '—'}
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-            )}
-
-            {/* Audit Trail / Timeline */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-2 pb-1.5 border-b">Activity Timeline</h3>
-              {/* Horizontal timeline — steps left-to-right, connected by a
-                  line; scrolls sideways if there are many. */}
-              <div className="flex items-start overflow-x-auto ios-scroll pb-1">
-                {buildAuditTrail(pr).map((entry, idx, arr) => (
-                  <div key={idx} className="flex-1 min-w-[96px] flex flex-col items-center text-center" title={entry.remarks || undefined}>
-                    {/* icon + horizontal connectors */}
-                    <div className="flex items-center w-full">
-                      <div className={`h-0.5 flex-1 ${idx === 0 ? 'bg-transparent' : 'bg-slate-200'}`} />
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                        entry.type === 'approved' ? 'bg-green-100'
-                          : entry.type === 'rejected' ? 'bg-red-100'
-                          : entry.type === 'edited' ? 'bg-blue-100'
-                          : 'bg-slate-100'
-                      }`}>
-                        {entry.type === 'approved' ? <CheckCircle className="text-green-600" size={16} />
-                          : entry.type === 'rejected' ? <XCircle className="text-red-600" size={16} />
-                          : entry.type === 'edited' ? <Edit3 className="text-blue-600" size={16} />
-                          : <Clock className="text-slate-500" size={16} />}
+          <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+            <details className="group">
+              <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer select-none hover:bg-slate-50 transition">
+                <span className="text-[11px] font-semibold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                  <Clock size={13} className="text-slate-400" />
+                  Activity Timeline ({buildAuditTrail(pr).length} events)
+                </span>
+                <span className="text-[10px] text-blue-600 font-medium group-open:hidden">View ↓</span>
+                <span className="text-[10px] text-blue-600 font-medium hidden group-open:inline">Hide ↑</span>
+              </summary>
+              <div className="px-3 pb-3 border-t border-slate-100">
+                <div className="flex items-start overflow-x-auto ios-scroll pb-1 pt-2">
+                  {buildAuditTrail(pr).map((entry, idx, arr) => (
+                    <div key={idx} className="flex-1 min-w-[86px] flex flex-col items-center text-center" title={entry.remarks || undefined}>
+                      <div className="flex items-center w-full">
+                        <div className={`h-0.5 flex-1 ${idx === 0 ? 'bg-transparent' : 'bg-slate-200'}`} />
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                          entry.type === 'approved' ? 'bg-green-100'
+                            : entry.type === 'rejected' ? 'bg-red-100'
+                            : entry.type === 'edited' ? 'bg-blue-100'
+                            : 'bg-slate-100'
+                        }`}>
+                          {entry.type === 'approved' ? <CheckCircle className="text-green-600" size={13} />
+                            : entry.type === 'rejected' ? <XCircle className="text-red-600" size={13} />
+                            : entry.type === 'edited' ? <Edit3 className="text-blue-600" size={13} />
+                            : <Clock className="text-slate-500" size={13} />}
+                        </div>
+                        <div className={`h-0.5 flex-1 ${idx === arr.length - 1 ? 'bg-transparent' : 'bg-slate-200'}`} />
                       </div>
-                      <div className={`h-0.5 flex-1 ${idx === arr.length - 1 ? 'bg-transparent' : 'bg-slate-200'}`} />
+                      <p className="text-[10px] font-medium text-slate-900 mt-1 px-1 leading-tight">{entry.action}</p>
+                      <p className="text-[9px] text-slate-500 mt-0.5 px-1 leading-tight">
+                        {entry.user && <span className="block truncate max-w-[80px] mx-auto">{entry.user}</span>}
+                        {entry.date}
+                      </p>
+                      {entry.remarks && (
+                        <p className="text-[9px] italic text-slate-400 mt-0.5 px-1 leading-tight break-words">{entry.remarks}</p>
+                      )}
+                      {(entry.changes || []).length > 0 && (
+                        <div className="mt-0.5 px-1 space-y-0.5">
+                          {entry.changes.map((c, ci) => (
+                            <p key={ci} className="text-[9px] text-slate-500 leading-tight break-words">
+                              {c.label}: {c.old} → {c.new}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <p className="text-xs font-medium text-slate-900 mt-1.5 px-1 leading-tight">{entry.action}</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5 px-1 leading-tight">
-                      {entry.user && <span className="block truncate max-w-[88px] mx-auto">{entry.user}</span>}
-                      {entry.date}
-                    </p>
-                    {entry.remarks && (
-                      <p className="text-[10px] italic text-slate-400 mt-0.5 px-1 leading-tight break-words">{entry.remarks}</p>
-                    )}
-                    {(entry.changes || []).length > 0 && (
-                      <div className="mt-0.5 px-1 space-y-0.5">
-                        {entry.changes.map((c, ci) => (
-                          <p key={ci} className="text-[10px] text-slate-500 leading-tight break-words">
-                            {c.label}: {c.old} → {c.new}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {buildAuditTrail(pr).length === 0 && (
-                  <p className="text-sm text-slate-500 text-center py-2 w-full">No activity recorded</p>
-                )}
+                  ))}
+                  {buildAuditTrail(pr).length === 0 && (
+                    <p className="text-xs text-slate-500 text-center py-2 w-full">No activity recorded</p>
+                  )}
+                </div>
               </div>
-            </div>
-
+            </details>
           </div>
         </div>
-      </div>
 
-      <FileAttachments module="PR" recordId={id} readOnly={!isEditing} />
-
-      <VoiceNotesPanel recordId={id} refreshKey={pr?.updated_at} />
-
-      <div className="mt-4">
-        <ActivityLog module="Purchase Request" recordId={id} />
+        <VoiceNotesPanel recordId={id} refreshKey={pr?.updated_at} />
       </div>
 
       {/* Approve — per-product RFQ / Skip routing. Skip products cut a DRAFT
