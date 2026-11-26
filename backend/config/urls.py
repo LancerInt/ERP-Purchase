@@ -38,7 +38,7 @@ from purchase.local_freight import LocalFreightViewSet
 from purchase.amendment import POAmendmentRequestViewSet
 from purchase.dashboard_views import (
     PurchaseDashboardView, PurchaseDashboardRecordsView, PurchaseAnalyticsView,
-    PurchaseMonthlyBreakdownView,
+    PurchaseMonthlyBreakdownView, PurchaseBranchTransfersView,
     PaidByCategoryView, PurchasePayablesCalendarView,
 )
 from purchase.freight_overview_views import FreightOverviewView
@@ -167,6 +167,7 @@ urlpatterns = [
     path('api/purchase/dashboard/records/', PurchaseDashboardRecordsView.as_view(), name='purchase-dashboard-records'),
     path('api/purchase/dashboard/analytics/', PurchaseAnalyticsView.as_view(), name='purchase-dashboard-analytics'),
     path('api/purchase/monthly-breakdown/', PurchaseMonthlyBreakdownView.as_view(), name='purchase-monthly-breakdown'),
+    path('api/purchase/branch-transfers/', PurchaseBranchTransfersView.as_view(), name='purchase-branch-transfers'),
     path('api/purchase/dashboard/paid-by-category/', PaidByCategoryView.as_view(), name='purchase-paid-by-category'),
     path('api/purchase/payables-calendar/', PurchasePayablesCalendarView.as_view(), name='purchase-payables-calendar'),
     path('api/purchase/freight-overview/', FreightOverviewView.as_view(), name='freight-overview'),

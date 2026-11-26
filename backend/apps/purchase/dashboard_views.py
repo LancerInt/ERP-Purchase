@@ -2918,6 +2918,95 @@ class PurchaseMonthlyBreakdownView(APIView):
         })
 
 
+class PurchaseBranchTransfersView(APIView):
+    """GET /api/purchase/branch-transfers/?company=&from=&to=
+
+    Internal branch-transfer bills (the procurement mirror of the Sales
+    "Branch Transfers" page): bills that branch_transfer_q() matches — a
+    "DC/"-prefixed invoice no, a vendor flagged is_branch, or a bill the
+    operator tagged purchase_category='BRANCH'. These are stock movements
+    between the company's own branches, EXCLUDED from Purchases, so this
+    gives them their own view: a per-branch x month summary + the bill list.
+
+    Uses the same branch scope as the Total-Purchase tile / monthly-breakdown
+    (transfers-included base, OPENING/CANCELLED/is_expense/dups removed, then
+    branch_transfer_q()), so the figures reconcile.
+    """
+    permission_classes = [permissions.IsAuthenticated, HasModulePermission]
+    module_name = 'Purchase Dashboard'
+    alternate_modules = ['Purchase Analytics', 'Vendor Insights']
+
+    def get(self, request, *args, **kwargs):
+        frm = request.query_params.get('from')
+        to = request.query_params.get('to')
+        company_id = request.query_params.get('company') or None
+        start, end, label = PurchaseDashboardView._resolve_range('custom', frm, to)
+
+        base = (PurchaseDashboardView._bill_qs(company_id, None, include_transfers=True)
+                .filter(bill_date__gte=start, bill_date__lte=end)
+                .exclude(tally_guid__startswith='OPENING')
+                .exclude(status='CANCELLED')
+                .exclude(is_expense=True))
+        base = base.exclude(id__in=_cached_dup_bill_ids(base))
+        qs = (base.filter(branch_transfer_q())
+              .select_related('vendor')
+              .order_by('-bill_date'))
+
+        months = [{'month': ym, 'label': '{:%b %Y}'.format(m_start)}
+                  for ym, m_start, _m_end in _month_iter(start, end)]
+
+        # Per-branch (vendor) x month taxable (ex-GST) value, + the bill list.
+        branch_acc = {}   # vendor_name -> {'vendor_id', 'by_month': {ym: val}}
+        bills = []
+        total = _ZERO
+        for bill in qs:
+            vname = bill.vendor.vendor_name if bill.vendor_id else '—'
+            ym = bill.bill_date.strftime('%Y-%m') if bill.bill_date else None
+            sub = Decimal(str(bill.subtotal or 0))
+            tot = Decimal(str(bill.total_amount or 0))
+            total += sub
+            b = branch_acc.setdefault(vname, {
+                'branch': vname,
+                'vendor_id': str(bill.vendor_id) if bill.vendor_id else None,
+                'by_month': {},
+            })
+            if ym:
+                b['by_month'][ym] = b['by_month'].get(ym, _ZERO) + sub
+            bills.append({
+                'bill_id': str(bill.id),
+                'bill_no': bill.bill_no or bill.vendor_invoice_no or '',
+                'bill_date': bill.bill_date.isoformat() if bill.bill_date else None,
+                'branch': vname,
+                'taxable': _money(sub),
+                'total': _money(tot),
+            })
+
+        branches = []
+        for b in branch_acc.values():
+            row_total = sum(b['by_month'].values(), _ZERO)
+            by_month = {ym: _money(b['by_month'].get(ym, _ZERO)) for ym in (m['month'] for m in months)}
+            by_month['total'] = _money(row_total)
+            branches.append({'branch': b['branch'], 'vendor_id': b['vendor_id'], 'by_month': by_month})
+        branches.sort(key=lambda r: r['by_month']['total'], reverse=True)
+
+        company_pan = ''
+        if company_id:
+            from core.models import Company
+            company_pan = (Company.objects.filter(id=company_id)
+                           .values_list('pan', flat=True).first()) or ''
+
+        return Response({
+            'period': {'label': label, 'from': start.isoformat(), 'to': end.isoformat()},
+            'company_id': company_id,
+            'total': _money(total),
+            'branch_count': len(branch_acc),
+            'company_pan': company_pan,
+            'months': months,
+            'branches': branches,
+            'bills': bills,
+        })
+
+
 class PurchaseImportReconcileView(APIView):
     """Date-wise import reconciliation for purchases (Purchase Analytics footer).
 

@@ -15,7 +15,7 @@ import {
   CreditCard, TrendingUp, Package, DollarSign,
   Shield, RotateCcw, Clock, Users as UsersIcon, Star,
   UserX, UserPlus, Target, BarChart3, ArrowLeftRight,
-  Loader2, X, Calendar, Sparkles, Check, Building2,
+  Loader2, X, Calendar, Sparkles, Check, Building2, GitBranch,
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import apiClient from '../../../utils/api.js';
@@ -74,6 +74,13 @@ const DATE_PRESETS = buildDatePresets();
 
 // ── Nav groups (Purchase) ────────────────────────────────────────────
 const NAV_GROUPS = [
+  { title: 'Purchase Analytics', items: [
+    { id: 'pa_item',  label: 'Item Analytics',  icon: Package },
+    { id: 'pa_vturn', label: 'Vendor Turnover', icon: ArrowLeftRight },
+    { id: 'pa_drill', label: 'Item Drill-down', icon: BarChart3 },
+    { id: 'pa_trend', label: 'Purchase Trend',  icon: TrendingUp },
+    { id: 'pa_branch', label: 'Branch Transfers', icon: GitBranch },
+  ]},
   { title: 'Payables', items: [
     { id: 'pay_week',  label: 'This Week',       icon: AlertCircle },
     { id: 'pay_aged',  label: 'Overdue Ageing',  icon: AlertTriangle },
@@ -86,12 +93,6 @@ const NAV_GROUPS = [
     { id: 'v_new',    label: 'New Vendors',     icon: UserPlus },
     { id: 'v_conc',   label: 'Concentration',   icon: Target },
   ]},
-  { title: 'Purchase Analytics', items: [
-    { id: 'pa_item',  label: 'Item Analytics',  icon: Package },
-    { id: 'pa_vturn', label: 'Vendor Turnover', icon: ArrowLeftRight },
-    { id: 'pa_drill', label: 'Item Drill-down', icon: BarChart3 },
-    { id: 'pa_trend', label: 'Purchase Trend',  icon: TrendingUp },
-  ]},
   { title: 'Accounts', items: [
     { id: 'ac_pay',   label: 'Payment Efficiency', icon: Clock },
     { id: 'ac_cndn',  label: 'Credit/Debit Notes', icon: RotateCcw },
@@ -103,7 +104,7 @@ const SECTION_TITLES = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_TITLES[it.id] = it.label; }));
 const SECTION_ICON = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_ICON[it.id] = it.icon; }));
-const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'pa_drill', 'pa_vturn', 'ac_tds']);
+const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'pa_drill', 'pa_vturn', 'pa_branch', 'ac_tds']);
 
 // Purchase categories for the Item Drill-down filter: chip label -> category code.
 // Categories match the normalized values product_category() returns:
@@ -197,11 +198,11 @@ export default function PurchaseWorkspace() {
   const { company, companies, setCompany } = useGlobalCompany();
 
   // ── UI state ──
-  const [activeSection, setActiveSection] = useState('top_vend');
+  const [activeSection, setActiveSection] = useState('pa_item');
   const [profileCollapsed, setProfileCollapsed] = useState(false);
   const [companyMenuOpen, setCompanyMenuOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(() => {
-    const o = {}; NAV_GROUPS.forEach(g => { o[g.title] = g.title === 'Payables'; }); return o;
+    const o = {}; NAV_GROUPS.forEach(g => { o[g.title] = g.title === 'Purchase Analytics'; }); return o;
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -220,6 +221,7 @@ export default function PurchaseWorkspace() {
   const [breakdown, setBreakdown] = useState(null); // monthly-breakdown pivot
   const [showExact, setShowExact] = useState(false); // "detailed figures" toggle
   const [drillPivot, setDrillPivot] = useState(null); // item-rate-trend mode=pivot (vendor x month)
+  const [branchTx, setBranchTx] = useState(null);   // branch-transfers payload
 
   // ── Item Analytics UI state ──
   const [itemCat, setItemCat] = useState('');       // category filter (''=All)
@@ -284,7 +286,7 @@ export default function PurchaseWorkspace() {
     const cp = company ? `company=${company}&` : '';
     const win = `${cp}from=${dateFrom}&to=${dateTo}`;
     const fyParam = String(_fyYear(new Date(dateFrom)));
-    setBreakdown(null); setDrillPivot(null);
+    setBreakdown(null); setDrillPivot(null); setBranchTx(null);
     Promise.all([
       apiClient.get(`/api/purchase/dashboard/?${cp}period=custom&from=${dateFrom}&to=${dateTo}`).then(r => r.data).catch(() => null),
       apiClient.get(`/api/purchase/dashboard/analytics/?${win}`).then(r => r.data?.mom_trend || []).catch(() => []),
@@ -292,9 +294,10 @@ export default function PurchaseWorkspace() {
       apiClient.get(`/api/purchase/tds-summary/?${cp}fy=${fyParam}`).then(r => r.data).catch(() => null),
       apiClient.get(`/api/purchase/monthly-breakdown/?${win}`).then(r => r.data).catch(() => null),
       apiClient.get(`/api/purchase/item-rate-trend/?side=purchase&mode=pivot&include_single=1&${win}`).then(r => r.data).catch(() => null),
-    ]).then(([d, t, it, td, bd, pv]) => {
+      apiClient.get(`/api/purchase/branch-transfers/?${win}`).then(r => r.data).catch(() => null),
+    ]).then(([d, t, it, td, bd, pv, bt]) => {
       if (!alive) return;
-      setDash(d); setTrend(t || []); setItems(it || []); setTds(td); setBreakdown(bd); setDrillPivot(pv);
+      setDash(d); setTrend(t || []); setItems(it || []); setTds(td); setBreakdown(bd); setDrillPivot(pv); setBranchTx(bt);
     }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [company, dateFrom, dateTo]);
@@ -475,6 +478,20 @@ export default function PurchaseWorkspace() {
     });
     return { byMonth, grand };
   }, [vturnVendors, vturnMonths]);
+
+  // ── Branch Transfers derivations ──
+  const branchMonths = branchTx?.months || [];       // [{month, label}]
+  const branchRows = branchTx?.branches || [];
+  const branchBills = branchTx?.bills || [];
+  const branchTotals = useMemo(() => {
+    const byMonth = {}; let grand = 0;
+    branchMonths.forEach(m => { byMonth[m.month] = 0; });
+    branchRows.forEach(b => {
+      branchMonths.forEach(m => { byMonth[m.month] += num(b.by_month?.[m.month]); });
+      grand += num(b.by_month?.total);
+    });
+    return { byMonth, grand };
+  }, [branchRows, branchMonths]);
 
   // ── Render ──
   return createPortal(
@@ -1150,6 +1167,85 @@ export default function PurchaseWorkspace() {
                         </tbody>
                       </table>
                     </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ===== Branch Transfers ===== */}
+            {!loading && activeSection === 'pa_branch' && (
+              <div>
+                {branchTx == null ? (
+                  <div className="flex items-center justify-center py-24 text-slate-400">
+                    <Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
+                      <Card label="Branch Transfer Total" value={fmtINR(num(branchTx.total))} sub="Taxable value (ex-GST)" color="text-amber-600" borderColor="border-amber-400" />
+                      <Card label="Branch Vendors" value={num(branchTx.branch_count)} sub="Matched as branch" color="text-indigo-700" borderColor="border-indigo-400" />
+                      <Card label="Company PAN" value={branchTx.company_pan || '—'} sub="Used for matching" color="text-slate-900" borderColor="border-sky-400" />
+                    </div>
+
+                    {branchRows.length === 0 ? (
+                      <div className="text-center py-16 text-slate-400 text-sm">No branch transfers in this period.</div>
+                    ) : (
+                      <>
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                          Branch Transfer Summary <span className="text-slate-400 font-semibold normal-case ml-1">(excluded from Purchases)</span>
+                        </div>
+                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto mb-5">
+                          <table className="min-w-[720px] w-full">
+                            <thead><tr>
+                              <th className="sticky left-0 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200 z-10">Branch</th>
+                              {branchMonths.map(m => <th key={m.month} className="text-center px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[78px]">{m.label}</th>)}
+                              <th className="text-right px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total</th>
+                            </tr></thead>
+                            <tbody>
+                              {branchRows.map((b, i) => (
+                                <tr key={i} className="hover:bg-slate-50">
+                                  <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 border-b border-slate-100 z-10">{b.branch}</td>
+                                  {branchMonths.map(m => (
+                                    <td key={m.month} className="text-right px-2 py-1 text-[10px] tabular-nums border-b border-l border-slate-100">
+                                      {b.by_month?.[m.month] ? fmtINR(b.by_month[m.month]) : <span className="text-slate-300">—</span>}
+                                    </td>
+                                  ))}
+                                  <td className="text-right px-2 py-1 text-[11px] font-bold tabular-nums text-indigo-700 border-b border-l border-slate-200">{fmtINR(b.by_month?.total)}</td>
+                                </tr>
+                              ))}
+                              <tr className="bg-slate-50 font-bold">
+                                <td className="sticky left-0 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-700 border-t border-slate-200 z-10">Total · {branchRows.length} branch{branchRows.length === 1 ? '' : 'es'}</td>
+                                {branchMonths.map(m => (
+                                  <td key={m.month} className="text-right px-2 py-1 text-[10px] tabular-nums font-bold text-slate-700 border-t border-l border-slate-200">{branchTotals.byMonth[m.month] ? fmtINR(branchTotals.byMonth[m.month]) : '—'}</td>
+                                ))}
+                                <td className="text-right px-2 py-1 text-[11px] font-extrabold tabular-nums text-amber-600 border-t border-l border-slate-200">{fmtINR(branchTotals.grand)}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                          Branch Bills <span className="text-slate-400 font-semibold normal-case ml-1">({branchBills.length})</span>
+                        </div>
+                        <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
+                          <table className="min-w-[640px] w-full">
+                            <thead><tr><TH>Invoice #</TH><TH>Date</TH><TH>Branch</TH><TH right>Taxable</TH><TH right>Total (incl GST)</TH></tr></thead>
+                            <tbody>
+                              {branchBills.map((r, i) => (
+                                <tr key={i} className="hover:bg-slate-50">
+                                  <TD clickable onClick={() => navigate(`/purchase/bills?quick=${r.bill_id}`)}>{r.bill_no || '—'}</TD>
+                                  <TD color="text-slate-500">{fmtDate(r.bill_date)}</TD>
+                                  <TD color="text-slate-600">{r.branch}</TD>
+                                  <TD right>{fmtINR(r.taxable)}</TD>
+                                  <TD right bold color="text-slate-900">{fmtINR(r.total)}</TD>
+                                </tr>
+                              ))}
+                              {branchBills.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate-400 text-sm">No branch bills for this period</td></tr>}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
               </div>
