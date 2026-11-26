@@ -120,111 +120,122 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
 
   const fieldClass = (name) => `w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${errors[name] ? 'border-red-400 bg-red-50' : 'border-slate-300'}`;
 
+  // Reusable bits for a consistent, grouped layout.
+  const SectionLabel = ({ children }) => (
+    <div className="flex items-center gap-2 mt-1">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{children}</span>
+      <span className="flex-1 h-px bg-slate-100" />
+    </div>
+  );
+  const Field = ({ label, required, error, children }) => (
+    <div>
+      <label className="block text-xs font-medium text-slate-600 mb-1">{label}{required && <span className="text-red-500 ml-0.5">*</span>}</label>
+      {children}
+      {error && <p className="mt-1 text-[11px] text-red-600">{error}</p>}
+    </div>
+  );
+  const UploadField = ({ label, required, file, onPick, accept, error, placeholder }) => (
+    <Field label={label} required={required} error={error}>
+      <label className={`flex items-center gap-2 px-3 h-[38px] text-sm border rounded-lg cursor-pointer transition ${error ? 'border-red-400 bg-red-50' : file ? 'border-emerald-300 bg-emerald-50/50' : 'border-slate-300 hover:bg-slate-50'}`}>
+        <svg className={`w-4 h-4 shrink-0 ${file ? 'text-emerald-600' : 'text-slate-400'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" /></svg>
+        <span className={`truncate ${file ? 'text-emerald-700 font-medium' : 'text-slate-500'}`}>{file ? file.name : placeholder}</span>
+        <input type="file" accept={accept} className="hidden" onChange={onPick} />
+      </label>
+    </Field>
+  );
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b">
-          <h2 className="text-lg font-semibold text-slate-800">Quick Create Vendor</h2>
-          <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700">×</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-[1px] p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div>
+            <h2 className="text-base font-semibold text-slate-800">Quick Create Vendor</h2>
+            <p className="text-xs text-slate-400 mt-0.5">A document is required; MSME vendors also need their certificate.</p>
+          </div>
+          <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           {Object.keys(errors).length > 0 && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-xs font-medium text-red-700">Please fix the highlighted fields.</p>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Vendor Name <span className="text-red-500">*</span></label>
+
+          {/* Vendor */}
+          <SectionLabel>Vendor</SectionLabel>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+            <Field label="Vendor Name" required error={errors.vendor_name}>
               <input type="text" name="vendor_name" value={form.vendor_name} onChange={handleChange} maxLength={255} className={fieldClass('vendor_name')} placeholder="Enter vendor name" autoFocus />
-              {errors.vendor_name && <p className="mt-1 text-xs text-red-600">{errors.vendor_name}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Vendor Type <span className="text-red-500">*</span></label>
+            </Field>
+            <Field label="Vendor Type" required error={errors.vendor_type}>
               <CustomSelect name="vendor_type" value={form.vendor_type} onChange={handleChange} className={fieldClass('vendor_type')}>
-                <option value="">Select...</option>
+                <option value="">Select…</option>
                 {VENDOR_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </CustomSelect>
-              {errors.vendor_type && <p className="mt-1 text-xs text-red-600">{errors.vendor_type}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Company <span className="text-red-500">*</span></label>
+            </Field>
+            <Field label="Company" required error={errors.company}>
               <CustomSelect name="company" value={form.company} onChange={handleChange} className={fieldClass('company')}>
-                <option value="">Select...</option>
+                <option value="">Select…</option>
                 {companies.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </CustomSelect>
-              {errors.company && <p className="mt-1 text-xs text-red-600">{errors.company}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">GST Treatment <span className="text-red-500">*</span></label>
+            </Field>
+          </div>
+
+          {/* Tax */}
+          <SectionLabel>Tax</SectionLabel>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-3">
+            <Field label="GST Treatment" required error={errors.gst_treatment}>
               <CustomSelect name="gst_treatment" value={form.gst_treatment} onChange={handleChange} className={fieldClass('gst_treatment')}>
-                <option value="">Select...</option>
+                <option value="">Select…</option>
                 {VENDOR_GST_TREATMENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </CustomSelect>
-              {errors.gst_treatment && <p className="mt-1 text-xs text-red-600">{errors.gst_treatment}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">GSTIN {isRegisteredTreatment(form.gst_treatment) && <span className="text-red-500">*</span>}</label>
+            </Field>
+            <Field label="GSTIN" required={isRegisteredTreatment(form.gst_treatment)} error={errors.gstin}>
               <input type="text" name="gstin" value={form.gstin} onChange={handleChange} maxLength={15} className={fieldClass('gstin')} placeholder="Enter GSTIN" />
-              {errors.gstin && <p className="mt-1 text-xs text-red-600">{errors.gstin}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">PAN {isRegisteredTreatment(form.gst_treatment) && <span className="text-red-500">*</span>}</label>
+            </Field>
+            <Field label="PAN" required={isRegisteredTreatment(form.gst_treatment)} error={errors.pan}>
               <input type="text" name="pan" value={form.pan} onChange={handleChange} maxLength={10} className={fieldClass('pan')} placeholder="Enter PAN" />
-              {errors.pan && <p className="mt-1 text-xs text-red-600">{errors.pan}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Contact Email <span className="text-red-500">*</span></label>
+            </Field>
+          </div>
+
+          {/* Contact */}
+          <SectionLabel>Contact</SectionLabel>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+            <Field label="Contact Email" required error={errors.contact_email}>
               <input type="email" name="contact_email" value={form.contact_email} onChange={handleChange} className={fieldClass('contact_email')} placeholder="Enter email" />
-              {errors.contact_email && <p className="mt-1 text-xs text-red-600">{errors.contact_email}</p>}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Contact Phone</label>
+            </Field>
+            <Field label="Contact Phone" error={errors.contact_phone}>
               <input type="text" name="contact_phone" value={form.contact_phone} onChange={handleChange} className={fieldClass('contact_phone')} placeholder="Enter phone" />
-            </div>
+            </Field>
           </div>
 
-          {/* MSME Yes/No + Vendor Document on one row (no empty gap). When MSME
-              is Yes, the MSME certificate takes the Vendor-Document slot and the
-              Vendor Document wraps to the next line. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">MSME? <span className="text-red-500">*</span></label>
-              <div className="flex items-center gap-4 h-[38px]">
-                <label className="inline-flex items-center gap-1.5 text-sm cursor-pointer">
-                  <input type="radio" name="is_msme" value="yes" checked={form.is_msme === 'yes'} onChange={handleChange} /> Yes
-                </label>
-                <label className="inline-flex items-center gap-1.5 text-sm cursor-pointer">
-                  <input type="radio" name="is_msme" value="no" checked={form.is_msme === 'no'} onChange={handleChange} /> No
-                </label>
+          {/* Compliance */}
+          <SectionLabel>Compliance</SectionLabel>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+            <Field label="MSME?" required>
+              <div className="flex items-center gap-2 h-[38px]">
+                {['yes', 'no'].map(v => (
+                  <label key={v} className={`flex-1 inline-flex items-center justify-center gap-1.5 h-[38px] text-sm rounded-lg border cursor-pointer transition ${form.is_msme === v ? 'border-primary-500 bg-primary-50 text-primary-700 font-medium' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                    <input type="radio" name="is_msme" value={v} checked={form.is_msme === v} onChange={handleChange} className="sr-only" />
+                    {v === 'yes' ? 'Yes' : 'No'}
+                  </label>
+                ))}
               </div>
-            </div>
+            </Field>
             {form.is_msme === 'yes' && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-0.5">MSME Certificate <span className="text-red-500">*</span></label>
-                <label className={`flex items-center gap-1.5 px-3 h-[38px] text-sm border rounded-lg cursor-pointer hover:bg-slate-50 ${errors.msme_doc ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
-                  <span className="truncate text-slate-600">{msmeDoc ? msmeDoc.name : 'Attach MSME certificate'}</span>
-                  <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => { setMsmeDoc(e.target.files?.[0] || null); setErrors(p => { const n = { ...p }; delete n.msme_doc; return n; }); }} />
-                </label>
-                {errors.msme_doc && <p className="mt-1 text-xs text-red-600">{errors.msme_doc}</p>}
-              </div>
+              <UploadField label="MSME Certificate" required file={msmeDoc} error={errors.msme_doc} accept="image/*,.pdf" placeholder="Attach MSME certificate"
+                onPick={(e) => { setMsmeDoc(e.target.files?.[0] || null); setErrors(p => { const n = { ...p }; delete n.msme_doc; return n; }); }} />
             )}
-            {/* Compulsory vendor document — fills the row's second cell when MSME
-                is No, or wraps to its own row when the cert is shown. */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Vendor Document <span className="text-red-500">*</span></label>
-              <label className={`flex items-center gap-1.5 px-3 h-[38px] text-sm border rounded-lg cursor-pointer hover:bg-slate-50 ${errors.vendor_doc ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
-                <span className="truncate text-slate-600">{vendorDoc ? vendorDoc.name : 'Attach a document (GST cert / agreement / ID)'}</span>
-                <input type="file" accept="image/*,.pdf,.docx" className="hidden" onChange={(e) => { setVendorDoc(e.target.files?.[0] || null); setErrors(p => { const n = { ...p }; delete n.vendor_doc; return n; }); }} />
-              </label>
-              {errors.vendor_doc && <p className="mt-1 text-xs text-red-600">{errors.vendor_doc}</p>}
+            <div className={form.is_msme === 'yes' ? 'sm:col-span-2' : ''}>
+              <UploadField label="Vendor Document" required file={vendorDoc} error={errors.vendor_doc} accept="image/*,.pdf,.docx" placeholder="Attach a document (GST cert / agreement / ID)"
+                onPick={(e) => { setVendorDoc(e.target.files?.[0] || null); setErrors(p => { const n = { ...p }; delete n.vendor_doc; return n; }); }} />
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2 border-t">
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
-            <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
-              {saving ? 'Creating...' : 'Create Vendor'}
+            <button type="submit" disabled={saving} className="px-5 py-2 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
+              {saving ? 'Creating…' : 'Create Vendor'}
             </button>
           </div>
         </form>
