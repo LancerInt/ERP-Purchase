@@ -50,6 +50,7 @@ from purchase.item_rate_trend_views import PurchaseItemRateTrendView, PurchaseIt
 from purchase.tds_summary_views import TdsSummaryView
 from purchase.tds_bill_views import TdsBillsView
 from purchase.stock_views import StockView, StockProductView
+from inventory.views import StockDeclarationViewSet
 from ai_parser.gst2b_views import Gst2BUploadView, Gst2BListView, Gst2BReportView
 from bank.views import BankAccountViewSet, BankStatementUploadViewSet
 from finance.ledger_views import VendorLedgerEntriesView
@@ -124,6 +125,9 @@ router.register(r'purchase/vendor-credits', VendorCreditViewSet, basename='vendo
 router.register(r'purchase/attachments', PurchaseAttachmentViewSet, basename='purchase-attachment')
 router.register(r'purchase/rejections', MaterialRejectionViewSet, basename='material-rejection')
 router.register(r'purchase/vendor-product-mappings', VendorProductMappingViewSet, basename='vendor-product-mapping')
+
+# Inventory
+router.register(r'inventory/stock-declarations', StockDeclarationViewSet, basename='stock-declaration')
 
 urlpatterns = [
     path('healthz/', health),

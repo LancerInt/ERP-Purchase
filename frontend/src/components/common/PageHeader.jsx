@@ -12,6 +12,7 @@ export default function PageHeader({
   center = null,
   onBack = null,
   compact = false,
+  hideCompanyFilter = false,
 }) {
   /* Back chevron. When the page supplies `onBack` (e.g. Customer Insights
      returning from a customer's 360 to its welcome list) we use that;
@@ -27,7 +28,7 @@ export default function PageHeader({
     <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-3 shrink-0 max-w-full">
       {/* Global company filter — sticks across every page/tab (only shows
           when there is more than one company). */}
-      <CompanyFilter />
+      {!hideCompanyFilter && <CompanyFilter />}
       {/* Page-supplied control rendered inline with the title (e.g. a
           status pill or an Approve button) — keeps it at the top
           instead of eating its own row below the header. */}

@@ -241,6 +241,7 @@ export const NAV_SECTIONS = [
       { name: 'Job Work', path: '/inventory/job-work', module: 'Job Work Order', icon: Briefcase },
       { name: 'Returns', path: '/inventory/returns', module: 'Sales Return', icon: FileCheck },
       { name: 'Adjustments', path: '/inventory/adjustments', module: 'Stock Adjustment', icon: Calculator },
+      { name: 'Stock Declarations', path: '/inventory/stock-declarations', icon: ClipboardCheck },
     ],
   },
   {

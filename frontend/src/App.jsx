@@ -368,6 +368,10 @@ const JobWorkDetail = lazy(() => import('./pages/inventory/job-work/[id].jsx'));
 const ReturnNew = lazy(() => import('./pages/inventory/returns/new.jsx'));
 const ReturnDetail = lazy(() => import('./pages/inventory/returns/[id].jsx'));
 const AdjustmentNew = lazy(() => import('./pages/inventory/adjustments/new.jsx'));
+// Inventory - Stock Declarations
+const StockDeclarationList = lazy(() => import('./pages/inventory/stock-declarations/index.jsx'));
+const StockDeclarationNew = lazy(() => import('./pages/inventory/stock-declarations/new.jsx'));
+const StockDeclarationDetail = lazy(() => import('./pages/inventory/stock-declarations/[id].jsx'));
 
 // Finance - List
 const FinanceDashboard = lazy(() => import('./pages/finance/dashboard/index.jsx'));
@@ -889,6 +893,9 @@ function App() {
           <Route path="/inventory/returns/:id" element={<ProtectedRoute module="Sales Return"><ReturnDetail /></ProtectedRoute>} />
           <Route path="/inventory/adjustments" element={<ProtectedRoute module="Stock Adjustment"><StockAdjustments /></ProtectedRoute>} />
           <Route path="/inventory/adjustments/new" element={<ProtectedRoute module="Stock Adjustment" action="create"><AdjustmentNew /></ProtectedRoute>} />
+          <Route path="/inventory/stock-declarations" element={<ProtectedRoute><StockDeclarationList /></ProtectedRoute>} />
+          <Route path="/inventory/stock-declarations/new" element={<ProtectedRoute><StockDeclarationNew /></ProtectedRoute>} />
+          <Route path="/inventory/stock-declarations/:id" element={<ProtectedRoute><StockDeclarationDetail /></ProtectedRoute>} />
 
           {/* ========== FINANCE ========== */}
           <Route path="/finance/dashboard" element={<ProtectedRoute module="Finance Dashboard"><FinanceDashboard /></ProtectedRoute>} />

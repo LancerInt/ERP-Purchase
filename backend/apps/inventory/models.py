@@ -83,3 +83,49 @@ class InventoryLedger(BaseModel):
 
     class Meta:
         app_label = 'inventory'
+
+
+class StockDeclaration(BaseModel):
+    """Factory coordinator declares opening stock for a product.
+    On admin approval, creates the Product (if new) and an OpeningStock entry."""
+
+    APPROVAL_STATUS_CHOICES = (
+        ('PENDING', 'Pending Approval'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    )
+
+    product = models.ForeignKey(
+        'master.Product', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='stock_declarations',
+    )
+    is_new_product = models.BooleanField(default=False)
+    product_name = models.CharField(max_length=255)
+    specification = models.TextField(blank=True, default='')
+    quantity = models.DecimalField(max_digits=15, decimal_places=3, default=0)
+    uom = models.CharField(max_length=10, default='KG')
+    warehouse = models.ForeignKey(
+        'core.Warehouse', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='stock_declarations',
+    )
+    godown = models.ForeignKey(
+        'core.Godown', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='stock_declarations',
+    )
+    approval_status = models.CharField(
+        max_length=20, choices=APPROVAL_STATUS_CHOICES,
+        default='PENDING', db_index=True,
+    )
+    approved_by = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='approved_stock_declarations',
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    admin_remarks = models.TextField(blank=True, default='')
+
+    class Meta:
+        app_label = 'inventory'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.product_name} — {self.quantity} {self.uom} ({self.approval_status})'
