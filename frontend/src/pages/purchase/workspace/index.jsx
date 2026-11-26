@@ -147,7 +147,10 @@ function TH({ children, right }) {
   return <th className={`${right ? 'text-right' : 'text-left'} sticky top-0 z-10 px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-slate-200`}>{children}</th>;
 }
 function TD({ children, right, bold, color, clickable, onClick }) {
-  return <td onClick={onClick} className={`px-2 py-1.5 border-b border-slate-100 text-[11px] ${right ? 'text-right tabular-nums' : ''} ${bold ? 'font-semibold' : ''} ${color || ''} ${clickable ? 'text-indigo-600 cursor-pointer hover:underline' : ''}`}>{children}</td>;
+  // Numeric (right-aligned) cells read as values, so they default to semibold;
+  // an explicit `bold` goes stronger. Keeps every analytics table's figures legible.
+  const weight = bold ? 'font-bold' : (right ? 'font-semibold' : '');
+  return <td onClick={onClick} className={`px-2 py-1.5 border-b border-slate-100 text-[11px] ${right ? 'text-right tabular-nums text-slate-800' : ''} ${weight} ${color || ''} ${clickable ? 'text-indigo-600 cursor-pointer hover:underline' : ''}`}>{children}</td>;
 }
 function ComingSoon({ sectionId }) {
   const Icon = SECTION_ICON[sectionId] || Sparkles;
@@ -175,7 +178,7 @@ function BreakdownPivot({ breakdown, fmt }) {
       <td className={`sticky left-0 bg-white px-2 py-1.5 text-[11px] font-semibold border-b border-slate-100 z-10 ${labelCls || 'text-slate-700'}`}>{label}</td>
       {months.map(m => {
         const v = rows[k]?.[m.month];
-        return <td key={m.month} className={`text-right px-2 py-1.5 text-[10px] tabular-nums border-b border-l border-slate-100 ${labelCls || 'text-slate-700'}`}>{v ? `${sign || ''}${fmt(v)}` : '—'}</td>;
+        return <td key={m.month} className={`text-right px-2 py-1.5 text-[10px] tabular-nums font-semibold border-b border-l border-slate-100 ${labelCls || 'text-slate-700'}`}>{v ? `${sign || ''}${fmt(v)}` : '—'}</td>;
       })}
       <td className={`text-right px-2 py-1.5 text-[11px] font-bold tabular-nums border-b border-l border-slate-200 ${labelCls || 'text-slate-700'}`}>{rows[k]?.total ? `${sign || ''}${fmt(rows[k].total)}` : '—'}</td>
     </tr>
@@ -2191,7 +2194,7 @@ export default function PurchaseWorkspace() {
                                             {itemMonths.map(m => {
                                               const c = v.cells[m];
                                               return (
-                                                <td key={m} className="text-right px-2 py-1.5 text-[10px] tabular-nums border-b border-l border-slate-100">
+                                                <td key={m} className="text-right px-2 py-1.5 text-[10px] tabular-nums font-semibold border-b border-l border-slate-100">
                                                   {c ? <span className="text-slate-700">{fmtQty(c.qty)}<span className="text-slate-400"> · {fmtRup((c.rate || 0) * (c.qty || 0))}</span></span> : <span className="text-slate-300">—</span>}
                                                 </td>
                                               );
@@ -2411,7 +2414,7 @@ export default function PurchaseWorkspace() {
                                 return (
                                   <tr key={i} className="hover:bg-slate-50">
                                     <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 border-b border-slate-100 z-10">{v.vendor}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</td>
-                                    {drillMonths.map(m => <td key={m} className="text-right px-2 py-1 text-[10px] tabular-nums border-b border-l border-slate-100">{fmtCell(cellVal(v.cells[m]))}</td>)}
+                                    {drillMonths.map(m => <td key={m} className="text-right px-2 py-1 text-[10px] tabular-nums font-semibold border-b border-l border-slate-100">{fmtCell(cellVal(v.cells[m]))}</td>)}
                                     <td className="text-right px-2 py-1 text-[11px] font-bold tabular-nums text-indigo-700 border-b border-l border-slate-200">{fmtCell(rowTotal)}</td>
                                   </tr>
                                 );
@@ -2471,7 +2474,7 @@ export default function PurchaseWorkspace() {
                             <td className={`sticky left-0 z-10 bg-white px-2 py-1.5 text-[11px] font-semibold border-b border-slate-100 ${mi === 1 ? 'text-emerald-700' : mi === 2 ? 'text-amber-600' : 'text-slate-800'}`}>{metric}</td>
                             {(accPay.monthly || []).map(m => {
                               const val = mi === 0 ? (m.billed ? fmtRup(m.billed) : '—') : mi === 1 ? (m.paid ? fmtRup(m.paid) : '—') : (m.pct != null ? `${m.pct}%` : '—');
-                              return <td key={m.month} className="text-right px-2 py-1.5 text-[10px] tabular-nums border-b border-l border-slate-100">{val}</td>;
+                              return <td key={m.month} className="text-right px-2 py-1.5 text-[10px] tabular-nums font-semibold border-b border-l border-slate-100">{val}</td>;
                             })}
                           </tr>
                         ))}
@@ -2688,7 +2691,7 @@ export default function PurchaseWorkspace() {
                                     </span>
                                   </td>
                                   {vturnMonths.map(m => (
-                                    <td key={m} className="text-right px-2 py-1 text-[10px] tabular-nums border-b border-l border-slate-100">
+                                    <td key={m} className="text-right px-2 py-1 text-[10px] tabular-nums font-semibold border-b border-l border-slate-100">
                                       {v.by_month?.[m] ? fmtINR(v.by_month[m]) : <span className="text-slate-300">—</span>}
                                     </td>
                                   ))}
@@ -2715,8 +2718,13 @@ export default function PurchaseWorkspace() {
                                                   <td className="px-2 py-1 text-[10px] text-slate-400">{it.uom || '—'}</td>
                                                   {vturnMonths.map(m => {
                                                     const md = it.by_month?.[m];
-                                                    return <td key={m} className="text-center px-2 py-1 text-[10px] tabular-nums border-l border-slate-100">
-                                                      {md ? <><span className="font-medium text-slate-700">{fmtQty(md.qty)}</span><span className="text-slate-400 text-[9px]"> · {md.qty > 0 ? fmtRup(md.value / md.qty).replace('₹', '') : '—'}</span></> : <span className="text-slate-300">—</span>}
+                                                    return <td key={m} className="text-right px-2 py-1 text-[10px] tabular-nums border-l border-slate-100">
+                                                      {md ? (
+                                                        <div className="leading-tight">
+                                                          <div className="font-semibold text-slate-700"><span className="text-slate-400 font-normal text-[8px] mr-0.5">Qty</span>{fmtQty(md.qty)}</div>
+                                                          <div className="text-slate-500 text-[9px]"><span className="text-slate-400 mr-0.5">Rate</span>{md.qty > 0 ? fmtRup(md.value / md.qty) : '—'}</div>
+                                                        </div>
+                                                      ) : <span className="text-slate-300">—</span>}
                                                     </td>;
                                                   })}
                                                   <td className="text-right px-2 py-1 text-[10px] font-bold tabular-nums text-slate-700 border-l border-slate-200">{fmtQty(it.total_qty)}</td>
@@ -2786,7 +2794,7 @@ export default function PurchaseWorkspace() {
                                 <tr key={i} className="hover:bg-slate-50">
                                   <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 border-b border-slate-100 z-10">{b.branch}</td>
                                   {branchMonths.map(m => (
-                                    <td key={m.month} className="text-right px-2 py-1 text-[10px] tabular-nums border-b border-l border-slate-100">
+                                    <td key={m.month} className="text-right px-2 py-1 text-[10px] tabular-nums font-semibold border-b border-l border-slate-100">
                                       {b.by_month?.[m.month] ? fmtINR(b.by_month[m.month]) : <span className="text-slate-300">—</span>}
                                     </td>
                                   ))}
