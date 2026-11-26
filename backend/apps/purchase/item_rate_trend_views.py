@@ -256,3 +256,74 @@ class PurchaseItemRateTrendView(APIView):
             })
         items.sort(key=lambda x: x['item'].lower())
         return {'items': items}
+
+
+class PurchaseItemVendorBillsView(APIView):
+    """Bills for ONE item from ONE vendor — the expandable drill under the Item
+    Drill-down's vendor-wise row.
+
+    GET /api/purchase/item-vendor-bills/?item=<name>&vendor=<name>&company=&from=&to=
+
+    Item + vendor are matched by the SAME keys the item-rate-trend view uses:
+      item   = product.product_name (fallback to the line description)
+      vendor = bill.vendor.vendor_name
+    so the rows reconcile with the vendor-wise table that opened them.
+    """
+    permission_classes = [IsAuthenticated]
+    module_name = 'Consolidated Report'
+
+    def get(self, request):
+        from .models import VendorBillLine
+
+        item = (request.query_params.get('item') or '').strip()
+        vendor = (request.query_params.get('vendor') or '').strip()
+        company = (request.query_params.get('company') or '').strip() or None
+        frm = _pd(request.query_params.get('from'))
+        to = _pd(request.query_params.get('to'))
+
+        if not item or not vendor:
+            return Response({'item': item, 'vendor': vendor, 'rows': [],
+                             'total_qty': 0.0, 'total_value': 0.0})
+
+        qs = (VendorBillLine.objects.filter(is_active=True)
+              .exclude(bill__status='CANCELLED')
+              .select_related('bill', 'bill__vendor', 'product'))
+        if company:
+            qs = qs.filter(bill__vendor__company_id=company)
+        if frm:
+            qs = qs.filter(bill__bill_date__gte=frm)
+        if to:
+            qs = qs.filter(bill__bill_date__lte=to)
+        # Narrow by vendor name early to keep the scan small.
+        qs = qs.filter(bill__vendor__vendor_name=vendor)
+
+        rows = []
+        tot_qty = Z
+        tot_val = Z
+        for ln in qs:
+            name = (ln.product.product_name if ln.product_id else (ln.description or '')).strip() or '—'
+            if name != item:
+                continue
+            bill = ln.bill
+            qty = Decimal(str(ln.quantity or 0))
+            val = Decimal(str(ln.amount or 0))
+            tot_qty += qty
+            tot_val += val
+            rows.append({
+                'bill_id': str(bill.id) if bill else None,
+                'bill_no': (bill.bill_no or bill.vendor_invoice_no or '') if bill else '',
+                'bill_date': bill.bill_date.isoformat() if (bill and bill.bill_date) else None,
+                'month': bill.bill_date.strftime('%Y-%m') if (bill and bill.bill_date) else '',
+                'qty': float(qty),
+                'uom': ln.uom or '',
+                'rate': float(Decimal(str(ln.rate or 0))),
+                'amount': float(val),
+                'tax_percent': float(Decimal(str(ln.tax_percent or 0))),
+                'status': bill.status if bill else '',
+            })
+
+        rows.sort(key=lambda r: r['bill_date'] or '', reverse=True)
+        return Response({
+            'item': item, 'vendor': vendor, 'rows': rows,
+            'total_qty': float(tot_qty), 'total_value': float(tot_val),
+        })

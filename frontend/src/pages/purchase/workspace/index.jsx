@@ -222,8 +222,23 @@ export default function PurchaseWorkspace() {
   const [drillCat, setDrillCat] = useState('');     // category filter (''=All)
   const [drillItem, setDrillItem] = useState('');   // selected item name
   const [drillMeasure, setDrillMeasure] = useState('qty'); // qty | rate | value
+  const [drillOpenVendor, setDrillOpenVendor] = useState(null); // expanded vendor row
+  const [drillVendorBills, setDrillVendorBills] = useState({});  // {vendor: {loading, rows}}, keyed per item+vendor
 
   const applyPreset = (p) => { setDateFrom(p.from); setDateTo(p.to); setActivePeriod(p.key); setShowDatePicker(false); };
+
+  // Expand a vendor row in the Item Drill-down -> that vendor's bills for the item.
+  const toggleDrillVendor = (vendor) => {
+    if (drillOpenVendor === vendor) { setDrillOpenVendor(null); return; }
+    setDrillOpenVendor(vendor);
+    if (!drillVendorBills[vendor]) {
+      setDrillVendorBills(prev => ({ ...prev, [vendor]: { loading: true, rows: [] } }));
+      const cp = company ? `company=${company}&` : '';
+      apiClient.get(`/api/purchase/item-vendor-bills/?item=${encodeURIComponent(drillItem)}&vendor=${encodeURIComponent(vendor)}&${cp}from=${dateFrom}&to=${dateTo}`)
+        .then(r => setDrillVendorBills(prev => ({ ...prev, [vendor]: { loading: false, rows: r.data?.rows || [] } })))
+        .catch(() => setDrillVendorBills(prev => ({ ...prev, [vendor]: { loading: false, rows: [] } })));
+    }
+  };
   const toggleGroup = (title) => setExpandedGroups(prev => ({ ...prev, [title]: !prev[title] }));
   const selectSection = (sid) => {
     setActiveSection(sid);
@@ -328,6 +343,9 @@ export default function PurchaseWorkspace() {
     if (drillItems.length === 0) { if (drillItem) setDrillItem(''); return; }
     if (!drillItems.some(it => it.item === drillItem)) setDrillItem(drillItems[0].item);
   }, [drillItems, drillItem]);
+
+  // A new item / company / period invalidates the cached vendor-bill drills.
+  useEffect(() => { setDrillOpenVendor(null); setDrillVendorBills({}); }, [drillItem, company, dateFrom, dateTo]);
 
   const drillSelected = useMemo(
     () => drillItems.find(it => it.item === drillItem) || null,
@@ -695,16 +713,59 @@ export default function PurchaseWorkspace() {
                           <table className="w-full">
                             <thead><tr><TH>Vendor</TH><TH>UOM</TH><TH right>Qty</TH><TH right>Avg Price</TH><TH right>Total Value</TH><TH right>% Share</TH></tr></thead>
                             <tbody>
-                              {drillVendors.map((v, i) => (
-                                <tr key={i} className={`hover:bg-slate-50 ${v.cheapest ? 'bg-emerald-50/50' : ''}`}>
-                                  <TD bold>{v.vendor}{v.cheapest && <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wide text-emerald-700 align-middle">cheapest</span>}</TD>
-                                  <TD color="text-slate-400">{drillSelected.uom || '—'}</TD>
-                                  <TD right>{fmtQty(v.qty)}</TD>
-                                  <TD right color={v.cheapest ? 'text-emerald-700' : ''}>{fmtRup(v.avg)}</TD>
-                                  <TD right bold color="text-indigo-700">{fmtINR(v.value)}</TD>
-                                  <TD right color="text-slate-400">{v.pct.toFixed(1)}%</TD>
-                                </tr>
-                              ))}
+                              {drillVendors.map((v, i) => {
+                                const open = drillOpenVendor === v.vendor;
+                                const drill = drillVendorBills[v.vendor];
+                                return (
+                                  <React.Fragment key={i}>
+                                    <tr onClick={() => toggleDrillVendor(v.vendor)}
+                                      className={`cursor-pointer hover:bg-slate-50 ${open ? 'bg-indigo-50/60' : v.cheapest ? 'bg-emerald-50/50' : ''}`}>
+                                      <TD bold>
+                                        <ChevronDown size={12} className={`inline-block mr-1 text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
+                                        {v.vendor}{v.cheapest && <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wide text-emerald-700 align-middle">cheapest</span>}
+                                      </TD>
+                                      <TD color="text-slate-400">{drillSelected.uom || '—'}</TD>
+                                      <TD right>{fmtQty(v.qty)}</TD>
+                                      <TD right color={v.cheapest ? 'text-emerald-700' : ''}>{fmtRup(v.avg)}</TD>
+                                      <TD right bold color="text-indigo-700">{fmtINR(v.value)}</TD>
+                                      <TD right color="text-slate-400">{v.pct.toFixed(1)}%</TD>
+                                    </tr>
+                                    {open && (
+                                      <tr>
+                                        <td colSpan={6} className="bg-slate-50 border-t border-slate-200 px-3 py-2">
+                                          {drill?.loading ? (
+                                            <div className="text-[11px] text-slate-500 py-2 px-1">Loading…</div>
+                                          ) : (drill?.rows?.length ? (
+                                            <div className="bg-white rounded-md border border-slate-200 overflow-x-auto">
+                                              <table className="w-full min-w-[640px]">
+                                                <thead><tr>
+                                                  <TH>Month</TH><TH>Invoice #</TH><TH>Date</TH><TH right>Qty</TH><TH>UOM</TH><TH right>Rate/{drillSelected.uom || 'unit'}</TH><TH right>Taxable value</TH><TH>Status</TH>
+                                                </tr></thead>
+                                                <tbody>
+                                                  {drill.rows.map((r, ri) => (
+                                                    <tr key={ri} className="hover:bg-slate-50">
+                                                      <TD color="text-slate-500">{monthLabel(r.month)}</TD>
+                                                      <TD clickable onClick={() => navigate(`/purchase/bills?quick=${r.bill_id}`)}>{r.bill_no || '—'}</TD>
+                                                      <TD color="text-slate-500">{r.bill_date ? formatDate(r.bill_date) : '—'}</TD>
+                                                      <TD right>{fmtQty(r.qty)}</TD>
+                                                      <TD color="text-slate-400">{r.uom || '—'}</TD>
+                                                      <TD right>{fmtRup(r.rate)}</TD>
+                                                      <TD right bold color="text-indigo-700">{fmtINR(r.amount)}</TD>
+                                                      <TD color="text-slate-500">{r.status || '—'}</TD>
+                                                    </tr>
+                                                  ))}
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          ) : (
+                                            <div className="text-[11px] text-slate-400 italic py-2 px-1">No bills for this vendor in the period.</div>
+                                          ))}
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
