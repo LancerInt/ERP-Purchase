@@ -2,7 +2,7 @@ import CustomSelect from "@/components/ui/CustomSelect";
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Edit3, Save, X, Mail, Check, FileText, Trash2, Printer } from 'lucide-react';
+import { ArrowLeft, Edit3, Save, X, Mail, Check, FileText, Trash2, Printer, Clock } from 'lucide-react';
 import MainLayout from '../../../components/layout/MainLayout';
 import StatusBadge from '../../../components/common/StatusBadge';
 import apiClient from '../../../utils/api.js';
@@ -43,15 +43,11 @@ export default function RFQDetailPage() {
       setRfq(rfqData);
       setEditData(rfqData);
 
-      // Fetch linked PR details with line items
       const prIds = rfqData.linked_prs || [];
       if (prIds.length > 0) {
         const prResults = await Promise.all(
           prIds.map(prId => apiClient.get(`/api/purchase/requests/${prId}/`).catch(() => null))
         );
-        // Drop skip-routed lines once at load — every render spot on this
-        // page (per-PR tables, aggregate list, counts) must show only the
-        // lines this RFQ actually covers.
         setLinkedPRs(prResults.filter(r => r !== null).map(r => ({
           ...r.data,
           lines: (r.data.lines || []).filter(l => !l.allow_rfq_skip),
@@ -84,9 +80,6 @@ export default function RFQDetailPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Mirror the create-page payload — include the Additional Information
-      // textareas (skip_rfq_justification, notes) so they're editable in
-      // addition to the original three fields.
       const payload = {
         rfq_mode: editData.rfq_mode,
         rfq_status: editData.rfq_status,
@@ -120,52 +113,58 @@ export default function RFQDetailPage() {
 
   const formatDate = (d) => d ? fmtDate(d) : '-';
   const formatDateTime = (d) => d ? fmtDateTime(d) : '-';
-  const inputClass = "w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500";
-  const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
-  const readonlyClass = "w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-600";
 
   if (isLoading) return <MainLayout><div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" /></div></MainLayout>;
   if (!rfq) return <MainLayout><div className="text-center py-12"><FileText className="mx-auto text-slate-300 mb-4" size={48} /><p className="text-slate-500">RFQ not found</p></div></MainLayout>;
 
+  const thCls = 'text-left px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap';
+
   return (
     <MainLayout>
-      <div className="max-w-6xl space-y-3">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <button onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/rfq'))} className="p-1 text-slate-500 hover:text-slate-700"><ArrowLeft size={20} /></button>
-              <h1 className="text-xl sm:text-3xl font-bold text-slate-900">{rfq.rfq_no}</h1>
-            </div>
-            <div className="flex items-center gap-4 ml-8">
-              <StatusBadge status={rfq.rfq_status} />
-              <span className="text-sm text-slate-500">Created {formatDate(rfq.creation_date)}</span>
-              {(rfq.linked_pr_numbers || []).length > 0 && (
-                <span className="text-sm text-slate-500">
-                  PR:{' '}
-                  {rfq.linked_pr_numbers.map((prNo, i) => {
-                    const prId = (rfq.linked_prs || [])[i];
-                    return (
-                      <span key={prNo}>
-                        {i > 0 && ', '}
-                        {prId ? (
-                          <button onClick={() => navigate(`/purchase/requests/${prId}`)} className="text-blue-600 hover:text-blue-800 hover:underline font-medium">{prNo}</button>
-                        ) : prNo}
-                      </span>
-                    );
-                  })}
-                </span>
-              )}
+      <div className="max-w-6xl space-y-2">
+
+        {/* ── Header row: Back + RFQ# + badge + chips + actions ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button
+              onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/rfq'))}
+              className="p-1 text-slate-400 hover:text-slate-700 transition shrink-0"
+              title="Back to list"
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">{rfq.rfq_no}</h1>
+            <StatusBadge status={rfq.rfq_status} />
+            <div className="hidden sm:flex items-center gap-1.5 ml-1">
+              <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{rfq.rfq_mode_display || rfq.rfq_mode}</span>
+              <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{formatDate(rfq.creation_date)}</span>
+              <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">Expected: {rfq.quote_count_expected} · Received: {rfq.quote_count || 0}</span>
+              {(rfq.linked_pr_numbers || []).map((prNo, i) => {
+                const prId = (rfq.linked_prs || [])[i];
+                return (
+                  <button key={prNo} onClick={() => prId && navigate(`/purchase/requests/${prId}`)} className="px-2 py-0.5 rounded bg-blue-50 text-[10px] font-medium text-blue-700 hover:bg-blue-100 transition">
+                    PR: {prNo}
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 ml-8 sm:ml-0">
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 flex-wrap ml-6 sm:ml-0">
             {!isEditing && <>
               {canEdit('RFQ') && (
-                <button onClick={handleEdit} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-lg text-xs sm:text-sm font-medium hover:bg-slate-50 whitespace-nowrap"><Edit3 size={14} /> Edit</button>
+                <button onClick={handleEdit} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition text-xs font-medium">
+                  <Edit3 size={13} /> Edit
+                </button>
               )}
-              <button onClick={() => navigate(`/purchase/rfq/${id}/document`)} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-lg text-xs sm:text-sm font-medium hover:bg-slate-50 whitespace-nowrap"><Printer size={14} /> RFQ Document</button>
+              <button onClick={() => navigate(`/purchase/rfq/${id}/document`)} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition text-xs font-medium">
+                <Printer size={13} /> RFQ Document
+              </button>
               {canDelete('RFQ') && (
-                <button onClick={handleDelete} className="flex items-center gap-1.5 px-3 py-1.5 border border-red-300 text-red-600 rounded-lg text-xs sm:text-sm font-medium hover:bg-red-50 whitespace-nowrap"><Trash2 size={14} /> Delete</button>
+                <button onClick={handleDelete} className="flex items-center gap-1.5 px-3 py-1.5 border border-red-200 rounded-md text-red-600 hover:bg-red-50 transition text-xs font-medium">
+                  <Trash2 size={13} /> Delete
+                </button>
               )}
               {emailLogs.length > 0 ? (
                 <>
@@ -175,251 +174,280 @@ export default function RFQDetailPage() {
                     title={rfq?.is_evaluated
                       ? 'Quotes for this RFQ have already been evaluated — new responses are locked'
                       : 'Create Quote Response'}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition ${
                       rfq?.is_evaluated
                         ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
                         : 'bg-green-600 text-white hover:bg-green-700'
                     }`}
                   >
-                    <FileText size={14} /> Quote Response
+                    <FileText size={13} /> Quote Response
                   </button>
-                  <button disabled className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs sm:text-sm font-medium cursor-not-allowed whitespace-nowrap"><Mail size={14} /> Email Sent</button>
+                  <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 text-green-700 rounded-md text-xs font-medium"><Mail size={13} /> Email Sent</span>
                 </>
               ) : (
                 canSendEmail('RFQ') && (
-                  <button onClick={() => navigate(`/purchase/rfq/${id}/send-email`)} className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-primary-700 whitespace-nowrap"><Mail size={14} /> Send Email</button>
+                  <button onClick={() => navigate(`/purchase/rfq/${id}/send-email`)} className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 text-white rounded-md text-xs font-medium hover:bg-primary-700 transition">
+                    <Mail size={13} /> Send Email
+                  </button>
                 )
               )}
             </>}
             {isEditing && (
               <>
-                <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"><Save size={16} /> {isSaving ? 'Saving...' : 'Save'}</button>
-                <button onClick={handleCancelEdit} className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50"><X size={16} /> Cancel</button>
+                <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-semibold hover:bg-blue-700 transition disabled:opacity-50">
+                  <Save size={13} /> {isSaving ? 'Saving...' : 'Save'}
+                </button>
+                <button onClick={handleCancelEdit} disabled={isSaving} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition text-xs font-medium">
+                  <X size={13} /> Cancel
+                </button>
               </>
             )}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          <div className="lg:col-span-2 space-y-3">
-            {/* RFQ Details */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">RFQ Details</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
-                {!isHidden('rfq_no') && (
-                <div><label className="block text-xs font-semibold text-slate-700 mb-0.5">RFQ Number</label><input type="text" value={rfq.rfq_no} disabled className={readonlyClass} /></div>
-                )}
-                {!isHidden('rfq_mode') && (
-                <div><label className="block text-xs font-semibold text-slate-700 mb-0.5">Mode</label>
-                  {isEditing ? <CustomSelect name="rfq_mode" value={editData.rfq_mode || ''} onChange={handleChange} disabled={isReadOnly('rfq_mode')} className={isReadOnly('rfq_mode') ? lockedInputClass : inputClass}><option value="EMAIL">Email</option><option value="PORTAL">Portal</option><option value="PHONE">Phone</option></CustomSelect> : <input type="text" value={rfq.rfq_mode_display || rfq.rfq_mode} disabled className={readonlyClass} />}
+        {/* Mobile chips row */}
+        <div className="flex sm:hidden items-center gap-1.5 flex-wrap ml-7">
+          <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{rfq.rfq_mode_display || rfq.rfq_mode}</span>
+          <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{formatDate(rfq.creation_date)}</span>
+          <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">Exp: {rfq.quote_count_expected} · Rcvd: {rfq.quote_count || 0}</span>
+          {(rfq.linked_pr_numbers || []).map((prNo, i) => {
+            const prId = (rfq.linked_prs || [])[i];
+            return (
+              <button key={prNo} onClick={() => prId && navigate(`/purchase/requests/${prId}`)} className="px-2 py-0.5 rounded bg-blue-50 text-[10px] font-medium text-blue-700">
+                PR: {prNo}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Single-row field strip ── */}
+        <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+          {!isEditing ? (
+            <div className="flex items-start gap-4 overflow-x-auto" style={{ fontSize: 0 }}>
+              {!isHidden('rfq_no') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">RFQ Number</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{rfq.rfq_no}</p></div>
+              )}
+              {!isHidden('rfq_mode') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Mode</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{rfq.rfq_mode_display || rfq.rfq_mode}</p></div>
+              )}
+              {!isHidden('rfq_status') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Status</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{rfq.rfq_status_display || rfq.rfq_status}</p></div>
+              )}
+              {!isHidden('quote_count_expected') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Expected Quotes</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{rfq.quote_count_expected}</p></div>
+              )}
+              <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Received</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{rfq.quote_count || 0}</p></div>
+              {!isHidden('linked_prs') && (rfq.linked_pr_numbers || []).length > 0 && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Linked PRs</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{(rfq.linked_pr_numbers || []).join(', ')}</p></div>
+              )}
+              <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Created</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{formatDate(rfq.creation_date)}</p></div>
+              {rfq.skip_rfq_justification && (
+                <div className="min-w-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Skip Justification</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-700 truncate max-w-[260px]" title={rfq.skip_rfq_justification}>{rfq.skip_rfq_justification}</p></div>
+              )}
+              {rfq.notes && (
+                <div className="min-w-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Notes</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-700 truncate max-w-[200px]" title={rfq.notes}>{rfq.notes}</p></div>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
+              {!isHidden('rfq_mode') && (
+                <div>
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Mode</p>
+                  {!isReadOnly('rfq_mode') ? (
+                    <CustomSelect name="rfq_mode" value={editData.rfq_mode || ''} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
+                      <option value="EMAIL">Email</option><option value="PORTAL">Portal</option><option value="PHONE">Phone</option>
+                    </CustomSelect>
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{rfq.rfq_mode_display || rfq.rfq_mode}</p>)}
                 </div>
-                )}
-                {!isHidden('rfq_status') && (
-                <div><label className="block text-xs font-semibold text-slate-700 mb-0.5">Status</label>
-                  {isEditing ? <CustomSelect name="rfq_status" value={editData.rfq_status || ''} onChange={handleChange} disabled={isReadOnly('rfq_status')} className={isReadOnly('rfq_status') ? lockedInputClass : inputClass}><option value="OPEN">Open</option><option value="CLOSED">Closed</option><option value="CANCELLED">Cancelled</option></CustomSelect> : <input type="text" value={rfq.rfq_status_display || rfq.rfq_status} disabled className={readonlyClass} />}
+              )}
+              {!isHidden('rfq_status') && (
+                <div>
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Status</p>
+                  {!isReadOnly('rfq_status') ? (
+                    <CustomSelect name="rfq_status" value={editData.rfq_status || ''} onChange={handleChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
+                      <option value="OPEN">Open</option><option value="CLOSED">Closed</option><option value="CANCELLED">Cancelled</option>
+                    </CustomSelect>
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{rfq.rfq_status_display || rfq.rfq_status}</p>)}
                 </div>
-                )}
-                {!isHidden('quote_count_expected') && (
-                <div><label className="block text-xs font-semibold text-slate-700 mb-0.5">Expected Quotes</label>
-                  {isEditing ? <input type="number" name="quote_count_expected" value={editData.quote_count_expected || ''} onChange={handleChange} disabled={isReadOnly('quote_count_expected')} className={isReadOnly('quote_count_expected') ? lockedInputClass : inputClass} min="1" /> : <input type="text" value={rfq.quote_count_expected} disabled className={readonlyClass} />}
+              )}
+              {!isHidden('quote_count_expected') && (
+                <div>
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Expected Quotes</p>
+                  {!isReadOnly('quote_count_expected') ? (
+                    <input type="number" name="quote_count_expected" value={editData.quote_count_expected || ''} onChange={handleChange} min="1" className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{rfq.quote_count_expected}</p>)}
                 </div>
+              )}
+              <div className="col-span-2 sm:col-span-4">
+                <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Skip RFQ Justification</p>
+                <textarea name="skip_rfq_justification" value={editData.skip_rfq_justification || ''} onChange={handleChange} rows={1} placeholder="Reason for skipping RFQ process..." className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div className="col-span-2 sm:col-span-4">
+                <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Notes</p>
+                <textarea name="notes" value={editData.notes || ''} onChange={handleChange} rows={1} placeholder="Additional notes..." className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Products Required (compact) ── */}
+        {linkedPRs.some(pr => pr.lines?.length > 0) && (
+          <div className="bg-white rounded-lg border border-slate-200">
+            <div className="px-3 py-1.5 border-b border-slate-100">
+              <h2 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">Products Required</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className={thCls}>Product</th>
+                    <th className={thCls}>SKU</th>
+                    <th className={`${thCls} text-right`}>Qty</th>
+                    <th className={thCls}>UOM</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {linkedPRs.flatMap(pr => pr.lines || []).map((line, idx) => (
+                    <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/60 transition-colors">
+                      <td className="px-2 py-1.5 font-medium text-slate-800">{line.product_name || line.machinery_name || line.service_catalogue_name || '-'}</td>
+                      <td className="px-2 py-1.5 text-slate-500">{line.product_code || '-'}</td>
+                      <td className="px-2 py-1.5 text-right font-semibold tabular-nums">{Number(line.quantity_requested || 0).toLocaleString()}</td>
+                      <td className="px-2 py-1.5 text-slate-500">{line.uom || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Linked Purchase Requests (compact per-PR sections) ── */}
+        {linkedPRs.map(pr => (
+          <div key={pr.id} className="bg-white rounded-lg border border-slate-200">
+            <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-100">
+              <h2 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">Purchase Request</h2>
+              <button onClick={() => navigate(`/purchase/requests/${pr.id}`)} className="text-[12px] font-semibold text-primary-600 hover:text-primary-800 hover:underline">{pr.pr_no}</button>
+              <StatusBadge status={pr.approval_status} />
+            </div>
+
+            {/* PR field strip */}
+            <div className="px-3 py-2 border-b border-slate-100">
+              <div className="flex items-start gap-4 overflow-x-auto" style={{ fontSize: 0 }}>
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Warehouse</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{pr.warehouse_name || '-'}</p></div>
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Priority</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{pr.priority_display || pr.priority || '-'}</p></div>
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Requirement</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{pr.requirement_type_display || pr.requirement_type || '-'}</p></div>
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Required By</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{pr.required_by_date ? formatDate(pr.required_by_date) : '-'}</p></div>
+                {pr.justification && (
+                  <div className="min-w-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Justification</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-700 truncate max-w-[260px]" title={pr.justification}>{pr.justification}</p></div>
                 )}
-                {!isHidden('linked_prs') && (
-                <div><label className="block text-xs font-semibold text-slate-700 mb-0.5">Linked PRs</label><input type="text" value={(rfq.linked_pr_numbers || []).join(', ') || '-'} disabled className={readonlyClass} /></div>
-                )}
-                <div><label className="block text-xs font-semibold text-slate-700 mb-0.5">Created</label><input type="text" value={formatDate(rfq.creation_date)} disabled className={readonlyClass} /></div>
               </div>
             </div>
 
-            {/* Additional Information — matches the Create page section of the
-                same name. In view mode shows read-only text (or a dash); in
-                edit mode renders textareas matching the create form. */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Additional Information</h3>
-              <div className="grid grid-cols-2 md:grid-cols-2 gap-x-3 gap-y-2">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-0.5">Skip RFQ Justification</label>
-                  {isEditing ? (
-                    <textarea
-                      name="skip_rfq_justification"
-                      value={editData.skip_rfq_justification || ''}
-                      onChange={handleChange}
-                      rows={2}
-                      placeholder="Reason for skipping RFQ process..."
-                      className={inputClass}
-                    />
-                  ) : (
-                    <div className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 min-h-[60px] whitespace-pre-wrap">
-                      {rfq.skip_rfq_justification || '-'}
-                    </div>
-                  )}
+            {/* Line Items Table */}
+            {pr.lines && pr.lines.length > 0 && (
+              <>
+                <div className="px-3 py-1.5 border-b border-slate-100">
+                  <h3 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">Line Items ({pr.lines.length})</h3>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-0.5">Notes</label>
-                  {isEditing ? (
-                    <textarea
-                      name="notes"
-                      value={editData.notes || ''}
-                      onChange={handleChange}
-                      rows={2}
-                      placeholder="Additional notes..."
-                      className={inputClass}
-                    />
-                  ) : (
-                    <div className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 min-h-[60px] whitespace-pre-wrap">
-                      {rfq.notes || '-'}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
 
-            {/* Linked Purchase Requests & Line Items */}
-            {linkedPRs.map(pr => (
-              <div key={pr.id} className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-                <div className="flex items-center gap-3 mb-2 pb-1.5 border-b">
-                  <h3 className="text-sm sm:text-base font-semibold text-slate-800">
-                    Purchase Request:{' '}
-                    <button onClick={() => navigate(`/purchase/requests/${pr.id}`)} className="text-primary-600 hover:text-primary-800 hover:underline">{pr.pr_no}</button>
-                  </h3>
-                  <StatusBadge status={pr.approval_status} />
+                {/* Mobile stacked lines */}
+                <div className="sm:hidden divide-y divide-slate-100">
+                  {pr.lines.map((line, idx) => {
+                    const displayName = line.product_name || line.machinery_name || line.service_catalogue_name || '-';
+                    return (
+                      <div key={`m-${line.id || idx}`} className="px-3 py-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] text-slate-500">#{line.line_no || idx + 1}</p>
+                            <p className="text-[12px] font-semibold text-slate-800 truncate">{displayName}</p>
+                            {line.product_code && <p className="text-[10px] text-slate-400">{line.product_code}</p>}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[12px] font-semibold">{Number(line.quantity_requested || 0).toLocaleString()} {line.uom || ''}</p>
+                            <StatusBadge status={line.status} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-3 gap-y-2 mb-3">
-                  <div><p className="text-xs text-slate-500">Warehouse</p><p className="text-sm font-medium">{pr.warehouse_name || '-'}</p></div>
-                  <div><p className="text-xs text-slate-500">Priority</p><p className="text-sm font-medium">{pr.priority_display || pr.priority || '-'}</p></div>
-                  <div><p className="text-xs text-slate-500">Requirement Type</p><p className="text-sm font-medium">{pr.requirement_type_display || pr.requirement_type || '-'}</p></div>
-                  <div><p className="text-xs text-slate-500">Required By</p><p className="text-sm font-medium">{pr.required_by_date ? formatDate(pr.required_by_date) : '-'}</p></div>
-                </div>
-                {pr.justification && <div className="mb-4"><p className="text-xs text-slate-500 mb-1">Justification</p><p className="text-sm text-slate-700 bg-slate-50 p-2 rounded">{pr.justification}</p></div>}
-                {pr.notes && <div className="mb-4"><p className="text-xs text-slate-500 mb-1">Notes</p><p className="text-sm text-slate-700 bg-slate-50 p-2 rounded">{pr.notes}</p></div>}
 
-                {/* Line Items Table */}
-                {pr.lines && pr.lines.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-slate-700 mb-2">Line Items ({pr.lines.length})</h4>
-                    {/* Mobile-stacked linked PR lines (read-only). */}
-                    <div className="sm:hidden space-y-2 mb-3">
+                {/* Desktop table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="border-b border-slate-200">
+                        <th className={thCls}>#</th>
+                        <th className={thCls}>Product</th>
+                        <th className={thCls}>SKU</th>
+                        <th className={thCls}>Description</th>
+                        <th className={`${thCls} text-right`}>Qty</th>
+                        <th className={thCls}>UOM</th>
+                        <th className={thCls}>Purpose</th>
+                        <th className={thCls}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {pr.lines.map((line, idx) => {
                         const displayName = line.product_name || line.machinery_name || line.service_catalogue_name || '-';
                         return (
-                          <div key={`m-${line.id || idx}`} className="border border-slate-200 rounded bg-white p-2 text-xs">
-                            <div className="flex items-start justify-between gap-2 mb-1">
-                              <div className="min-w-0">
-                                <p className="text-[10px] uppercase text-slate-500">Line #{line.line_no || idx + 1}</p>
-                                <p className="font-semibold text-slate-800 break-words">{displayName}</p>
-                                {line.product_code && <p className="text-[10px] text-slate-500">{line.product_code}</p>}
-                              </div>
-                              <StatusBadge status={line.status} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-1 text-[10px]">
-                              <div><span className="text-slate-500">Qty:</span> <span className="text-slate-700 font-medium">{Number(line.quantity_requested || 0).toLocaleString()} {line.uom || ''}</span></div>
-                              <div><span className="text-slate-500">Purpose:</span> <span className="text-slate-700">{line.purpose || '-'}</span></div>
-                              {line.description_override && <div className="col-span-2"><span className="text-slate-500">Desc:</span> <span className="text-slate-700 break-words">{line.description_override}</span></div>}
-                            </div>
-                          </div>
+                          <tr key={line.id || idx} className="border-b border-slate-100 hover:bg-slate-50/60 transition-colors">
+                            <td className="px-2 py-1.5 text-slate-400">{line.line_no || idx + 1}</td>
+                            <td className="px-2 py-1.5 font-medium text-slate-800">{displayName}</td>
+                            <td className="px-2 py-1.5 text-slate-500">{line.product_code || '-'}</td>
+                            <td className="px-2 py-1.5 text-slate-600">{line.description_override || '-'}</td>
+                            <td className="px-2 py-1.5 text-right font-semibold tabular-nums">{Number(line.quantity_requested || 0).toLocaleString()}</td>
+                            <td className="px-2 py-1.5 text-slate-500">{line.uom || '-'}</td>
+                            <td className="px-2 py-1.5 text-slate-500">{line.purpose || '-'}</td>
+                            <td className="px-2 py-1.5"><StatusBadge status={line.status} /></td>
+                          </tr>
                         );
                       })}
-                    </div>
-                    <div className="hidden sm:block overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b">
-                            <th className="text-left px-3 py-2 font-medium text-slate-600 w-10">#</th>
-                            <th className="text-left px-3 py-2 font-medium text-slate-600">Product</th>
-                            <th className="text-left px-3 py-2 font-medium text-slate-600">SKU</th>
-                            <th className="text-left px-3 py-2 font-medium text-slate-600">Description</th>
-                            <th className="text-right px-3 py-2 font-medium text-slate-600">Quantity</th>
-                            <th className="text-left px-3 py-2 font-medium text-slate-600">UOM</th>
-                            <th className="text-left px-3 py-2 font-medium text-slate-600">Purpose</th>
-                            <th className="text-left px-3 py-2 font-medium text-slate-600">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {pr.lines.map((line, idx) => {
-                            // PR lines can be backed by Product / Machinery /
-                            // ServiceCatalogue — fall back so Services and
-                            // Machinery lines don't render as a blank dash.
-                            const displayName = line.product_name || line.machinery_name || line.service_catalogue_name || '-';
-                            return (
-                            <tr key={line.id || idx} className="border-b border-slate-100 hover:bg-primary-50/40 transition-colors">
-                              <td className="px-3 py-2.5 text-slate-500">{line.line_no || idx + 1}</td>
-                              <td className="px-3 py-2.5 font-medium text-slate-800">{displayName}</td>
-                              <td className="px-3 py-2.5 text-slate-500">{line.product_code || '-'}</td>
-                              <td className="px-3 py-2.5 text-slate-600">{line.description_override || '-'}</td>
-                              <td className="px-3 py-2.5 text-right font-semibold">{Number(line.quantity_requested || 0).toLocaleString()}</td>
-                              <td className="px-3 py-2.5 text-slate-500">{line.uom || '-'}</td>
-                              <td className="px-3 py-2.5 text-slate-500">{line.purpose || '-'}</td>
-                              <td className="px-3 py-2.5"><StatusBadge status={line.status} /></td>
-                            </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {linkedPRs.length === 0 && (
-              <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 text-center text-slate-400">
-                No linked Purchase Requests found
-              </div>
-            )}
-
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-3">
-            {/* Summary + Products Required share a row on mobile; back to a
-                single column in the narrow desktop sidebar. */}
-            <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
-            <div className={`bg-white rounded-lg border border-slate-200 p-3 sm:p-4 ${linkedPRs.some(pr => pr.lines?.length > 0) ? '' : 'col-span-2 lg:col-span-1'}`}>
-              <h4 className="text-sm font-semibold text-slate-700 mb-3">Summary</h4>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between"><span className="text-slate-500">Status</span><StatusBadge status={rfq.rfq_status} /></div>
-                <div className="flex justify-between"><span className="text-slate-500">Mode</span><span className="font-medium">{rfq.rfq_mode_display || rfq.rfq_mode}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Expected</span><span className="font-medium">{rfq.quote_count_expected}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Received</span><span className="font-medium">{rfq.quote_count || 0}</span></div>
-              </div>
-            </div>
-            {/* Products Summary from PRs */}
-            {linkedPRs.some(pr => pr.lines?.length > 0) && (
-              <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-                <h4 className="text-sm font-semibold text-slate-700 mb-3">Products Required</h4>
-                <div className="space-y-2">
-                  {linkedPRs.flatMap(pr => pr.lines || []).map((line, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-sm py-1.5 border-b border-slate-50 last:border-0">
-                      <div>
-                        <p className="font-medium text-slate-800">{line.product_name || line.machinery_name || line.service_catalogue_name || '-'}</p>
-                        <p className="text-xs text-slate-400">{line.product_code || ''}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">{Number(line.quantity_requested || 0).toLocaleString()}</p>
-                        <p className="text-xs text-slate-400">{line.uom || ''}</p>
-                      </div>
-                    </div>
-                  ))}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
+              </>
             )}
-            </div>{/* end Summary + Products row */}
+          </div>
+        ))}
 
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-              <h4 className="text-sm font-semibold text-slate-700 mb-3">Email History</h4>
-              {emailLogs.length === 0 ? <p className="text-xs text-slate-400 text-center py-4">No emails sent</p> : (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
+        {linkedPRs.length === 0 && (
+          <div className="bg-white rounded-lg border border-slate-200 px-3 py-2 text-center text-slate-400 text-[12px]">
+            No linked Purchase Requests found
+          </div>
+        )}
+
+        {/* ── Email History (collapsible) ── */}
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+          <details className="group">
+            <summary className="flex items-center justify-between px-3 py-2 cursor-pointer select-none hover:bg-slate-50 transition">
+              <span style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock size={13} className="text-slate-400" />
+                Email History ({emailLogs.length})
+              </span>
+              <span className="text-[10px] text-blue-600 font-medium group-open:hidden">View ↓</span>
+              <span className="text-[10px] text-blue-600 font-medium hidden group-open:inline">Hide ↑</span>
+            </summary>
+            <div className="px-3 pb-3 border-t border-slate-100">
+              {emailLogs.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-3">No emails sent</p>
+              ) : (
+                <div className="space-y-1.5 pt-2 max-h-48 overflow-y-auto">
                   {emailLogs.map(log => (
-                    <div key={log.id} className={`p-3 rounded-lg border text-xs ${log.email_sent ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                      <div className="font-medium">{log.vendor_email}</div>
-                      <div className="flex justify-between mt-1"><span className={log.email_sent ? 'text-green-700' : 'text-red-700'}>{log.email_sent ? 'Email Sent' : 'Failed'}</span><span className="text-slate-400">{formatDateTime(log.sent_at || log.created_at)}</span></div>
+                    <div key={log.id} className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded border text-[11px] ${log.email_sent ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                      <span className="font-medium text-slate-700 truncate">{log.vendor_email}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={log.email_sent ? 'text-green-700 font-medium' : 'text-red-700 font-medium'}>{log.email_sent ? 'Sent' : 'Failed'}</span>
+                        <span className="text-slate-400">{formatDateTime(log.sent_at || log.created_at)}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          </div>
+          </details>
         </div>
+
       </div>
     </MainLayout>
   );

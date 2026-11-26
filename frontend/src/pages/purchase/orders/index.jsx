@@ -217,6 +217,7 @@ export default function PurchaseOrderList() {
         config={{
           title: (row) => row.po_no,
           subtitle: (row) => row.vendor_name,
+          meta: (row) => row.po_date ? formatDate(row.po_date) : null,
           badge: (row) => {
             const status = row.fulfillment_status || row.status;
             const map = {
@@ -231,11 +232,9 @@ export default function PurchaseOrderList() {
             return map[status] || { label: status || '-', cls: 'bg-slate-100 text-slate-600 border-slate-200' };
           },
           fields: (row) => [
-            { label: 'Date',      value: row.po_date ? formatDate(row.po_date) : null },
             { label: 'Company',   value: row.company_name },
             { label: 'Warehouse', value: row.warehouse_name },
             { label: 'Amount',    value: row.total_order_value != null ? formatCurrency(row.total_order_value) : null, cls: 'text-slate-800 font-medium' },
-            { label: 'Mail',      value: row.email_sent ? 'Sent' : 'Not sent', cls: row.email_sent ? 'text-emerald-700 font-medium' : 'text-slate-400' },
           ],
           actions: (row) => [
             { icon: Eye, label: 'View', cls: 'text-blue-700 hover:bg-blue-50', onClick: () => navigate(`/purchase/orders/${row.id}`) },

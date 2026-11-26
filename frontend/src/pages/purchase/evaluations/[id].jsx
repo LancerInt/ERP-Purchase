@@ -1,10 +1,9 @@
 import CustomSelect from "@/components/ui/CustomSelect";
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Trash2, Edit3, ArrowLeft } from 'lucide-react';
+import { Trash2, Edit3, ArrowLeft, Save, X } from 'lucide-react';
 import MainLayout from '../../../components/layout/MainLayout';
-import PageHeader from '../../../components/common/PageHeader';
 import StatusBadge from '../../../components/common/StatusBadge';
 import apiClient from '../../../utils/api.js';
 import usePermissions from '../../../hooks/usePermissions.js';
@@ -72,8 +71,8 @@ export default function QuoteEvaluationDetail() {
   };
 
   const fmtDate = (d) => d ? formatDate(d) : '-';
-  const fmtCurrency = (v) => v ? `\u20B9${Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '\u20B90.00';
-  const inputClass = "w-full border border-slate-300 rounded px-2 py-1 text-sm";
+  const fmtCurrency = (v) => v ? `₹${Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '₹0.00';
+  const inputClass = "w-full border border-slate-300 rounded px-2 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500";
   const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
 
   if (isLoading) return <MainLayout><div className="flex justify-center py-20"><div className="animate-spin h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full" /></div></MainLayout>;
@@ -89,211 +88,191 @@ export default function QuoteEvaluationDetail() {
   );
 
   const comparisons = evaluation.comparison_entries || [];
+  const lowestCost = comparisons.length > 0 ? Math.min(...comparisons.map(c => parseFloat(c.total_cost) || Infinity)) : null;
+
+  const breadcrumbs = [
+    { label: 'Evaluations', href: '/purchase/evaluations' },
+    { label: evaluation.evaluation_id },
+  ];
 
   return (
-    <MainLayout>
-      <PageHeader
-        title={evaluation.evaluation_id || 'Evaluation'}
-        subtitle={`Evaluated on ${fmtDate(evaluation.evaluation_date)}`}
-        breadcrumbs={[
-          { label: 'Evaluations', href: '/purchase/evaluations' },
-          { label: evaluation.evaluation_id },
-        ]}
-      />
+    <MainLayout breadcrumbs={breadcrumbs}>
+      <div className="max-w-6xl space-y-2">
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-3">
-          {/* Evaluation Details */}
-          <div className="bg-white rounded-lg border p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Evaluation Details</h3>
-              {canEdit('Quote Evaluation') && !isEditing && (
-                <button onClick={() => setIsEditing(true)} className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700">
-                  <Edit3 size={14} /> Edit
-                </button>
-              )}
+        {/* ── Header row: Back + Eval ID + badge + chips + actions ── */}
+        <div className="flex items-center gap-2 flex-wrap mb-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button
+              onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/evaluations'))}
+              className="p-1 text-slate-400 hover:text-slate-700 transition shrink-0"
+              title="Back to list"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">{evaluation.evaluation_id || 'Evaluation'}</h1>
+            <StatusBadge status={evaluation.approval_status_display || evaluation.approval_status} />
+            <div className="hidden sm:flex items-center gap-1.5 ml-1">
+              {evaluation.recommended_vendor_name && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{evaluation.recommended_vendor_name}</span>}
+              {comparisons.length > 0 && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{comparisons.length} vendor{comparisons.length !== 1 ? 's' : ''} compared</span>}
+              {evaluation.best_quote_flag && <span className="px-2 py-0.5 rounded bg-emerald-50 text-[10px] font-semibold text-emerald-700">Best Quote</span>}
+              {lowestCost !== null && lowestCost !== Infinity && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">Low {fmtCurrency(lowestCost)}</span>}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
-              {!isHidden('evaluation_id') && (
-              <div>
-                <p className="text-xs font-semibold text-slate-700">Evaluation ID</p>
-                <p className="font-medium">{evaluation.evaluation_id}</p>
-              </div>
-              )}
-              {!isHidden('rfq') && (
-              <div>
-                <p className="text-xs font-semibold text-slate-700">RFQ</p>
-                {isEditing ? (
-                  <CustomSelect value={editData.rfq} onChange={(e) => setEditData(prev => ({ ...prev, rfq: e.target.value }))} disabled={isReadOnly('rfq')} className={isReadOnly('rfq') ? lockedInputClass : inputClass}>
-                    <option value="">Select RFQ</option>
-                    {rfqOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </CustomSelect>
-                ) : (
-                  <p className="font-medium text-primary-600">{evaluation.rfq_no || evaluation.rfq || '-'}</p>
-                )}
-              </div>
-              )}
-              <div>
-                <p className="text-xs font-semibold text-slate-700">Evaluation Date</p>
-                <p className="font-medium">{fmtDate(evaluation.evaluation_date)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-slate-700">Evaluated By</p>
-                <p className="font-medium">{evaluation.evaluated_by_name || '-'}</p>
-              </div>
-              {!isHidden('recommended_vendor') && (
-              <div>
-                <p className="text-xs font-semibold text-slate-700">Recommended Vendor</p>
-                {isEditing ? (
-                  <CustomSelect value={editData.recommended_vendor} onChange={(e) => setEditData(prev => ({ ...prev, recommended_vendor: e.target.value }))} disabled={isReadOnly('recommended_vendor')} className={isReadOnly('recommended_vendor') ? lockedInputClass : inputClass}>
-                    <option value="">Select Vendor</option>
-                    {vendorOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </CustomSelect>
-                ) : (
-                  <p className="font-medium">{evaluation.recommended_vendor_name || '-'}</p>
-                )}
-              </div>
-              )}
-              {!isHidden('approval_status') && (
-              <div>
-                <p className="text-xs font-semibold text-slate-700">Status</p>
-                {isEditing ? (
-                  <CustomSelect value={editData.approval_status} onChange={(e) => setEditData(prev => ({ ...prev, approval_status: e.target.value }))} disabled={isReadOnly('approval_status')} className={isReadOnly('approval_status') ? lockedInputClass : inputClass}>
-                    <option value="PENDING">Pending</option>
-                    <option value="APPROVED">Approved</option>
-                    <option value="REJECTED">Rejected</option>
-                  </CustomSelect>
-                ) : (
-                  <StatusBadge status={evaluation.approval_status_display || evaluation.approval_status} />
-                )}
-              </div>
-              )}
-              {!isHidden('best_quote_flag') && (
-              <div>
-                <p className="text-xs font-semibold text-slate-700">Best Quote</p>
-                <p className="font-medium">{evaluation.best_quote_flag ? 'Yes' : 'No'}</p>
-              </div>
-              )}
-            </div>
-
-            {/* Justification */}
-            {!isHidden('justification_notes') && (
-            <div className="mt-4 pt-4 border-t">
-              <p className="text-xs font-semibold text-slate-700 mb-1">Justification Notes</p>
-              {isEditing ? (
-                <textarea value={editData.justification_notes} onChange={(e) => setEditData(prev => ({ ...prev, justification_notes: e.target.value }))} rows={2} disabled={isReadOnly('justification_notes')} className={isReadOnly('justification_notes') ? `w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm bg-slate-100 cursor-not-allowed` : `w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm`} />
-              ) : (
-                <p className="text-sm text-slate-700">{evaluation.justification_notes || 'No notes provided'}</p>
-              )}
-            </div>
-            )}
-
-            {/* Edit buttons */}
-            {isEditing && (
-              <div className="mt-4 flex gap-2 justify-end">
-                <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">Cancel</button>
-                {canEdit('Quote Evaluation') && (
-                  <button onClick={handleSave} disabled={isSaving} className="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
-                    {isSaving ? 'Saving...' : 'Save Changes'}
-                  </button>
-                )}
-              </div>
-            )}
           </div>
 
-          {/* Attachments */}
-          <FileAttachments module="EVALUATION" recordId={id} />
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 flex-wrap ml-6 sm:ml-0">
+            {!isEditing && canEdit('Quote Evaluation') && (
+              <button onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition text-xs font-medium">
+                <Edit3 size={13} /> Edit
+              </button>
+            )}
+            {!isEditing && canDelete('Quote Evaluation') && (
+              <button onClick={handleDelete} className="flex items-center gap-1.5 px-3 py-1.5 border border-red-200 rounded-md text-red-600 hover:bg-red-50 transition text-xs font-medium">
+                <Trash2 size={13} /> Delete
+              </button>
+            )}
+            {isEditing && (
+              <>
+                <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-semibold hover:bg-blue-700 transition disabled:opacity-50">
+                  <Save size={13} /> {isSaving ? 'Saving...' : 'Save'}
+                </button>
+                <button onClick={() => setIsEditing(false)} disabled={isSaving} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition text-xs font-medium">
+                  <X size={13} /> Cancel
+                </button>
+              </>
+            )}
+          </div>
+        </div>
 
-          {/* Vendor Comparison */}
-          {comparisons.length > 0 && (
-            <div className="bg-white rounded-lg border p-3 sm:p-4">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Vendor Comparison</h3>
-              <div className="overflow-x-auto ios-scroll">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b">
-                      <th className="text-left px-4 py-2 font-medium text-slate-600">Vendor</th>
-                      <th className="text-right px-4 py-2 font-medium text-slate-600">Total Cost</th>
-                      <th className="text-right px-4 py-2 font-medium text-slate-600">Lead Time</th>
-                      <th className="text-left px-4 py-2 font-medium text-slate-600">Payment Terms</th>
-                      <th className="text-left px-4 py-2 font-medium text-slate-600">Freight Terms</th>
-                      <th className="text-right px-4 py-2 font-medium text-slate-600">Score</th>
-                      <th className="text-left px-4 py-2 font-medium text-slate-600">Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {comparisons.map((c, i) => {
-                      const isRecommended = (c.vendor_name || '') === (evaluation.recommended_vendor_name || '');
-                      return (
-                        <tr key={c.id || i} className={`border-b ${isRecommended ? 'bg-emerald-50' : ''}`}>
-                          <td className="px-4 py-2 font-medium">
-                            {c.vendor_name || '-'}
-                            {isRecommended && <span className="ml-1 text-xs text-emerald-600 font-semibold">(Recommended)</span>}
-                          </td>
-                          <td className="px-4 py-2 text-right">{fmtCurrency(c.total_cost)}</td>
-                          <td className="px-4 py-2 text-right">{c.lead_time ? `${c.lead_time} days` : '-'}</td>
-                          <td className="px-4 py-2">{(c.payment_terms || '').replace(/_/g, ' ') || '-'}</td>
-                          <td className="px-4 py-2">{(c.freight_terms || '').replace(/_/g, ' ') || '-'}</td>
-                          <td className="px-4 py-2 text-right font-semibold">{c.score || '-'}</td>
-                          <td className="px-4 py-2 text-slate-500">{c.remarks || '-'}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+        {/* Mobile chips row */}
+        <div className="flex sm:hidden items-center gap-1.5 flex-wrap ml-7">
+          {evaluation.recommended_vendor_name && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{evaluation.recommended_vendor_name}</span>}
+          {comparisons.length > 0 && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{comparisons.length} vendors</span>}
+          {evaluation.best_quote_flag && <span className="px-2 py-0.5 rounded bg-emerald-50 text-[10px] font-semibold text-emerald-700">Best Quote</span>}
+        </div>
+
+        {/* ── Single-row field strip ── */}
+        <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+          {!isEditing ? (
+            <div className="flex items-start gap-4 overflow-x-auto" style={{ fontSize: 0 }}>
+              {!isHidden('evaluation_id') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Eval ID</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{evaluation.evaluation_id}</p></div>
+              )}
+              {!isHidden('rfq') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">RFQ</p>
+                  {evaluation.rfq ? (
+                    <Link to={`/purchase/rfq/${evaluation.rfq}`} style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-blue-600 hover:underline whitespace-nowrap">{evaluation.rfq_no || 'View RFQ'}</Link>
+                  ) : (<p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800">-</p>)}
+                </div>
+              )}
+              <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Eval Date</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{fmtDate(evaluation.evaluation_date)}</p></div>
+              <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Evaluated By</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{evaluation.evaluated_by_name || '-'}</p></div>
+              {!isHidden('recommended_vendor') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Rec. Vendor</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{evaluation.recommended_vendor_name || '-'}</p></div>
+              )}
+              {!isHidden('best_quote_flag') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Best Quote</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{evaluation.best_quote_flag ? 'Yes' : 'No'}</p></div>
+              )}
+              {!isHidden('justification_notes') && evaluation.justification_notes && (
+                <div className="min-w-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Justification</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-700 truncate max-w-[260px]" title={evaluation.justification_notes}>{evaluation.justification_notes}</p></div>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
+              {!isHidden('rfq') && (
+                <div>
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">RFQ</p>
+                  {!isReadOnly('rfq') ? (
+                    <CustomSelect value={editData.rfq} onChange={(e) => setEditData(prev => ({ ...prev, rfq: e.target.value }))} className={inputClass}>
+                      <option value="">Select RFQ</option>
+                      {rfqOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </CustomSelect>
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{evaluation.rfq_no || '-'}</p>)}
+                </div>
+              )}
+              {!isHidden('recommended_vendor') && (
+                <div>
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Rec. Vendor</p>
+                  {!isReadOnly('recommended_vendor') ? (
+                    <CustomSelect value={editData.recommended_vendor} onChange={(e) => setEditData(prev => ({ ...prev, recommended_vendor: e.target.value }))} className={inputClass}>
+                      <option value="">Select Vendor</option>
+                      {vendorOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </CustomSelect>
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{evaluation.recommended_vendor_name || '-'}</p>)}
+                </div>
+              )}
+              {!isHidden('approval_status') && (
+                <div>
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Status</p>
+                  {!isReadOnly('approval_status') ? (
+                    <CustomSelect value={editData.approval_status} onChange={(e) => setEditData(prev => ({ ...prev, approval_status: e.target.value }))} className={inputClass}>
+                      <option value="PENDING">Pending</option>
+                      <option value="APPROVED">Approved</option>
+                      <option value="REJECTED">Rejected</option>
+                    </CustomSelect>
+                  ) : (<StatusBadge status={evaluation.approval_status_display || evaluation.approval_status} />)}
+                </div>
+              )}
+              {!isHidden('justification_notes') && (
+                <div className="col-span-2 sm:col-span-4">
+                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Justification Notes</p>
+                  {!isReadOnly('justification_notes') ? (
+                    <textarea value={editData.justification_notes} onChange={(e) => setEditData(prev => ({ ...prev, justification_notes: e.target.value }))} rows={1} className={inputClass} />
+                  ) : (<p className="text-[12px] text-slate-700">{evaluation.justification_notes || '-'}</p>)}
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-3">
-          {/* Summary */}
-          <div className="bg-white rounded-lg border p-3 sm:p-4">
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Summary</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm text-slate-500">Status</span>
-                <StatusBadge status={evaluation.approval_status_display || evaluation.approval_status} />
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-slate-500">Vendor</span>
-                <span className="text-sm font-medium">{evaluation.recommended_vendor_name || '-'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-slate-500">Vendors Compared</span>
-                <span className="text-sm font-medium">{comparisons.length}</span>
-              </div>
-              {comparisons.length > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-slate-500">Lowest Cost</span>
-                  <span className="text-sm font-bold">{fmtCurrency(Math.min(...comparisons.map(c => parseFloat(c.total_cost) || Infinity)))}</span>
-                </div>
-              )}
+        {/* ── Vendor Comparison table ── */}
+        {comparisons.length > 0 && (
+          <div className="bg-white rounded-lg border border-slate-200">
+            <div className="px-3 py-1.5 border-b border-slate-100">
+              <h2 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">Vendor Comparison ({comparisons.length})</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase whitespace-nowrap">Vendor</th>
+                    <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase whitespace-nowrap">Total Cost</th>
+                    <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase whitespace-nowrap">Lead Time</th>
+                    <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase whitespace-nowrap">Payment</th>
+                    <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase whitespace-nowrap">Freight</th>
+                    <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase whitespace-nowrap">Score</th>
+                    <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase whitespace-nowrap">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparisons.map((c, i) => {
+                    const isRecommended = (c.vendor_name || '') === (evaluation.recommended_vendor_name || '');
+                    return (
+                      <tr key={c.id || i} className={`border-b border-slate-100 hover:bg-slate-50/60 transition-colors ${isRecommended ? 'bg-emerald-50/50' : ''}`}>
+                        <td className="px-2 py-1.5 font-medium text-slate-800 whitespace-nowrap">
+                          {c.vendor_name || '-'}
+                          {isRecommended && <span className="ml-1 text-[9px] text-emerald-600 font-semibold">★</span>}
+                        </td>
+                        <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{fmtCurrency(c.total_cost)}</td>
+                        <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{c.lead_time ? `${c.lead_time}d` : '-'}</td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">{(c.payment_terms || '').replace(/_/g, ' ') || '-'}</td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">{(c.freight_terms || '').replace(/_/g, ' ') || '-'}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold whitespace-nowrap">{c.score || '-'}</td>
+                        <td className="px-2 py-1.5 text-slate-500">{c.remarks || '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
+        )}
 
-          {/* Actions */}
-          <div className="bg-white rounded-lg border p-3 sm:p-4">
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Actions</h3>
-            <div className="space-y-2">
-              {canEdit('Quote Evaluation') && !isEditing && (
-                <button onClick={() => setIsEditing(true)} className="w-full px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 flex items-center justify-center gap-1">
-                  <Edit3 size={14} /> Edit Evaluation
-                </button>
-              )}
-              {canDelete('Quote Evaluation') && (
-                <button onClick={handleDelete} className="w-full px-4 py-2 text-sm bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 flex items-center justify-center gap-1">
-                  <Trash2 size={14} /> Delete
-                </button>
-              )}
-              <button onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/evaluations'))} className="w-full px-4 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">
-                &larr; Back to List
-              </button>
-            </div>
-          </div>
+        {/* ── Attachments ── */}
+        <div className="bg-white rounded-lg border border-slate-200">
+          <FileAttachments module="EVALUATION" recordId={id} />
         </div>
+
       </div>
     </MainLayout>
   );

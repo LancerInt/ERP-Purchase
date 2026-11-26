@@ -199,6 +199,7 @@ export default function RFQList() {
         config={{
           title: (row) => row.rfq_no,
           subtitle: (row) => row.created_by_name || '—',
+          meta: (row) => formatDate(row.creation_date),
           badge: (row) => {
             const s = row.rfq_status;
             const map = {
@@ -209,7 +210,6 @@ export default function RFQList() {
             return map[s] || { label: s || '-', cls: 'bg-slate-100 text-slate-600 border-slate-200' };
           },
           fields: (row) => [
-            { label: 'Date',     value: formatDate(row.creation_date) },
             { label: 'Mode',     value: row.rfq_mode },
             { label: 'Quotes',   value: row.quote_count_expected },
             { label: 'PRs',      value: (row.linked_pr_numbers || []).join(', ') || null },

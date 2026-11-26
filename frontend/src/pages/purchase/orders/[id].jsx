@@ -353,7 +353,7 @@ export default function PurchaseOrderDetail() {
   if (isLoading) {
     return (
       <MainLayout>
-        <div className="space-y-3 max-w-6xl">
+        <div className="space-y-2 max-w-6xl">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-32 bg-slate-200 rounded animate-pulse" />
           ))}
@@ -415,424 +415,393 @@ export default function PurchaseOrderDetail() {
 
   return (
     <MainLayout breadcrumbs={breadcrumbs}>
-      <div className="max-w-6xl space-y-3">
-        {/* Header with title, status badge, and action buttons */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <button
-                onClick={goBack}
-                className="p-1 text-slate-500 hover:text-slate-700 transition"
-                title="Back to list"
-              >
-                <ArrowLeft size={20} />
-              </button>
-              <h1 className="text-xl sm:text-3xl font-bold text-slate-900">{poNumber}</h1>
-            </div>
-            <div className="flex items-center justify-between gap-3 ml-8">
-              <div className="flex items-center gap-3 min-w-0">
-                <StatusBadge status={po?.fulfillment_status || poStatus} />
-                <p className="text-slate-600 text-sm truncate">
-                  Created on {formatDate(po.po_date || po.created_at)}
-                </p>
-              </div>
-              {po?.email_sent && (
-                <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-sm shrink-0 whitespace-nowrap">
-                  <CheckCircle size={14} /> Mail Sent
-                </span>
-              )}
-            </div>
-            {(() => {
-              // Pulled directly from the saved PO's payment_terms — handles
-              // both the new labels ("30 DAYS", "IMMEDIATE", "ADVANCE") and
-              // legacy "NET_30" / "COD" values.
-              const message = paymentTermMessage(po?.payment_terms);
-              if (!message) return null;
-              return (
-                <div className="ml-8 mt-3">
-                  <p className="inline-block bg-amber-100 border border-amber-300 text-amber-800 text-sm font-semibold px-4 py-2 rounded-lg">
-                    {message}
-                  </p>
-                </div>
-              );
-            })()}
-          </div>
+      <div className="max-w-6xl space-y-2">
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3 flex-wrap ml-8 sm:ml-0">
-            {/* PO Document — opens the printable, editable PO document that
-                replicates the standard PO print format. Available in any
-                status (it's a read/print view; edits there are gated by
-                the same Purchase Order edit permission). */}
+        {/* ── Header row: Back + PO# + badge + chips + actions ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap mb-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button onClick={goBack} className="p-1 text-slate-400 hover:text-slate-700 transition shrink-0" title="Back to list">
+              <ArrowLeft size={18} />
+            </button>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">{poNumber}</h1>
+            <StatusBadge status={po?.fulfillment_status || poStatus} />
+            <div className="hidden sm:flex items-center gap-1.5 ml-1">
+              {po.company_name && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{po.company_name}</span>}
+              {po.warehouse_name && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{po.warehouse_name}</span>}
+              {po?.email_sent && <span className="px-2 py-0.5 rounded bg-emerald-100 text-[10px] font-semibold text-emerald-700">Mail Sent</span>}
+              <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{formatCurrency(grandTotal || po.total_order_value || 0)}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap ml-6 sm:ml-0">
             {!isEditing && (
-              <button
-                onClick={() => navigate(`/purchase/orders/${id}/document`)}
-                className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition text-sm font-medium"
-              >
-                <FileDown size={16} />
-                PO Document
+              <button onClick={() => navigate(`/purchase/orders/${id}/document`)} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition text-xs font-medium">
+                <FileDown size={13} /> PO Document
               </button>
             )}
-            {/* Edit & Delete buttons — only for DRAFT */}
             {!isEditing && isDraft && hasEditPerm && (
-              <button
-                onClick={handleEditToggle}
-                className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition text-sm font-medium"
-              >
-                <Edit3 size={16} />
-                Edit
+              <button onClick={handleEditToggle} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition text-xs font-medium">
+                <Edit3 size={13} /> Edit
               </button>
             )}
             {!isEditing && isDraft && hasDeletePerm && (
-              <button
-                onClick={handleDelete}
-                className="flex items-center gap-2 px-4 py-2 border border-red-300 rounded-lg text-red-600 hover:bg-red-50 transition text-sm font-medium"
-              >
-                <Trash2 size={16} />
-                Delete
+              <button onClick={handleDelete} className="flex items-center gap-1.5 px-3 py-1.5 border border-red-200 rounded-md text-red-600 hover:bg-red-50 transition text-xs font-medium">
+                <Trash2 size={13} /> Delete
               </button>
             )}
             {isEditing && (
               <>
-                <button onClick={handleEditCancel} className="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 text-sm font-medium">
-                  <XCircle size={16} /> Cancel
+                <button onClick={handleEditSave} disabled={isSaving} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-md text-xs font-semibold hover:bg-blue-700 transition disabled:opacity-50">
+                  <CheckCircle size={13} /> {isSaving ? 'Saving...' : 'Save'}
                 </button>
-                <button onClick={handleEditSave} disabled={isSaving} className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium disabled:opacity-50">
-                  <CheckCircle size={16} /> {isSaving ? 'Saving...' : 'Save'}
+                <button onClick={handleEditCancel} disabled={isSaving} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition text-xs font-medium">
+                  <XCircle size={13} /> Cancel
                 </button>
               </>
             )}
-
-            {/* Approve button — hidden while the PO is being edited.
-                Approving a draft that has unsaved edits would either
-                throw away those edits or persist them as approved
-                without confirmation, so the user must Save (or Cancel)
-                first. The button reappears once edit mode exits. */}
             {canApprovePO && !isEditing && (
-              <button
-                onClick={handleApprove}
-                disabled={isApproving || !allLinesPriced}
-                title={!allLinesPriced ? 'Enter a unit price on every line item before approving' : undefined}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <CheckCircle size={16} />
-                {isApproving ? 'Approving...' : 'Approve'}
+              <button onClick={handleApprove} disabled={isApproving || !allLinesPriced} title={!allLinesPriced ? 'Enter a unit price on every line item before approving' : undefined} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-md text-xs font-semibold hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                <CheckCircle size={13} /> {isApproving ? 'Approving...' : 'Approve'}
               </button>
             )}
-
-            {/* Split into batches — DRAFT single-line only.
-                Cancels the current PO and creates N new DRAFT POs. */}
             {canSplitPO && !isEditing && (
-              <button
-                onClick={openSplitModal}
-                className="flex items-center gap-2 px-4 py-2 border border-amber-400 text-amber-800 bg-amber-50 rounded-lg hover:bg-amber-100 transition text-sm font-medium"
-                title="Split this DRAFT PO into multiple DRAFT POs by batch quantity"
-              >
-                Split into batches
+              <button onClick={openSplitModal} className="flex items-center gap-1.5 px-3 py-1.5 border border-amber-400 text-amber-800 bg-amber-50 rounded-md hover:bg-amber-100 transition text-xs font-medium" title="Split this DRAFT PO into multiple DRAFT POs by batch quantity">
+                Split
               </button>
             )}
-
-
-            {/* Send / Resend Email — hidden only mid-edit (must Save / Cancel
-                first so the mail reflects the saved state). Once already sent,
-                it stays available as a subtler "Resend Email" so the PO can be
-                re-sent to a different vendor address (or after an amendment).
-                The green "Mail Sent" chip in the header remains the status. */}
             {canSendPOEmail && !isEditing && (
-              <button
-                onClick={() => navigate(`/purchase/orders/${id}/send-email`)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-medium ${po?.email_sent ? 'border border-primary-300 text-primary-700 hover:bg-primary-50' : 'bg-primary-600 text-white hover:bg-primary-700'}`}
-              >
-                <Mail size={16} />
-                {po?.email_sent ? 'Resend Email' : 'Send Email'}
+              <button onClick={() => navigate(`/purchase/orders/${id}/send-email`)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition text-xs font-medium ${po?.email_sent ? 'border border-primary-300 text-primary-700 hover:bg-primary-50' : 'bg-primary-600 text-white hover:bg-primary-700'}`}>
+                <Mail size={13} /> {po?.email_sent ? 'Resend' : 'Send Email'}
               </button>
             )}
-
-            {/* Receipt button — visible once the PO mail has been sent
-                OR a receipt has already been raised (fulfillment_status
-                === 'PARTIALLY_RECEIVED'); the email gate guards the
-                first receipt only. Hidden in edit mode for the same
-                reason as Send Email above. */}
             {canCreateReceipt && (isApproved || isIssued) && !po?.is_fully_received && (po?.email_sent || po?.fulfillment_status === 'PARTIALLY_RECEIVED') && !isEditing && (
-              <button
-                onClick={() => navigate(`/purchase/receipts/new?po_id=${id}`)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium"
-              >
-                <PackageCheck size={16} />
-                Receipt
+              <button onClick={() => navigate(`/purchase/receipts/new?po_id=${id}`)} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-xs font-medium">
+                <PackageCheck size={13} /> Receipt
               </button>
             )}
-
-            {/* Close PO (short) — only for a partly-received PO whose balance
-                won't arrive. Hidden once fully received / closed / cancelled. */}
             {canCreateReceipt && (isApproved || isIssued) && !po?.is_fully_received && !isClosed && !isCancelled && Number(po?.total_received) > 0 && !isEditing && (
-              <button
-                onClick={handleClosePO}
-                disabled={isClosing}
-                className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition text-sm font-medium disabled:opacity-50"
-              >
-                <XCircle size={16} />
-                {isClosing ? 'Closing…' : 'Close PO'}
+              <button onClick={handleClosePO} disabled={isClosing} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 text-white rounded-md hover:bg-rose-700 transition text-xs font-medium disabled:opacity-50">
+                <XCircle size={13} /> {isClosing ? 'Closing…' : 'Close PO'}
               </button>
             )}
-
-            {/* Reject button removed */}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          {/* Main content (2 cols) */}
-          <div className="lg:col-span-2 space-y-3">
+        {/* Mobile chips row */}
+        <div className="flex sm:hidden items-center gap-1.5 flex-wrap ml-7">
+          {po.company_name && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{po.company_name}</span>}
+          {po.warehouse_name && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{po.warehouse_name}</span>}
+          {po?.email_sent && <span className="px-2 py-0.5 rounded bg-emerald-100 text-[10px] font-semibold text-emerald-700">Mail Sent</span>}
+          <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{formatCurrency(grandTotal || po.total_order_value || 0)}</span>
+        </div>
 
-            {/* SPLIT banner — explains why there are no active
-                actions on this PO and links to the child DRAFT POs
-                (parsed from the "[Split into N POs: ...]" note the
-                split endpoint writes into terms_and_conditions). */}
-            {po?.status === 'SPLIT' && (() => {
-              const m = (po?.terms_and_conditions || '').match(/\[Split into \d+ POs?:\s*([^\]]+)\]/i);
-              const children = m ? m[1].split(',').map(s => s.trim()).filter(Boolean) : [];
-              return (
-                <div className="rounded-lg border border-purple-300 bg-purple-50 p-4">
-                  <h3 className="text-sm font-semibold text-purple-900 mb-1">This PO was split</h3>
-                  <p className="text-xs text-purple-800 mb-2">
-                    The obligation has moved to {children.length || 'the'} child DRAFT PO{children.length === 1 ? '' : 's'}.
-                    Edit / Approve / Send Email lives on {children.length === 1 ? 'that' : 'each of those'} PO{children.length === 1 ? '' : 's'}.
-                    This record stays here for audit trail.
-                  </p>
-                  {children.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {children.map((poNo) => (
-                        <button
-                          key={poNo}
-                          onClick={async () => {
-                            // Look up the child PO id by its number so we
-                            // can jump straight to its detail page. Falls
-                            // back to the Orders list if the lookup fails.
-                            try {
-                              const res = await apiClient.get(`/api/purchase/orders/?search=${encodeURIComponent(poNo)}`);
-                              const rows = res.data?.results || res.data || [];
-                              const hit = Array.isArray(rows) ? rows.find(r => r.po_no === poNo) : null;
-                              if (hit?.id) {
-                                navigate(`/purchase/orders/${hit.id}`);
-                                return;
-                              }
-                            } catch { /* ignore */ }
-                            navigate('/purchase/orders');
-                          }}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-white border border-purple-300 text-purple-800 rounded-lg hover:bg-purple-100"
-                          title={`Open ${poNo}`}
-                        >
-                          → {poNo}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+        {/* Payment terms note */}
+        {(() => {
+          const message = paymentTermMessage(po?.payment_terms);
+          if (!message) return null;
+          return (
+            <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
+              <p className="text-[11px] font-semibold text-amber-800">{message}</p>
+            </div>
+          );
+        })()}
+
+        {/* SPLIT banner */}
+        {po?.status === 'SPLIT' && (() => {
+          const m = (po?.terms_and_conditions || '').match(/\[Split into \d+ POs?:\s*([^\]]+)\]/i);
+          const children = m ? m[1].split(',').map(s => s.trim()).filter(Boolean) : [];
+          return (
+            <div className="rounded-md border border-purple-300 bg-purple-50 px-3 py-2">
+              <p className="text-[11px] font-semibold text-purple-900">This PO was split</p>
+              <p className="text-[10px] text-purple-800 mt-0.5">
+                Obligation moved to {children.length || 'the'} child DRAFT PO{children.length === 1 ? '' : 's'}.
+              </p>
+              {children.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {children.map((poNo) => (
+                    <button key={poNo} onClick={async () => {
+                      try {
+                        const res = await apiClient.get(`/api/purchase/orders/?search=${encodeURIComponent(poNo)}`);
+                        const rows = res.data?.results || res.data || [];
+                        const hit = Array.isArray(rows) ? rows.find(r => r.po_no === poNo) : null;
+                        if (hit?.id) { navigate(`/purchase/orders/${hit.id}`); return; }
+                      } catch { /* ignore */ }
+                      navigate('/purchase/orders');
+                    }} className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium bg-white border border-purple-300 text-purple-800 rounded hover:bg-purple-100" title={`Open ${poNo}`}>
+                      → {poNo}
+                    </button>
+                  ))}
                 </div>
-              );
-            })()}
+              )}
+            </div>
+          );
+        })()}
 
-            {/* PO amendment (request / review) — only on approved/issued POs */}
-            <POAmendment po={po} canRequest={canRequestAmendment('Purchase Order')} canApprove={canApproveAmendment('Purchase Order')} onApplied={fetchPO} />
+        {/* PO amendment */}
+        <POAmendment po={po} canRequest={canRequestAmendment('Purchase Order')} canApprove={canApproveAmendment('Purchase Order')} onApplied={fetchPO} />
 
-            {/* PO Details */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-              <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-2">PO Details</h2>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                {!isHidden('po_no') && (
+        {/* ── Single-row field strip (view mode) / Grid (edit mode) ── */}
+        <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+          {!isEditing ? (
+            <div className="flex items-start gap-4 overflow-x-auto" style={{ fontSize: 0 }}>
+              {!isHidden('vendor') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Vendor</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{po.vendor_name || '-'}</p></div>
+              )}
+              {!isHidden('company') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Company</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{po.company_name || '-'}</p></div>
+              )}
+              {!isHidden('warehouse') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Warehouse</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{po.warehouse_name || '-'}</p></div>
+              )}
+              {!isHidden('payment_terms') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Payment</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{po.payment_terms || '-'}</p></div>
+              )}
+              {!isHidden('freight_terms') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Freight</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{po.freight_terms || '-'}</p></div>
+              )}
+              {!(isHidden('expected_delivery_start') && isHidden('expected_delivery_end')) && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Delivery</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{po.expected_delivery_start || po.expected_delivery_end ? `${formatDate(po.expected_delivery_start)} – ${formatDate(po.expected_delivery_end)}` : '-'}</p></div>
+              )}
+              {!isHidden('linked_prs') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Linked PRs</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{po.linked_pr_numbers?.length > 0 ? po.linked_pr_numbers.join(', ') : '-'}</p></div>
+              )}
+              {!isHidden('linked_rfq') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">RFQ</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{(() => { const rfq = (rfqOptions || []).find(o => String(o.value) === String(po.linked_rfq)); return rfq?.label || po.linked_rfq || '-'; })()}</p></div>
+              )}
+              {!isHidden('currency') && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Currency</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{po.currency || '-'}</p></div>
+              )}
+              {!isHidden('broker_name') && po.broker_name && (
+                <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Broker</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{po.broker_name}</p></div>
+              )}
+              {!isHidden('terms_and_conditions') && po.terms_and_conditions && (
+                <div className="min-w-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">T&C</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-700 truncate max-w-[260px]" title={po.terms_and_conditions}>{po.terms_and_conditions}</p></div>
+              )}
+              <div className="shrink-0"><p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Created</p><p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{formatDate(po.po_date || po.created_at)}</p></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1.5">
+              {!isHidden('vendor') && (
                 <div>
-                  <p className="text-sm text-slate-600 font-medium">PO Number</p>
-                  <p className="text-slate-900 font-semibold mt-1">{poNumber}</p>
-                </div>
-                )}
-                {!isHidden('vendor') && (
-                <div>
-                  <p className="text-sm text-slate-600 font-medium">Vendor</p>
-                  {isEditing ? (
-                    <CustomSelect name="vendor" value={editData.vendor || ''} onChange={handleEditChange} disabled={isReadOnly('vendor')} className={isReadOnly('vendor') ? lockedInputClass : inputClass}>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Vendor</p>
+                  {!isReadOnly('vendor') ? (
+                    <CustomSelect name="vendor" value={editData.vendor || ''} onChange={handleEditChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <option value="">Select Vendor</option>
                       {vendorOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </CustomSelect>
-                  ) : (
-                    <p className="text-slate-900 font-semibold mt-1">{po.vendor_name || '-'}</p>
-                  )}
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{po.vendor_name || '-'}</p>)}
                 </div>
-                )}
-                {!isHidden('company') && (
+              )}
+              {!isHidden('company') && (
                 <div>
-                  <p className="text-sm text-slate-600 font-medium">Company</p>
-                  {isEditing ? (
-                    <CustomSelect name="company" value={editData.company || ''} onChange={handleEditChange} disabled={isReadOnly('company')} className={isReadOnly('company') ? lockedInputClass : inputClass}>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Company</p>
+                  {!isReadOnly('company') ? (
+                    <CustomSelect name="company" value={editData.company || ''} onChange={handleEditChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <option value="">Select Company</option>
                       {companyOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </CustomSelect>
-                  ) : (
-                    <p className="text-slate-900 font-semibold mt-1">{po.company_name || '-'}</p>
-                  )}
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{po.company_name || '-'}</p>)}
                 </div>
-                )}
-                {!isHidden('warehouse') && (
+              )}
+              {!isHidden('warehouse') && (
                 <div>
-                  <p className="text-sm text-slate-600 font-medium">Warehouse</p>
-                  {isEditing ? (
-                    <CustomSelect name="warehouse" value={editData.warehouse || ''} onChange={handleEditChange} disabled={isReadOnly('warehouse') || !editData.company} className={isReadOnly('warehouse') ? lockedInputClass : "w-full mt-1 px-2 py-1 border border-slate-300 rounded text-sm disabled:bg-slate-100"}>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Warehouse</p>
+                  {!isReadOnly('warehouse') ? (
+                    <CustomSelect name="warehouse" value={editData.warehouse || ''} onChange={handleEditChange} disabled={!editData.company} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100">
                       <option value="">{editData.company ? 'Select Warehouse' : 'Select company first...'}</option>
                       {warehouseOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </CustomSelect>
-                  ) : (
-                    <p className="text-slate-900 font-semibold mt-1">{po.warehouse_name || '-'}</p>
-                  )}
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{po.warehouse_name || '-'}</p>)}
                 </div>
-                )}
-                {!isHidden('payment_terms') && (
+              )}
+              {!isHidden('payment_terms') && (
                 <div>
-                  <p className="text-sm text-slate-600 font-medium">Payment Terms</p>
-                  {isEditing ? (
-                    <CustomSelect name="payment_terms" value={editData.payment_terms || ''} onChange={handleEditChange} disabled={isReadOnly('payment_terms')} className={isReadOnly('payment_terms') ? lockedInputClass : inputClass}>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Payment Terms</p>
+                  {!isReadOnly('payment_terms') ? (
+                    <CustomSelect name="payment_terms" value={editData.payment_terms || ''} onChange={handleEditChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <option value="">Select...</option>
                       {withCurrent(PAYMENT_TERM_OPTIONS, editData.payment_terms).map(o => <option key={o} value={o}>{o}</option>)}
                     </CustomSelect>
-                  ) : (
-                    <p className="text-slate-900 font-semibold mt-1">{po.payment_terms || '-'}</p>
-                  )}
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{po.payment_terms || '-'}</p>)}
                 </div>
-                )}
-                {!isHidden('freight_terms') && (
+              )}
+              {!isHidden('freight_terms') && (
                 <div>
-                  <p className="text-sm text-slate-600 font-medium">Freight Terms</p>
-                  {isEditing ? (
-                    <CustomSelect name="freight_terms" value={editData.freight_terms || ''} onChange={handleEditChange} disabled={isReadOnly('freight_terms')} className={isReadOnly('freight_terms') ? lockedInputClass : inputClass}>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Freight Terms</p>
+                  {!isReadOnly('freight_terms') ? (
+                    <CustomSelect name="freight_terms" value={editData.freight_terms || ''} onChange={handleEditChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <option value="">Select...</option>
                       {withCurrent(FREIGHT_TERM_OPTIONS, editData.freight_terms).map(o => <option key={o} value={o}>{o}</option>)}
                     </CustomSelect>
-                  ) : (
-                    <p className="text-slate-900 font-semibold mt-1">{po.freight_terms || '-'}</p>
-                  )}
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{po.freight_terms || '-'}</p>)}
                 </div>
-                )}
-                {!(isHidden('expected_delivery_start') && isHidden('expected_delivery_end')) && (
+              )}
+              {!(isHidden('expected_delivery_start') && isHidden('expected_delivery_end')) && (
                 <div>
-                  <p className="text-sm text-slate-600 font-medium">Expected Delivery</p>
-                  {isEditing ? (
-                    <div className="flex gap-2 mt-1">
-                      {!isHidden('expected_delivery_start') && (
-                        <CustomDatePicker name="expected_delivery_start" value={editData.expected_delivery_start || ''} onChange={handleEditChange} disabled={isReadOnly('expected_delivery_start')} className={isReadOnly('expected_delivery_start') ? "flex-1 px-2 py-1 border border-slate-300 rounded text-sm bg-slate-100 cursor-not-allowed" : "flex-1 px-2 py-1 border border-slate-300 rounded text-sm"} />
-                      )}
-                      {!isHidden('expected_delivery_end') && (
-                        <CustomDatePicker name="expected_delivery_end" value={editData.expected_delivery_end || ''} onChange={handleEditChange} disabled={isReadOnly('expected_delivery_end')} className={isReadOnly('expected_delivery_end') ? "flex-1 px-2 py-1 border border-slate-300 rounded text-sm bg-slate-100 cursor-not-allowed" : "flex-1 px-2 py-1 border border-slate-300 rounded text-sm"} />
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-slate-900 font-semibold mt-1">
-                      {po.expected_delivery_start || po.expected_delivery_end
-                        ? `${formatDate(po.expected_delivery_start)} - ${formatDate(po.expected_delivery_end)}`
-                        : '-'
-                      }
-                    </p>
-                  )}
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Delivery</p>
+                  <div className="flex gap-2">
+                    {!isHidden('expected_delivery_start') && <CustomDatePicker name="expected_delivery_start" value={editData.expected_delivery_start || ''} onChange={handleEditChange} disabled={isReadOnly('expected_delivery_start')} className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-[12px]" />}
+                    {!isHidden('expected_delivery_end') && <CustomDatePicker name="expected_delivery_end" value={editData.expected_delivery_end || ''} onChange={handleEditChange} disabled={isReadOnly('expected_delivery_end')} className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-[12px]" />}
+                  </div>
                 </div>
-                )}
-                {!isHidden('linked_prs') && (
+              )}
+              {!isHidden('linked_prs') && (
                 <div>
-                  <p className="text-sm text-slate-600 font-medium">Linked PRs</p>
-                  {isEditing ? (
-                    <CustomSelect name="linked_prs" value={editData.linked_prs || ''} onChange={handleEditChange} disabled={isReadOnly('linked_prs')} className={isReadOnly('linked_prs') ? lockedInputClass : inputClass}>
-                      <option value="">Select Purchase Request</option>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Linked PR</p>
+                  {!isReadOnly('linked_prs') ? (
+                    <CustomSelect name="linked_prs" value={editData.linked_prs || ''} onChange={handleEditChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
+                      <option value="">Select PR</option>
                       {prOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </CustomSelect>
-                  ) : (
-                    <p className="text-slate-900 font-semibold mt-1">
-                      {po.linked_pr_numbers && po.linked_pr_numbers.length > 0
-                        ? po.linked_pr_numbers.join(', ')
-                        : '-'
-                      }
-                    </p>
-                  )}
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{po.linked_pr_numbers?.join(', ') || '-'}</p>)}
                 </div>
-                )}
-                {!isHidden('linked_rfq') && (
+              )}
+              {!isHidden('linked_rfq') && (
                 <div>
-                  <p className="text-sm text-slate-600 font-medium">Linked RFQ</p>
-                  {isEditing ? (
-                    <CustomSelect name="linked_rfq" value={editData.linked_rfq || ''} onChange={handleEditChange} disabled={isReadOnly('linked_rfq')} className={isReadOnly('linked_rfq') ? lockedInputClass : inputClass}>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Linked RFQ</p>
+                  {!isReadOnly('linked_rfq') ? (
+                    <CustomSelect name="linked_rfq" value={editData.linked_rfq || ''} onChange={handleEditChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <option value="">Select RFQ</option>
                       {rfqOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </CustomSelect>
-                  ) : (
-                    <p className="text-slate-900 font-semibold mt-1">
-                      {(() => {
-                        const rfq = (rfqOptions || []).find(o => String(o.value) === String(po.linked_rfq));
-                        return rfq?.label || po.linked_rfq || '-';
-                      })()}
-                    </p>
-                  )}
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{(() => { const rfq = (rfqOptions || []).find(o => String(o.value) === String(po.linked_rfq)); return rfq?.label || po.linked_rfq || '-'; })()}</p>)}
                 </div>
-                )}
-                {!isHidden('currency') && (
+              )}
+              {!isHidden('currency') && (
                 <div>
-                  <p className="text-sm text-slate-600 font-medium">Currency</p>
-                  {isEditing ? (
-                    <CustomSelect name="currency" value={editData.currency || 'INR'} onChange={handleEditChange} disabled={isReadOnly('currency')} className={isReadOnly('currency') ? lockedInputClass : inputClass}>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Currency</p>
+                  {!isReadOnly('currency') ? (
+                    <CustomSelect name="currency" value={editData.currency || 'INR'} onChange={handleEditChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <option value="INR">INR</option>
                       <option value="USD">USD</option>
                     </CustomSelect>
-                  ) : (
-                    <p className="text-slate-900 font-semibold mt-1">{po.currency || '-'}</p>
-                  )}
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{po.currency || '-'}</p>)}
                 </div>
-                )}
-                {!isHidden('broker_name') && (
+              )}
+              {!isHidden('broker_name') && (
                 <div>
-                  <p className="text-sm text-slate-600 font-medium">Broker Name</p>
-                  {isEditing ? (
-                    // Pull from the Broker master so PO captures a known
-                    // broker by name. broker_name is still stored as a
-                    // string on PurchaseOrder — we just constrain the
-                    // input to the master list to keep names consistent.
-                    <CustomSelect
-                      name="broker_name"
-                      value={editData.broker_name || ''}
-                      onChange={handleEditChange}
-                      disabled={isReadOnly('broker_name')}
-                      className={isReadOnly('broker_name') ? lockedInputClass : inputClass}
-                    >
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Broker</p>
+                  {!isReadOnly('broker_name') ? (
+                    <CustomSelect name="broker_name" value={editData.broker_name || ''} onChange={handleEditChange} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500">
                       <option value="">Select broker (optional)</option>
-                      {(brokerList || []).map((b) => (
-                        <option key={b.id} value={b.broker_name}>
-                          {b.broker_name}{b.broker_code ? ` (${b.broker_code})` : ''}
-                        </option>
-                      ))}
+                      {(brokerList || []).map((b) => <option key={b.id} value={b.broker_name}>{b.broker_name}{b.broker_code ? ` (${b.broker_code})` : ''}</option>)}
                     </CustomSelect>
-                  ) : (
-                    <p className="text-slate-900 font-semibold mt-1">{po.broker_name || '-'}</p>
-                  )}
+                  ) : (<p className="text-[12px] font-medium text-slate-800">{po.broker_name || '-'}</p>)}
                 </div>
-                )}
-                {!isHidden('terms_and_conditions') && (
-                <div>
-                  <p className="text-sm text-slate-600 font-medium">Terms & Conditions</p>
-                  {isEditing ? (
-                    <textarea name="terms_and_conditions" value={editData.terms_and_conditions || ''} onChange={handleEditChange} rows={2} disabled={isReadOnly('terms_and_conditions')} className={isReadOnly('terms_and_conditions') ? lockedInputClass : inputClass} />
-                  ) : (
-                    <p className="text-slate-900 mt-1 whitespace-pre-wrap">{po.terms_and_conditions || '-'}</p>
-                  )}
+              )}
+              {!isHidden('terms_and_conditions') && (
+                <div className="col-span-2 sm:col-span-4">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Terms & Conditions</p>
+                  {!isReadOnly('terms_and_conditions') ? (
+                    <textarea name="terms_and_conditions" value={editData.terms_and_conditions || ''} onChange={handleEditChange} rows={1} className="w-full px-2 py-1.5 border border-slate-300 rounded text-[12px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  ) : (<p className="text-[12px] text-slate-700">{po.terms_and_conditions || '-'}</p>)}
                 </div>
-                )}
-              </div>
+              )}
             </div>
+          )}
+        </div>
 
-            {/* Line Items */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-              <h2 className="text-sm sm:text-base font-semibold text-slate-900 mb-2">
-                Line Items ({lineItems.length})
-              </h2>
-              {lineItems.length === 0 ? (
-                <p className="text-slate-500 text-center py-4">No line items</p>
-              ) : (
-                <>
-                {/* Mobile-stacked cards — one card per PO line, with
-                    the same data the desktop table shows. Editing
-                    works the same way (the inputs are reused). */}
-                <div className="sm:hidden space-y-3 mb-3">
+        {/* ── Fulfilment stat row ── */}
+        {(() => {
+          const totalOrdered = lineItems.reduce((sum, l) => sum + (Number(l.quantity_ordered) || 0), 0);
+          const totalReceived = lineItems.reduce((sum, l) => sum + (Number(l.received_quantity) || 0), 0);
+          const approvalText = isDraft ? 'Pending' : isCancelled ? 'Cancelled'
+            : isApproved ? 'Approved' : isIssued ? 'Issued' : isClosed ? 'Closed' : poStatus;
+          const approvalCls = isDraft ? 'text-amber-600' : isCancelled ? 'text-red-600' : 'text-green-700';
+          const balance = Math.max(0, Math.round((totalOrdered - totalReceived) * 10000) / 10000);
+          const cells = [
+            { label: 'Ordered', value: totalOrdered.toLocaleString('en-IN'), cls: 'text-slate-800' },
+            { label: 'Received', value: totalReceived.toLocaleString('en-IN'), cls: 'text-green-700' },
+            { label: 'Balance', value: balance.toLocaleString('en-IN'), cls: balance > 0 ? 'text-amber-600' : 'text-green-700' },
+            { label: 'Receipt', value: po.is_fully_received ? 'Full' : (totalReceived > 0 ? 'Partial' : 'Pending'), cls: po.is_fully_received ? 'text-green-700' : totalReceived > 0 ? 'text-amber-600' : 'text-slate-500' },
+            { label: 'Approval', value: approvalText, cls: approvalCls },
+          ];
+          return (
+            <div className="grid grid-cols-5 divide-x divide-slate-200 border border-slate-200 rounded-md overflow-hidden text-center bg-white">
+              {cells.map((c, i) => (
+                <div key={i} className="px-1 py-1.5 min-w-0">
+                  <p className="text-[9px] uppercase tracking-tight text-slate-500 leading-tight truncate">{c.label}</p>
+                  <p className={`text-xs font-semibold mt-0.5 truncate ${c.cls}`}>{c.value}</p>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
+        {/* ── Line Items ── */}
+        <div className="bg-white rounded-lg border border-slate-200">
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-100">
+            <h2 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">Line Items ({lineItems.length})</h2>
+          </div>
+          {lineItems.length === 0 ? (
+            <p className="text-slate-400 text-center py-4 text-[12px]">No line items</p>
+          ) : (
+            <>
+            {/* Mobile cards */}
+            <div className="sm:hidden space-y-2 p-2">
+              {(isEditing ? editLines : lineItems).map((line, idx) => {
+                const qty = Number(line.quantity_ordered) || 0;
+                const price = Number(line.unit_price) || 0;
+                const gst = Number(line.gst) || 0;
+                const lineSubtotal = qty * price;
+                const lineTax = lineSubtotal * gst / 100;
+                const lineTotal = lineSubtotal + lineTax;
+                return (
+                  <div key={`m-${line.id || idx}`} className="border border-slate-200 rounded-lg bg-white overflow-hidden">
+                    <div className="flex items-start justify-between px-3 py-2 bg-slate-50 border-b border-slate-100 gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[11px] uppercase tracking-wide text-slate-500">Line #{line.line_no || idx + 1}</p>
+                        <p className="text-sm font-semibold text-slate-800 break-words">{line.item_name || line.product_name || '-'}</p>
+                        {(line.item_code || line.product_code) && <p className="text-[11px] text-slate-500 mt-0.5">{line.item_code || line.product_code}</p>}
+                      </div>
+                      <p className="shrink-0 text-sm font-bold text-slate-900 whitespace-nowrap">{formatCurrency(lineTotal)}</p>
+                    </div>
+                    <div className="px-3 py-2 grid grid-cols-3 gap-x-3 gap-y-2 text-xs">
+                      {!isLineHidden('quantity_ordered') && (
+                      <div>
+                        <p className="text-[10px] uppercase text-slate-500">Qty</p>
+                        <p className="text-slate-800 font-medium">{qty.toLocaleString()} {!isLineHidden('uom') && <span className="text-slate-400">{line.uom || ''}</span>}</p>
+                      </div>
+                      )}
+                      {!isLineHidden('unit_price') && (
+                      <div>
+                        <p className="text-[10px] uppercase text-slate-500">Price</p>
+                        {isEditing ? (
+                          <input type="number" step="0.01" min="0" value={line.unit_price} onChange={e => handleEditLineChange(idx, 'unit_price', e.target.value)} disabled={isLineRO('unit_price')} className={`w-full px-2 py-1 border border-slate-300 rounded text-xs text-right${isLineRO('unit_price') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
+                        ) : <p className="text-slate-700">{formatCurrency(price)}</p>}
+                      </div>
+                      )}
+                      {!isLineHidden('gst') && (
+                      <div>
+                        <p className="text-[10px] uppercase text-slate-500">GST</p>
+                        {isEditing ? (
+                          <input type="number" step="0.01" min="0" max="100" value={line.gst} onChange={e => handleEditLineChange(idx, 'gst', e.target.value)} disabled={isLineRO('gst')} className={`w-full px-2 py-1 border border-slate-300 rounded text-xs text-right${isLineRO('gst') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
+                        ) : <p className="text-slate-700">{gst}%</p>}
+                      </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    {!isLineHidden('line_no') && <th className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">#</th>}
+                    {!isLineHidden('product_service') && <th className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">Product</th>}
+                    <th className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">Category</th>
+                    {!isLineHidden('quantity_ordered') && <th className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">Qty</th>}
+                    {!isEditing && !isLineHidden('quantity_ordered') && <th className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">Received</th>}
+                    {!isEditing && !isLineHidden('quantity_ordered') && <th className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">Balance</th>}
+                    {!isLineHidden('uom') && <th className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">UOM</th>}
+                    {!isLineHidden('unit_price') && <th className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">Unit Price</th>}
+                    {!isLineHidden('gst') && <th className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">GST %</th>}
+                    <th className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase text-[9px] tracking-wide whitespace-nowrap">Total</th>
+                    {isEditing && isDraft && <th className="px-2 py-1.5" style={{ width: 32 }}></th>}
+                  </tr>
+                </thead>
+                <tbody>
                   {(isEditing ? editLines : lineItems).map((line, idx) => {
                     const qty = Number(line.quantity_ordered) || 0;
                     const price = Number(line.unit_price) || 0;
@@ -841,370 +810,143 @@ export default function PurchaseOrderDetail() {
                     const lineTax = lineSubtotal * gst / 100;
                     const lineTotal = lineSubtotal + lineTax;
                     return (
-                      <div key={`m-${line.id || idx}`} className="border border-slate-200 rounded-lg bg-white overflow-hidden">
-                        <div className="flex items-start justify-between px-3 py-2 bg-slate-50 border-b border-slate-100 gap-2">
-                          <div className="min-w-0">
-                            <p className="text-[11px] uppercase tracking-wide text-slate-500">Line #{line.line_no || idx + 1}</p>
-                            <p className="text-sm font-semibold text-slate-800 break-words">{line.item_name || line.product_name || '-'}</p>
-                            {(line.item_code || line.product_code) && (
-                              <p className="text-[11px] text-slate-500 mt-0.5">{line.item_code || line.product_code}</p>
-                            )}
-                            {line.item_type && line.item_type !== 'PRODUCT' && (
-                              <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                line.item_type === 'MACHINERY' ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'
-                              }`}>
-                                {line.item_type === 'MACHINERY' ? 'Machinery' : 'Service'}
-                              </span>
-                            )}
-                          </div>
-                          <p className="shrink-0 text-sm font-bold text-slate-900 whitespace-nowrap">{formatCurrency(lineTotal)}</p>
-                        </div>
-                        <div className="px-3 py-2 grid grid-cols-3 gap-x-3 gap-y-2 text-xs">
-                          {!isLineHidden('quantity_ordered') && (
-                          <div>
-                            <p className="text-[10px] uppercase text-slate-500">Qty</p>
-                            <p className="text-slate-800 font-medium">{qty.toLocaleString()} {!isLineHidden('uom') && <span className="text-slate-400">{line.uom || ''}</span>}</p>
-                          </div>
-                          )}
-                          {!isLineHidden('unit_price') && (
-                          <div>
-                            <p className="text-[10px] uppercase text-slate-500">Unit Price</p>
-                            {isEditing ? (
-                              <input type="number" step="0.01" min="0" value={line.unit_price} onChange={e => handleEditLineChange(idx, 'unit_price', e.target.value)} disabled={isLineRO('unit_price')} className={`w-full px-2 py-1 border border-slate-300 rounded text-xs text-right${isLineRO('unit_price') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
-                            ) : <p className="text-slate-700">{formatCurrency(price)}</p>}
-                          </div>
-                          )}
-                          {!isLineHidden('gst') && (
-                          <div>
-                            <p className="text-[10px] uppercase text-slate-500">GST</p>
-                            {isEditing ? (
-                              <input type="number" step="0.01" min="0" max="100" value={line.gst} onChange={e => handleEditLineChange(idx, 'gst', e.target.value)} disabled={isLineRO('gst')} className={`w-full px-2 py-1 border border-slate-300 rounded text-xs text-right${isLineRO('gst') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
-                            ) : <p className="text-slate-700">{gst}%</p>}
-                          </div>
-                          )}
-                          {!isLineHidden('description') && line.description && (
-                            <div className="col-span-3">
-                              <p className="text-[10px] uppercase text-slate-500">Description</p>
-                              <p className="text-slate-700 break-words">{line.description}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-200">
-                        {!isLineHidden('line_no') && (
-                        <th className="text-left py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">#</th>
-                        )}
+                      <tr key={line.id || idx} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                        {!isLineHidden('line_no') && <td className="px-2 py-1.5 text-slate-400">{line.line_no || idx + 1}</td>}
                         {!isLineHidden('product_service') && (
-                        <th className="text-left py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Product</th>
+                        <td className="px-2 py-1.5">
+                          <p className="font-semibold text-slate-800">{line.item_name || line.product_name || '-'}</p>
+                          {(line.item_code || line.product_code) && <p className="text-[10px] text-slate-500">{line.item_code || line.product_code}</p>}
+                          {line.item_type && line.item_type !== 'PRODUCT' && (
+                            <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium ${line.item_type === 'MACHINERY' ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                              {line.item_type === 'MACHINERY' ? 'Machinery' : 'Service'}
+                            </span>
+                          )}
+                          {line.description && <p className="text-[10px] text-slate-500 mt-0.5">{line.description}</p>}
+                        </td>
                         )}
-                        {/* Category column reads pr_line_category — the
-                            PR-line category the POLineSerializer resolves
-                            via linked_pr_line (or the RFQ-chain fallback
-                            for legacy quotes). Surfacing it on the PO
-                            detail makes it obvious at a glance which
-                            lines will route to Packing Materials when
-                            the receipt gets created. */}
-                        <th className="text-left py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Category</th>
+                        <td className="px-2 py-1.5">
+                          {isEditing ? (
+                            <CustomSelect value={line.pr_line_category || ''} onChange={e => handleEditLineChange(idx, 'pr_line_category', e.target.value)} className="w-full px-1.5 py-1 border border-slate-300 rounded text-[11px]">
+                              <option value="">-</option>
+                              <option value="RAW_MATERIAL">Raw Material</option>
+                              <option value="PACKING_MATERIAL">Packing Material</option>
+                              <option value="FINISHED_GOODS">Finished Goods</option>
+                              {line.pr_line_category && !['RAW_MATERIAL', 'PACKING_MATERIAL', 'FINISHED_GOODS'].includes(String(line.pr_line_category).toUpperCase()) && <option value={line.pr_line_category}>{line.pr_line_category}</option>}
+                            </CustomSelect>
+                          ) : (
+                            (() => {
+                              const raw = (line.pr_line_category || '').toString().trim().toUpperCase();
+                              if (!raw) return <span className="text-slate-400">-</span>;
+                              const map = {
+                                PACKING_MATERIAL: { label: 'Packing Material', cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
+                                RAW_MATERIAL:     { label: 'Raw Material',     cls: 'bg-blue-50 text-blue-700 border border-blue-200' },
+                                FINISHED_GOODS:   { label: 'Finished Goods',   cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
+                              };
+                              const meta = map[raw];
+                              if (meta) return <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${meta.cls}`}>{meta.label}</span>;
+                              return <span className="text-[11px] text-slate-600">{line.pr_line_category}</span>;
+                            })()
+                          )}
+                        </td>
                         {!isLineHidden('quantity_ordered') && (
-                        <th className="text-right py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Qty</th>
+                        <td className="px-2 py-1.5 text-right font-medium whitespace-nowrap">
+                          {isEditing ? (
+                            <input type="number" step="0.01" min="0.01" value={line.quantity_ordered || ''} onChange={e => handleEditLineChange(idx, 'quantity_ordered', e.target.value)} disabled={isLineRO('quantity_ordered')} className={`w-20 px-1.5 py-1 border border-slate-300 rounded text-[11px] text-right${isLineRO('quantity_ordered') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
+                          ) : qty.toLocaleString()}
+                        </td>
                         )}
-                        {/* Per-line receipt progress — received qty + a
-                            Full / Partial / Pending pill. View mode only
-                            (edit rows don't carry received_quantity). */}
                         {!isEditing && !isLineHidden('quantity_ordered') && (
-                        <th className="text-right py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Received</th>
+                        <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                          {(() => {
+                            const rcvd = Number(line.received_quantity) || 0;
+                            const full = qty > 0 && rcvd >= qty;
+                            const pill = full
+                              ? { label: 'Full', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+                              : rcvd > 0
+                                ? { label: 'Partial', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
+                                : { label: 'Pending', cls: 'bg-slate-50 text-slate-500 border-slate-200' };
+                            return (
+                              <span className="inline-flex items-center gap-1">
+                                <span className="font-medium text-slate-700">{rcvd.toLocaleString('en-IN')}</span>
+                                <span className={`px-1 py-0.5 rounded border text-[9px] font-medium ${pill.cls}`}>{pill.label}</span>
+                              </span>
+                            );
+                          })()}
+                        </td>
                         )}
-                        {/* Qty still owed by the vendor (Qty − Received). Over-
-                            delivery is allowed by policy (vendor production
-                            variance can ship a few extra units), so a negative
-                            balance shows as "+N over" rather than clamping to 0
-                            and hiding it. */}
                         {!isEditing && !isLineHidden('quantity_ordered') && (
-                        <th className="text-right py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Balance</th>
+                        <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                          {(() => {
+                            const rcvd = Number(line.received_quantity) || 0;
+                            const bal = qty - rcvd;
+                            if (bal > 0) return <span className="font-medium text-slate-700">{bal.toLocaleString('en-IN')}</span>;
+                            if (bal < 0) return <span className="font-medium text-rose-600" title="Over-delivered">+{Math.abs(bal).toLocaleString('en-IN')} over</span>;
+                            return <span className="text-slate-400">0</span>;
+                          })()}
+                        </td>
                         )}
                         {!isLineHidden('uom') && (
-                        <th className="text-left py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">UOM</th>
+                        <td className="px-2 py-1.5 text-slate-600">
+                          {isEditing ? (
+                            <input type="text" value={line.uom || ''} onChange={e => handleEditLineChange(idx, 'uom', e.target.value)} disabled={isLineRO('uom')} className={`w-14 px-1.5 py-1 border border-slate-300 rounded text-[11px]${isLineRO('uom') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
+                          ) : (line.uom || '-')}
+                        </td>
                         )}
                         {!isLineHidden('unit_price') && (
-                        <th className="text-right py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Unit Price</th>
+                        <td className="px-2 py-1.5 text-right">
+                          {isEditing ? (
+                            <input type="number" step="0.01" min="0" value={line.unit_price} onChange={e => handleEditLineChange(idx, 'unit_price', e.target.value)} disabled={isLineRO('unit_price')} className={`w-24 px-1.5 py-1 border border-slate-300 rounded text-[11px] text-right${isLineRO('unit_price') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
+                          ) : formatCurrency(price)}
+                        </td>
                         )}
                         {!isLineHidden('gst') && (
-                        <th className="text-right py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">GST %</th>
+                        <td className="px-2 py-1.5 text-right">
+                          {isEditing ? (
+                            <input type="number" step="0.01" min="0" max="100" value={line.gst} onChange={e => handleEditLineChange(idx, 'gst', e.target.value)} disabled={isLineRO('gst')} className={`w-14 px-1.5 py-1 border border-slate-300 rounded text-[11px] text-right${isLineRO('gst') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
+                          ) : <span className="text-slate-600">{gst}%</span>}
+                        </td>
                         )}
-                        <th className="text-right py-3 px-3 text-xs font-medium text-slate-500 uppercase tracking-wide">Total</th>
+                        <td className="px-2 py-1.5 text-right font-medium whitespace-nowrap">{formatCurrency(lineTotal)}</td>
                         {isEditing && isDraft && (
-                          <th className="py-3 px-2 w-10"></th>
+                          <td className="px-2 py-1.5 text-center">
+                            <button type="button" onClick={() => handleRemoveLine(line, idx)} className="p-0.5 text-red-500 hover:bg-red-50 rounded" title="Remove"><Trash2 size={12} /></button>
+                          </td>
                         )}
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {(isEditing ? editLines : lineItems).map((line, idx) => {
-                        const qty = Number(line.quantity_ordered) || 0;
-                        const price = Number(line.unit_price) || 0;
-                        const gst = Number(line.gst) || 0;
-                        const lineSubtotal = qty * price;
-                        const lineTax = lineSubtotal * gst / 100;
-                        const lineTotal = lineSubtotal + lineTax;
-                        return (
-                          <tr key={line.id || idx} className="hover:bg-primary-50/40 transition-colors">
-                            {!isLineHidden('line_no') && (
-                            <td className="py-3 px-3 text-slate-500">{line.line_no || idx + 1}</td>
-                            )}
-                            {!isLineHidden('product_service') && (
-                            <td className="py-3 px-3">
-                              {/* `item_name`/`item_code` come from POLineSerializer
-                                  and resolve to whichever of Product / Machinery /
-                                  ServiceCatalogue this line points at. The
-                                  product_name/code fallback keeps older Goods
-                                  rows rendering when item_* fields are absent. */}
-                              <p className="font-medium text-slate-800">{line.item_name || line.product_name || '-'}</p>
-                              {(line.item_code || line.product_code) && (
-                                <p className="text-xs text-slate-500">{line.item_code || line.product_code}</p>
-                              )}
-                              {line.item_type && line.item_type !== 'PRODUCT' && (
-                                <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                  line.item_type === 'MACHINERY' ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'
-                                }`}>
-                                  {line.item_type === 'MACHINERY' ? 'Machinery' : 'Service'}
-                                </span>
-                              )}
-                              {line.description && <p className="text-xs text-slate-500 mt-0.5">{line.description}</p>}
-                            </td>
-                            )}
-                            <td className="py-3 px-3">
-                              {isEditing ? (
-                                <CustomSelect
-                                  value={line.pr_line_category || ''}
-                                  onChange={e => handleEditLineChange(idx, 'pr_line_category', e.target.value)}
-                                  className="w-full px-2 py-1 border border-slate-300 rounded text-xs"
-                                >
-                                  <option value="">-</option>
-                                  <option value="RAW_MATERIAL">Raw Material</option>
-                                  <option value="PACKING_MATERIAL">Packing Material</option>
-                                  <option value="FINISHED_GOODS">Finished Goods</option>
-                                  {line.pr_line_category
-                                    && !['RAW_MATERIAL', 'PACKING_MATERIAL', 'FINISHED_GOODS'].includes(String(line.pr_line_category).toUpperCase())
-                                    && <option value={line.pr_line_category}>{line.pr_line_category}</option>}
-                                </CustomSelect>
-                              ) : (
-                                /* Category cell. Known enum values get a
-                                   human label + colour-coded pill so
-                                   Packing Material is visually obvious
-                                   (it's the one that changes the receipt
-                                   routing). Free-form / blank categories
-                                   fall back to '-'. */
-                                (() => {
-                                  const raw = (line.pr_line_category || '').toString().trim().toUpperCase();
-                                  if (!raw) return <span className="text-slate-400">-</span>;
-                                  const map = {
-                                    PACKING_MATERIAL: { label: 'Packing Material', cls: 'bg-amber-50 text-amber-700 border border-amber-200' },
-                                    RAW_MATERIAL:     { label: 'Raw Material',     cls: 'bg-blue-50 text-blue-700 border border-blue-200' },
-                                    FINISHED_GOODS:   { label: 'Finished Goods',   cls: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
-                                  };
-                                  const meta = map[raw];
-                                  if (meta) {
-                                    return <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${meta.cls}`}>{meta.label}</span>;
-                                  }
-                                  // Free-form category text (Machinery / Services PR lines)
-                                  return <span className="text-xs text-slate-600">{line.pr_line_category}</span>;
-                                })()
-                              )}
-                            </td>
-                            {!isLineHidden('quantity_ordered') && (
-                            <td className="py-3 px-3 text-right font-medium">
-                              {isEditing ? (
-                                <input type="number" step="0.01" min="0.01" value={line.quantity_ordered || ''} onChange={e => handleEditLineChange(idx, 'quantity_ordered', e.target.value)} disabled={isLineRO('quantity_ordered')} className={`w-20 px-2 py-1 border border-slate-300 rounded text-sm text-right focus:ring-1 focus:ring-primary-500${isLineRO('quantity_ordered') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
-                              ) : qty.toLocaleString()}
-                            </td>
-                            )}
-                            {!isEditing && !isLineHidden('quantity_ordered') && (
-                            <td className="py-3 px-3 text-right whitespace-nowrap">
-                              {(() => {
-                                const rcvd = Number(line.received_quantity) || 0;
-                                const full = qty > 0 && rcvd >= qty;
-                                const pill = full
-                                  ? { label: 'Full', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
-                                  : rcvd > 0
-                                    ? { label: 'Partial', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
-                                    : { label: 'Pending', cls: 'bg-slate-50 text-slate-500 border-slate-200' };
-                                return (
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <span className="font-medium text-slate-700">{rcvd.toLocaleString('en-IN')}</span>
-                                    <span className={`px-1.5 py-0.5 rounded border text-[10px] font-medium ${pill.cls}`}>{pill.label}</span>
-                                  </span>
-                                );
-                              })()}
-                            </td>
-                            )}
-                            {!isEditing && !isLineHidden('quantity_ordered') && (
-                            <td className="py-3 px-3 text-right whitespace-nowrap">
-                              {(() => {
-                                const rcvd = Number(line.received_quantity) || 0;
-                                const bal = qty - rcvd;
-                                if (bal > 0) return <span className="font-medium text-slate-700">{bal.toLocaleString('en-IN')}</span>;
-                                if (bal < 0) return (
-                                  <span className="font-medium text-rose-600" title="Vendor delivered more than ordered">
-                                    +{Math.abs(bal).toLocaleString('en-IN')} over
-                                  </span>
-                                );
-                                return <span className="text-slate-400">0</span>;
-                              })()}
-                            </td>
-                            )}
-                            {!isLineHidden('uom') && (
-                            <td className="py-3 px-3 text-slate-600">
-                              {isEditing ? (
-                                <input type="text" value={line.uom || ''} onChange={e => handleEditLineChange(idx, 'uom', e.target.value)} disabled={isLineRO('uom')} className={`w-16 px-2 py-1 border border-slate-300 rounded text-sm focus:ring-1 focus:ring-primary-500${isLineRO('uom') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
-                              ) : (line.uom || '-')}
-                            </td>
-                            )}
-                            {!isLineHidden('unit_price') && (
-                            <td className="py-3 px-3 text-right">
-                              {isEditing ? (
-                                <input type="number" step="0.01" min="0" value={line.unit_price} onChange={e => handleEditLineChange(idx, 'unit_price', e.target.value)} disabled={isLineRO('unit_price')} className={`w-24 px-2 py-1 border border-slate-300 rounded text-sm text-right focus:ring-1 focus:ring-primary-500${isLineRO('unit_price') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
-                              ) : formatCurrency(price)}
-                            </td>
-                            )}
-                            {!isLineHidden('gst') && (
-                            <td className="py-3 px-3 text-right">
-                              {isEditing ? (
-                                <input type="number" step="0.01" min="0" max="100" value={line.gst} onChange={e => handleEditLineChange(idx, 'gst', e.target.value)} disabled={isLineRO('gst')} className={`w-16 px-2 py-1 border border-slate-300 rounded text-sm text-right focus:ring-1 focus:ring-primary-500${isLineRO('gst') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
-                              ) : <span className="text-slate-600">{gst}%</span>}
-                            </td>
-                            )}
-                            <td className="py-3 px-3 text-right font-medium">{formatCurrency(lineTotal)}</td>
-                            {/* Remove-line trash — only visible in edit mode
-                                on a DRAFT PO. Backend enforces both rules;
-                                the button is a UX affordance, not the gate. */}
-                            {isEditing && isDraft && (
-                              <td className="py-3 px-2 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveLine(line, idx)}
-                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                                  title="Remove this line (frees the PR line for a new PO to a different vendor)"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                    );
+                  })}
+                </tbody>
+              </table>
 
-                  {/* Financial Summary */}
-                  <div className="border-t border-slate-200 mt-2 pt-3 flex justify-end">
-                    <div className="w-64 space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Subtotal</span>
-                        <span className="font-medium">{formatCurrency(subtotal)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Tax</span>
-                        <span className="font-medium">{formatCurrency(totalTax)}</span>
-                      </div>
-                      <div className="flex justify-between border-t pt-2 text-base">
-                        <span className="font-semibold text-slate-800">Grand Total</span>
-                        <span className="font-bold text-slate-900">{formatCurrency(grandTotal)}</span>
-                      </div>
-                    </div>
-                  </div>
+              {/* Financial Summary */}
+              <div className="border-t border-slate-200 px-3 py-2 flex justify-end">
+                <div className="w-56 space-y-1 text-[12px]">
+                  <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Tax</span><span className="font-medium">{formatCurrency(totalTax)}</span></div>
+                  <div className="flex justify-between border-t border-slate-200 pt-1 text-[13px]"><span className="font-semibold text-slate-800">Grand Total</span><span className="font-bold text-slate-900">{formatCurrency(grandTotal)}</span></div>
                 </div>
-
-                {/* Mobile totals strip — same numbers, stacked. */}
-                <div className="sm:hidden bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1 text-sm mt-3">
-                  <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-medium text-slate-800">{formatCurrency(subtotal)}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Tax</span><span className="font-medium text-slate-700">{formatCurrency(totalTax)}</span></div>
-                  <div className="flex justify-between pt-2 mt-1 border-t border-slate-300">
-                    <span className="text-slate-700 font-semibold">Grand Total</span>
-                    <span className="text-base font-bold text-slate-900">{formatCurrency(grandTotal)}</span>
-                  </div>
-                </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Sidebar (1 col) */}
-          <div className="space-y-3">
-            {/* Status Summary */}
-            <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-900 mb-2">Summary</h3>
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                  <div>
-                    <p className="text-xs text-slate-500">Status</p>
-                    <div className="mt-1"><StatusBadge status={po?.fulfillment_status || poStatus} /></div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Total Value</p>
-                    <p className="text-lg font-bold text-slate-900 mt-0.5">
-                      {formatCurrency(subtotal || po.total_order_value || 0)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Tax Amount</p>
-                    <p className="text-base font-semibold text-slate-700 mt-0.5">
-                      {formatCurrency(totalTax)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">Grand Total</p>
-                    <p className="text-lg font-bold text-green-700 mt-0.5">
-                      {formatCurrency(grandTotal || po.total_order_value || 0)}
-                    </p>
-                  </div>
-                </div>
-                {/* Fulfilment + approval as one compact, divided stat row.
-                    Vendor lives in PO Details, so there's no Vendor card. */}
-                {(() => {
-                  const totalOrdered = lineItems.reduce((sum, l) => sum + (Number(l.quantity_ordered) || 0), 0);
-                  const totalReceived = lineItems.reduce((sum, l) => sum + (Number(l.received_quantity) || 0), 0);
-                  const approvalText = isDraft ? 'Pending' : isCancelled ? 'Cancelled'
-                    : isApproved ? 'Approved' : isIssued ? 'Issued' : isClosed ? 'Closed' : poStatus;
-                  const approvalCls = isDraft ? 'text-amber-600' : isCancelled ? 'text-red-600' : 'text-green-700';
-                  const balance = Math.max(0, Math.round((totalOrdered - totalReceived) * 10000) / 10000);
-                  const cells = [
-                    { label: 'Ordered', value: totalOrdered.toLocaleString('en-IN'), cls: 'text-slate-800' },
-                    { label: 'Received', value: totalReceived.toLocaleString('en-IN'), cls: 'text-green-700' },
-                    // Balance qty still to receive. (This cell previously
-                    // showed po.total_received — a QUANTITY — formatted as
-                    // currency under a "Recd Value" label.)
-                    { label: 'Balance', value: balance.toLocaleString('en-IN'), cls: balance > 0 ? 'text-amber-600' : 'text-green-700' },
-                    { label: 'Receipt', value: po.is_fully_received ? 'Full' : (totalReceived > 0 ? 'Partial' : 'Pending'), cls: po.is_fully_received ? 'text-green-700' : totalReceived > 0 ? 'text-amber-600' : 'text-slate-500' },
-                    { label: 'Approval', value: approvalText, cls: approvalCls },
-                  ];
-                  return (
-                    <div className="border-t border-slate-200 pt-3">
-                      <div className="grid grid-cols-5 divide-x divide-slate-200 border border-slate-200 rounded-lg overflow-hidden text-center">
-                        {cells.map((c, i) => (
-                          <div key={i} className="px-1 py-2 min-w-0">
-                            <p className="text-[9px] uppercase tracking-tight text-slate-500 leading-tight truncate">{c.label}</p>
-                            <p className={`text-xs font-semibold mt-0.5 truncate ${c.cls}`}>{c.value}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
               </div>
             </div>
+
+            {/* Mobile totals */}
+            <div className="sm:hidden bg-slate-50 border-t border-slate-200 p-2.5 space-y-1 text-[12px]">
+              <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-medium text-slate-800">{formatCurrency(subtotal)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Tax</span><span className="font-medium text-slate-700">{formatCurrency(totalTax)}</span></div>
+              <div className="flex justify-between pt-1.5 mt-1 border-t border-slate-300"><span className="text-slate-700 font-semibold">Grand Total</span><span className="text-[13px] font-bold text-slate-900">{formatCurrency(grandTotal)}</span></div>
+            </div>
+            </>
+          )}
+        </div>
+
+        {/* Attachments + Activity */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="bg-white rounded-lg border border-slate-200">
+            <FileAttachments module="PO" recordId={id} readOnly={!isEditing} />
+          </div>
+          <div className="bg-white rounded-lg border border-slate-200">
+            <ActivityLog module="Purchase Order" recordId={id} />
           </div>
         </div>
-      </div>
-
-      <FileAttachments module="PO" recordId={id} readOnly={!isEditing} />
-
-      <div className="mt-3">
-        <ActivityLog module="Purchase Order" recordId={id} />
       </div>
 
       {/* Split-into-batches modal — CANCELS the current DRAFT PO and

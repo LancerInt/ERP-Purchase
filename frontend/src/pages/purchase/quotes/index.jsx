@@ -260,12 +260,11 @@ export default function QuoteResponseList() {
           config={{
             title: (row) => row.rfq_no || '(no RFQ)',
             subtitle: (row) => row.chosen_vendor_name || (Array.isArray(row.pr_numbers) ? row.pr_numbers.join(', ') : null),
+            meta: (row) => row.quote_date ? formatDate(row.quote_date) : null,
             badge: (row) => row.evaluation_status === 'Evaluated'
               ? { label: 'Evaluated', cls: 'bg-emerald-100 text-emerald-700 border-emerald-300' }
               : { label: 'Pending',   cls: 'bg-amber-100 text-amber-700 border-amber-300' },
             fields: (row) => [
-              { label: 'Date',    value: row.quote_date ? formatDate(row.quote_date) : null },
-              { label: 'Valid',   value: row.price_valid_till ? formatDate(row.price_valid_till) : null },
               { label: 'Quotes',  value: row.quote_count },
               { label: 'Lowest',  value: row.lowest_total ? formatCurrency(row.lowest_total) : null, cls: 'text-emerald-700 font-medium' },
             ],

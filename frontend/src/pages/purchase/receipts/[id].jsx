@@ -5,7 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Pencil, Save, X, Plus, Trash2, Truck, FileText, CheckCircle2, ArrowLeft } from 'lucide-react';
 import MainLayout from '../../../components/layout/MainLayout';
-import PageHeader from '../../../components/common/PageHeader';
+
 import StatusBadge from '../../../components/common/StatusBadge';
 import apiClient from '../../../utils/api.js';
 import useLookup, { clearLookupCache } from '../../../hooks/useLookup.js';
@@ -422,209 +422,205 @@ export default function ReceiptAdviceDetail() {
 
   return (
     <MainLayout>
-      <PageHeader
-        title={receipt.receipt_advice_no || 'Receipt Advice'}
-        subtitle={`Created on ${fmtDate(receipt.receipt_date)}`}
-        breadcrumbs={[
-          { label: 'Receipts', href: '/purchase/receipts' },
-          { label: receipt.receipt_advice_no },
-        ]}
-        actions={{ right: approveControl }}
-      />
+      <div className="max-w-6xl space-y-2">
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        {/* Main Content */}
-        <div className="lg:col-span-3 space-y-3">
-          {/* Receipt Details */}
-          <div className="bg-white rounded-lg border p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Receipt Details</h3>
+        {/* ── Header row: Back + Receipt# + badge + chips + actions ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/receipts'))} className="p-1 text-slate-400 hover:text-slate-700 transition shrink-0" title="Back to list">
+              <ArrowLeft size={16} />
+            </button>
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">{receipt.receipt_advice_no || 'Receipt Advice'}</h1>
+            <StatusBadge status={receipt.approval_status === 'APPROVED' ? 'Approved' : 'Draft'} />
+            <div className="hidden sm:flex items-center gap-1.5 ml-1">
+              {receipt.receipt_source === 'DIRECT' && <span className="px-2 py-0.5 rounded bg-amber-50 text-[10px] font-semibold text-amber-700 border border-amber-200">Direct</span>}
+              {receipt.partial_receipt_flag && <span className="px-2 py-0.5 rounded bg-orange-50 text-[10px] font-semibold text-orange-700 border border-orange-200">Partial</span>}
+              {receipt.vendor_name && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{receipt.vendor_name}</span>}
+              {receipt.company_name && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{receipt.company_name}</span>}
+              {poNumbers.length > 0 && <span className="px-2 py-0.5 rounded bg-blue-50 text-[10px] font-medium text-blue-700">{poNumbers.join(', ')}</span>}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap ml-6 sm:ml-0">
+            {approveControl}
+          </div>
+        </div>
+
+        {/* Mobile chips row */}
+        <div className="flex sm:hidden items-center gap-1.5 flex-wrap ml-7">
+          {receipt.receipt_source === 'DIRECT' && <span className="px-2 py-0.5 rounded bg-amber-50 text-[10px] font-semibold text-amber-700 border border-amber-200">Direct</span>}
+          {receipt.partial_receipt_flag && <span className="px-2 py-0.5 rounded bg-orange-50 text-[10px] font-semibold text-orange-700 border border-orange-200">Partial</span>}
+          {receipt.vendor_name && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{receipt.vendor_name}</span>}
+          {receipt.company_name && <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] font-medium text-slate-600">{receipt.company_name}</span>}
+          {poNumbers.length > 0 && <span className="px-2 py-0.5 rounded bg-blue-50 text-[10px] font-medium text-blue-700">{poNumbers.join(', ')}</span>}
+        </div>
+
+          {/* Receipt Details — compact field strip */}
+          <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">Receipt Details</h3>
               {!isEditing ? (
                 canEditReceipt && (
-                  <button onClick={handleEdit} className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition">
-                    <Pencil size={14} /> Edit
+                  <button onClick={handleEdit} className="flex items-center gap-1 px-2 py-1 text-[11px] text-primary-700 bg-primary-50 rounded hover:bg-primary-100">
+                    <Pencil size={12} /> Edit
                   </button>
                 )
               ) : (
-                <div className="flex gap-2">
-                  <button onClick={handleCancel} className="flex items-center gap-1 px-3 py-1.5 text-sm text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">
-                    <X size={14} /> Cancel
+                <div className="flex gap-1.5">
+                  <button onClick={handleCancel} className="flex items-center gap-1 px-2 py-1 text-[11px] text-slate-600 bg-slate-100 rounded hover:bg-slate-200">
+                    <X size={12} /> Cancel
                   </button>
-                  <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-1 px-3 py-1.5 text-sm text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
-                    <Save size={14} /> {isSaving ? 'Saving...' : 'Save'}
+                  <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-1 px-2 py-1 text-[11px] text-white bg-primary-600 rounded hover:bg-primary-700 disabled:opacity-50">
+                    <Save size={12} /> {isSaving ? 'Saving...' : 'Save'}
                   </button>
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
-              {!isHidden('receipt_advice_no') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Receipt No</p>
-                <p className="font-medium">{receipt.receipt_advice_no}</p>
+            {!isEditing ? (
+              <div className="flex items-start gap-4 overflow-x-auto pb-1">
+                {!isHidden('receipt_advice_no') && (
+                <div className="shrink-0">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Receipt No</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{receipt.receipt_advice_no}</p>
+                </div>
+                )}
+                <div className="shrink-0">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Source</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{receipt.receipt_source === 'DIRECT' ? 'Direct' : 'PO'}</p>
+                </div>
+                <div className="shrink-0">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Linked POs</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-primary-600 whitespace-nowrap">{poNumbers.join(', ') || '-'}</p>
+                </div>
+                {!isHidden('vendor') && (
+                <div className="shrink-0">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Vendor</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{receipt.vendor_name || '-'}</p>
+                </div>
+                )}
+                <div className="shrink-0">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Company</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{receipt.company_name || '-'}</p>
+                </div>
+                {!isHidden('warehouse') && (
+                <div className="shrink-0">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Warehouse</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{receipt.warehouse_name || '-'}</p>
+                </div>
+                )}
+                {!isHidden('receipt_date') && (
+                <div className="shrink-0">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Receipt Date</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{fmtDate(receipt.receipt_date)}</p>
+                </div>
+                )}
+                {!isHidden('invoice_no') && (
+                <div className="shrink-0">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Invoice No</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{receipt.invoice_no || '-'}</p>
+                </div>
+                )}
+                {!isHidden('driver_name') && (
+                <div className="shrink-0">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Driver</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{receipt.driver_name || '-'}</p>
+                </div>
+                )}
+                {!isHidden('vehicle_number') && (
+                <div className="shrink-0">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Lorry No</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{receipt.vehicle_number || '-'}</p>
+                </div>
+                )}
+                {!isHidden('advance_amount') && (
+                <div className="shrink-0">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Advance</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{receipt.advance_amount ? formatCurrency(receipt.advance_amount) : '-'}</p>
+                </div>
+                )}
+                {!isHidden('freight_value') && (
+                <div className="shrink-0">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Freight Value</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{receipt.freight_value ? formatCurrency(receipt.freight_value) : '-'}</p>
+                </div>
+                )}
+                {!isHidden('freight_terms') && (
+                <div className="shrink-0">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Freight Terms</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 whitespace-nowrap">{receipt.freight_terms === 'PAID' ? 'Paid' : receipt.freight_terms === 'TO_PAY' ? 'To Pay' : '-'}</p>
+                </div>
+                )}
+                {!isHidden('remarks') && receipt.remarks && (
+                <div className="shrink-0 max-w-[200px]">
+                  <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase whitespace-nowrap">Remarks</p>
+                  <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-800 truncate">{receipt.remarks}</p>
+                </div>
+                )}
               </div>
-              )}
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Receipt Source</p>
-                <p className="font-medium">
-                  {receipt.receipt_source === 'DIRECT' ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 text-xs font-semibold rounded border border-amber-200">Direct Receipt</span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-50 text-primary-700 text-xs font-semibold rounded border border-primary-200">PO Receipt</span>
-                  )}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Linked POs</p>
-                <p className="font-medium text-primary-600">{poNumbers.join(', ') || '-'}</p>
-              </div>
-              {!isHidden('vendor') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Vendor</p>
-                <p className="font-medium">{receipt.vendor_name || '-'}</p>
-              </div>
-              )}
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Company</p>
-                <p className="font-medium">{receipt.company_name || '-'}</p>
-              </div>
-              {!isHidden('warehouse') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Warehouse</p>
-                {isEditing ? (
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-1.5">
+                {!isHidden('warehouse') && (
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase">Warehouse</p>
                   <CustomSelect name="warehouse" value={editData.warehouse || ''} onChange={handleChange} disabled={isReadOnly('warehouse')} className={isReadOnly('warehouse') ? lockedInputClass : inputClass}>
                     <option value="">Select...</option>
                     {warehouseOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </CustomSelect>
-                ) : (
-                  <p className="font-medium">{receipt.warehouse_name || '-'}</p>
+                </div>
                 )}
-              </div>
-              )}
-              {!isHidden('receipt_date') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Receipt Date</p>
-                <p className="font-medium">{fmtDate(receipt.receipt_date)}</p>
-              </div>
-              )}
-              {!isHidden('invoice_no') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Invoice No</p>
-                {isEditing ? (
+                {!isHidden('invoice_no') && (
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase">Invoice No</p>
                   <input type="text" name="invoice_no" value={editData.invoice_no || ''} onChange={handleChange} disabled={isReadOnly('invoice_no')} className={isReadOnly('invoice_no') ? lockedInputClass : inputClass} placeholder="Vendor invoice number" />
-                ) : (
-                  <p className="font-medium">{receipt.invoice_no || '-'}</p>
+                </div>
                 )}
-              </div>
-              )}
-              {!isHidden('driver_name') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Driver</p>
-                {isEditing ? (
+                {!isHidden('driver_name') && (
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase">Driver</p>
                   <input type="text" name="driver_name" value={editData.driver_name || ''} onChange={handleChange} disabled={isReadOnly('driver_name')} className={isReadOnly('driver_name') ? lockedInputClass : inputClass} />
-                ) : (
-                  <p className="font-medium">{receipt.driver_name || '-'}</p>
+                </div>
                 )}
-              </div>
-              )}
-              {!isHidden('driver_phone') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Driver Phone</p>
-                {isEditing ? (
-                  <input
-                    type="tel"
-                    name="driver_phone"
-                    value={editData.driver_phone || ''}
-                    onChange={handleChange}
-                    disabled={isReadOnly('driver_phone')}
-                    className={isReadOnly('driver_phone') ? lockedInputClass : inputClass}
-                    placeholder="e.g. +91 98765 43210"
-                    pattern="[0-9+\-\s()]{6,20}"
-                    title="Contact number — digits, spaces, +, -, () allowed"
-                  />
-                ) : (
-                  <p className="font-medium">{receipt.driver_phone || '-'}</p>
+                {!isHidden('driver_phone') && (
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase">Driver Phone</p>
+                  <input type="tel" name="driver_phone" value={editData.driver_phone || ''} onChange={handleChange} disabled={isReadOnly('driver_phone')} className={isReadOnly('driver_phone') ? lockedInputClass : inputClass} placeholder="+91 98765 43210" pattern="[0-9+\-\s()]{6,20}" />
+                </div>
                 )}
-              </div>
-              )}
-              {!isHidden('vehicle_number') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Lorry No</p>
-                {isEditing ? (
+                {!isHidden('vehicle_number') && (
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase">Lorry No</p>
                   <input type="text" name="vehicle_number" value={editData.vehicle_number || ''} onChange={handleChange} disabled={isReadOnly('vehicle_number')} className={isReadOnly('vehicle_number') ? lockedInputClass : inputClass} />
-                ) : (
-                  <p className="font-medium">{receipt.vehicle_number || '-'}</p>
+                </div>
                 )}
-              </div>
-              )}
-              {!isHidden('advance_amount') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Advance Amount</p>
-                {isEditing ? (
+                {!isHidden('advance_amount') && (
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase">Advance Amount</p>
                   <input type="number" step="0.01" min="0" name="advance_amount" value={editData.advance_amount || ''} onChange={handleChange} disabled={isReadOnly('advance_amount')} className={isReadOnly('advance_amount') ? lockedInputClass : inputClass} />
-                ) : (
-                  <p className="font-medium">{receipt.advance_amount ? formatCurrency(receipt.advance_amount) : '-'}</p>
+                </div>
                 )}
-              </div>
-              )}
-              {!isHidden('freight_value') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Freight Value</p>
-                {isEditing ? (
+                {!isHidden('freight_value') && (
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase">Freight Value</p>
                   <input type="number" step="0.01" min="0" name="freight_value" value={editData.freight_value || ''} onChange={handleChange} disabled={isReadOnly('freight_value')} className={isReadOnly('freight_value') ? lockedInputClass : inputClass} />
-                ) : (
-                  <p className="font-medium">{receipt.freight_value ? formatCurrency(receipt.freight_value) : '-'}</p>
+                </div>
                 )}
-              </div>
-              )}
-            </div>
-
-            {/* Freight Terms + QC Routing + QC Status share a row */}
-            <div className="grid grid-cols-3 gap-x-3 gap-y-2 mt-3">
-              {!isHidden('freight_terms') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Freight Terms</p>
-                {isEditing ? (
+                {!isHidden('freight_terms') && (
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase">Freight Terms</p>
                   <CustomSelect name="freight_terms" value={editData.freight_terms || ''} onChange={handleChange} disabled={isReadOnly('freight_terms')} className={isReadOnly('freight_terms') ? lockedInputClass : inputClass}>
                     <option value="">Select...</option>
                     <option value="PAID">Paid</option>
                     <option value="TO_PAY">To Pay</option>
                   </CustomSelect>
-                ) : (
-                  <p className="font-medium">{receipt.freight_terms === 'PAID' ? 'Paid' : receipt.freight_terms === 'TO_PAY' ? 'To Pay' : '-'}</p>
+                </div>
                 )}
-              </div>
-              )}
-            </div>
-
-            {/* Approval Status + Partial Receipt + Remarks share a row */}
-            <div className="grid grid-cols-3 gap-x-3 gap-y-2 mt-3">
-              {!isHidden('approval_status') && (
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Approval Status</p>
-                <p className="font-medium">
-                  {receipt.approval_status === 'APPROVED' ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded border border-emerald-200">Approved</span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 text-xs font-semibold rounded border border-amber-200">Draft</span>
-                  )}
-                </p>
-              </div>
-              )}
-              <div>
-                <p className="text-xs text-slate-500 uppercase">Partial Receipt</p>
-                <p className="font-medium">{receipt.partial_receipt_flag ? 'Yes' : 'No'}</p>
-              </div>
-              {!isHidden('remarks') && (
-              <div className="min-w-0">
-                <p className="text-xs text-slate-500 uppercase">Remarks</p>
-                {isEditing ? (
+                {!isHidden('remarks') && (
+                <div className="col-span-2">
+                  <p className="text-[10px] text-slate-500 uppercase">Remarks</p>
                   <textarea name="remarks" value={editData.remarks || ''} onChange={handleChange} rows={2} disabled={isReadOnly('remarks')} className={isReadOnly('remarks') ? lockedInputClass : inputClass} />
-                ) : (
-                  <p className="font-medium whitespace-pre-wrap break-words">{receipt.remarks || '-'}</p>
+                </div>
                 )}
               </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* ==================== DIRECT RECEIPT INFO ==================== */}
@@ -636,12 +632,11 @@ export default function ReceiptAdviceDetail() {
             || receipt.direct_reason
             || receipt.invoice_date
             || receipt.invoice_amount) && (
-            <div className="bg-white rounded-lg border p-3 sm:p-4">
-              <h3 className="text-sm sm:text-base font-semibold text-amber-700 mb-2 pb-1.5 border-b border-amber-200">
+            <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+              <h3 style={{ fontSize: 11 }} className="font-semibold text-amber-700 uppercase tracking-wider mb-1.5">
                 Direct Receipt Info
-                <span className="ml-2 text-xs font-normal text-amber-600">Required when no PO is selected</span>
               </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-1.5">
                 <div>
                   <p className="text-xs text-slate-500 uppercase">Reason</p>
                   {isEditing ? (
@@ -709,14 +704,14 @@ export default function ReceiptAdviceDetail() {
               stay first_weight / second_weight / tare_weight even though
               the UI label says "Net Weight" for tare_weight (= First −
               Second = cargo weight per business convention). */}
-          <div className="bg-white rounded-lg border p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">
+          <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">
                 Weighment Details ({(isEditing ? editWeighmentDetails : (receipt.weighment_details || [])).length})
               </h3>
               {isEditing && (
-                <button onClick={handleAddWeighment} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
-                  <Plus size={16} /> Add Weighment
+                <button onClick={handleAddWeighment} className="inline-flex items-center gap-1 px-2 py-1 bg-primary-50 text-primary-700 rounded text-[11px] font-medium hover:bg-primary-100">
+                  <Plus size={14} /> Add Weighment
                 </button>
               )}
             </div>
@@ -726,39 +721,39 @@ export default function ReceiptAdviceDetail() {
               </p>
             ) : (
               <div className="overflow-x-auto ios-scroll">
-                <table className="w-full text-sm">
+                <table className="w-full text-[12px]">
                   <thead>
-                    <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b">
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">#</th>
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">Weighment Name</th>
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">Weighment No</th>
-                      <th className="text-right px-3 py-2 font-medium text-slate-600">First Weight</th>
-                      <th className="text-right px-3 py-2 font-medium text-slate-600">Second Weight</th>
-                      <th className="text-right px-3 py-2 font-medium text-slate-600">Net Weight</th>
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">UOM</th>
-                      {isEditing && <th className="px-3 py-2"></th>}
+                    <tr className="border-b border-slate-200">
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">#</th>
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Weighment Name</th>
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Weighment No</th>
+                      <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase">First Wt</th>
+                      <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase">Second Wt</th>
+                      <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase">Net Wt</th>
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">UOM</th>
+                      {isEditing && <th className="px-2 py-1.5"></th>}
                     </tr>
                   </thead>
                   <tbody>
                     {(isEditing ? editWeighmentDetails : (receipt.weighment_details || [])).map((line, idx) => (
-                      <tr key={line.id || `new-w-${idx}`} className="border-b">
-                        <td className="px-3 py-2 text-slate-500">{idx + 1}</td>
-                        <td className="px-3 py-2">{isEditing ? (
+                      <tr key={line.id || `new-w-${idx}`} className="border-b border-slate-100">
+                        <td className="px-2 py-1.5 text-slate-500">{idx + 1}</td>
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="text" value={line.weighment_name || ''} onChange={(e) => handleWeighmentChange(idx, 'weighment_name', e.target.value)} placeholder="Weighbridge name" className={inputClass} style={{ minWidth: '160px' }} />
                         ) : (line.weighment_name || '-')}</td>
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="text" value={line.weighment_number || ''} onChange={(e) => handleWeighmentChange(idx, 'weighment_number', e.target.value)} placeholder="Slip / Ticket No" className={inputClass} style={{ minWidth: '140px' }} />
                         ) : (line.weighment_number || '-')}</td>
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="number" step="0.001" min="0" value={line.first_weight || ''} onChange={(e) => handleWeighmentChange(idx, 'first_weight', e.target.value)} className={inputClass} style={{ minWidth: '110px' }} />
                         ) : (<span className="text-right block">{line.first_weight ?? '-'}</span>)}</td>
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="number" step="0.001" min="0" value={line.second_weight || ''} onChange={(e) => handleWeighmentChange(idx, 'second_weight', e.target.value)} className={inputClass} style={{ minWidth: '110px' }} />
                         ) : (<span className="text-right block">{line.second_weight ?? '-'}</span>)}</td>
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="number" step="0.001" min="0" value={line.tare_weight || ''} onChange={(e) => handleWeighmentChange(idx, 'tare_weight', e.target.value)} className={inputClass} style={{ minWidth: '110px' }} />
                         ) : (<span className="text-right block">{line.tare_weight ?? '-'}</span>)}</td>
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <CustomSelect value={line.uom || 'KG'} onChange={(e) => handleWeighmentChange(idx, 'uom', e.target.value)} className={inputClass} style={{ minWidth: '80px' }}>
                             {line.uom && !UOM_VALUES.includes(line.uom) && (
                               <option value={line.uom}>{line.uom}</option>
@@ -769,8 +764,8 @@ export default function ReceiptAdviceDetail() {
                           </CustomSelect>
                         ) : (line.uom || '-')}</td>
                         {isEditing && (
-                          <td className="px-3 py-2">
-                            <button onClick={() => handleRemoveWeighment(idx)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                          <td className="px-2 py-1.5">
+                            <button onClick={() => handleRemoveWeighment(idx)} className="text-red-500 hover:text-red-700"><Trash2 size={14} /></button>
                           </td>
                         )}
                       </tr>
@@ -782,12 +777,12 @@ export default function ReceiptAdviceDetail() {
           </div>
 
           {/* ==================== RECEIPT LINE ITEMS ==================== */}
-          <div className="bg-white rounded-lg border p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Receipt Line Items ({lines.length})</h3>
+          <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">Receipt Line Items ({lines.length})</h3>
               {isEditing && (
-                <button onClick={handleAddLine} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
-                  <Plus size={16} /> Add Line
+                <button onClick={handleAddLine} className="inline-flex items-center gap-1 px-2 py-1 bg-primary-50 text-primary-700 rounded text-[11px] font-medium hover:bg-primary-100">
+                  <Plus size={14} /> Add Line
                 </button>
               )}
             </div>
@@ -797,60 +792,54 @@ export default function ReceiptAdviceDetail() {
               </p>
             ) : (
               <div className="overflow-x-auto ios-scroll touch-pan-x">
-                <table className="w-full text-sm">
+                <table className="w-full text-[12px]">
                   <thead>
-                    <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b">
+                    <tr className="border-b border-slate-200">
                       {!isLineHidden('line_no') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">#</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">#</th>
                       )}
                       {!isLineHidden('product') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Product {isEditing && <span className="text-red-500">*</span>}</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Product {isEditing && <span className="text-red-500">*</span>}</th>
                       )}
-                      {/* Length / Breadth / Width / Weight live on the
-                          Packing Materials subform only — packing-material
-                          rows route there, and raw / finished goods don't
-                          carry dimensions on the receipt. */}
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">PO Line</th>
-                      {/* Labels renamed in this UI; underlying fields
-                          stay `quantity_received` / `net_quantity`. */}
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">PO Line</th>
                       {!isLineHidden('quantity_received') && (
-                        <th className="text-right px-3 py-2 font-medium text-slate-600">Invoice Quantity {isEditing && <span className="text-red-500">*</span>}</th>
+                        <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase">Inv Qty {isEditing && <span className="text-red-500">*</span>}</th>
                       )}
                       {!isLineHidden('net_quantity') && (
-                        <th className="text-right px-3 py-2 font-medium text-slate-600">Received Quantity</th>
+                        <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase">Rcvd Qty</th>
                       )}
-                      <th className="text-right px-3 py-2 font-medium text-slate-600">Difference in Qty</th>
+                      <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase">Diff</th>
                       {!isLineHidden('is_debit_note') && (
-                        <th className="text-center px-3 py-2 font-medium text-slate-600">Debit Note</th>
+                        <th style={{ fontSize: 9 }} className="text-center px-2 py-1.5 font-semibold text-slate-400 uppercase">DN</th>
                       )}
                       {!isLineHidden('uom') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">UOM</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">UOM</th>
                       )}
                       {!isLineHidden('batch_no') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Batch No</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Batch</th>
                       )}
                       {!isLineHidden('expiry_date') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Expiry Date</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Expiry</th>
                       )}
                       {!isLineHidden('godown_location') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Godown</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Godown</th>
                       )}
-                      <th className="text-right px-3 py-2 font-medium text-slate-600">Extra Comm.</th>
-                      <th className="text-right px-3 py-2 font-medium text-slate-600">Agent Comm.</th>
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">Remarks</th>
-                      {isEditing && <th className="px-3 py-2"></th>}
+                      <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase">Extra Comm.</th>
+                      <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase">Agent Comm.</th>
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Remarks</th>
+                      {isEditing && <th className="px-2 py-1.5"></th>}
                     </tr>
                   </thead>
                   <tbody>
                     {lines.map((line, idx) => (
-                      <tr key={line.id || `new-${idx}`} className="border-b">
+                      <tr key={line.id || `new-${idx}`} className="border-b border-slate-100">
                         {!isLineHidden('line_no') && (
-                        <td className="px-3 py-2 text-slate-500">{isEditing ? (
-                          <input type="number" value={line.line_no || ''} onChange={(e) => handleLineChange(idx, 'line_no', parseInt(e.target.value) || '')} disabled={isLineRO('line_no')} className={`w-14 px-1 py-1 border border-slate-300 rounded text-sm text-center${isLineRO('line_no') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
+                        <td className="px-2 py-1.5 text-slate-500">{isEditing ? (
+                          <input type="number" value={line.line_no || ''} onChange={(e) => handleLineChange(idx, 'line_no', parseInt(e.target.value) || '')} disabled={isLineRO('line_no')} className={`w-14 px-1 py-1 border border-slate-300 rounded text-xs text-center${isLineRO('line_no') ? ' bg-slate-100 cursor-not-allowed' : ''}`} />
                         ) : (line.line_no || idx + 1)}</td>
                         )}
                         {!isLineHidden('product') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           // Editing Goods rows still uses the Product
                           // dropdown. Machinery / Service lines are
                           // shown as a read-only label since they live
@@ -877,20 +866,20 @@ export default function ReceiptAdviceDetail() {
                           </span>
                         )}</td>
                         )}
-                        <td className="px-3 py-2 text-slate-600 text-xs">{line.po_line_info || '-'}</td>
+                        <td className="px-2 py-1.5 text-slate-600 text-[11px]">{line.po_line_info || '-'}</td>
                         {!isLineHidden('quantity_received') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="number" step="0.01" min="0" value={line.quantity_received || ''} onChange={(e) => handleLineChange(idx, 'quantity_received', e.target.value)} disabled={isLineRO('quantity_received')} className={isLineRO('quantity_received') ? lockedInputClass : inputClass} style={{ minWidth: '100px' }} />
                         ) : (<span className="text-right block">{line.quantity_received}</span>)}</td>
                         )}
                         {!isLineHidden('net_quantity') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="number" step="0.01" min="0" value={line.net_quantity || ''} onChange={(e) => handleLineChange(idx, 'net_quantity', e.target.value)} disabled={isLineRO('net_quantity')} className={isLineRO('net_quantity') ? lockedInputClass : inputClass} style={{ minWidth: '100px' }} />
                         ) : (
                           <span className="text-right block text-slate-800 font-medium">{line.net_quantity != null && line.net_quantity !== '' ? line.net_quantity : '-'}</span>
                         )}</td>
                         )}
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-2 py-1.5 text-right">
                           {(() => {
                             const rcvd = parseFloat(line.quantity_received) || 0;
                             const net = parseFloat(line.net_quantity);
@@ -901,7 +890,7 @@ export default function ReceiptAdviceDetail() {
                           })()}
                         </td>
                         {!isLineHidden('is_debit_note') && (
-                        <td className="px-3 py-2 text-center">
+                        <td className="px-2 py-1.5 text-center">
                           {isEditing ? (
                             <button
                               type="button"
@@ -916,59 +905,59 @@ export default function ReceiptAdviceDetail() {
                             </button>
                           ) : (
                             line.is_debit_note ? (
-                              <span className="inline-flex items-center px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded border border-emerald-200">Yes</span>
+                              <span className="inline-flex items-center px-1.5 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-semibold rounded border border-emerald-200">Yes</span>
                             ) : (
-                              <span className="text-slate-400 text-xs">No</span>
+                              <span className="text-slate-400 text-[10px]">No</span>
                             )
                           )}
                         </td>
                         )}
                         {!isLineHidden('uom') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="text" value={line.uom || ''} onChange={(e) => handleLineChange(idx, 'uom', e.target.value)} disabled={isLineRO('uom')} className={isLineRO('uom') ? lockedInputClass : inputClass} style={{ minWidth: '70px' }} placeholder="KG" />
                         ) : (line.uom || '-')}</td>
                         )}
                         {!isLineHidden('batch_no') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="text" value={line.batch_no || ''} onChange={(e) => handleLineChange(idx, 'batch_no', e.target.value)} disabled={isLineRO('batch_no')} className={isLineRO('batch_no') ? lockedInputClass : inputClass} style={{ minWidth: '100px' }} />
                         ) : (line.batch_no || '-')}</td>
                         )}
                         {!isLineHidden('expiry_date') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <CustomDatePicker value={line.expiry_date || ''} onChange={(e) => handleLineChange(idx, 'expiry_date', e.target.value)} disabled={isLineRO('expiry_date')} className={isLineRO('expiry_date') ? lockedInputClass : inputClass} style={{ minWidth: '130px' }} />
                         ) : (line.expiry_date ? fmtDate(line.expiry_date) : '-')}</td>
                         )}
                         {!isLineHidden('godown_location') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <CustomSelect value={line.godown_location || ''} onChange={(e) => handleLineChange(idx, 'godown_location', e.target.value || null)} disabled={isLineRO('godown_location')} className={isLineRO('godown_location') ? lockedInputClass : inputClass} style={{ minWidth: '130px' }}>
                             <option value="">Select Godown</option>
                             {godownOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </CustomSelect>
                         ) : (line.godown_name || '-')}</td>
                         )}
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="number" step="0.01" min="0" value={line.extra_commission || ''} onChange={(e) => handleLineChange(idx, 'extra_commission', e.target.value)} className={inputClass} style={{ minWidth: '90px' }} />
                         ) : (<span className="text-right block">{line.extra_commission || '0'}</span>)}</td>
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="number" step="0.01" min="0" value={line.agent_commission || ''} onChange={(e) => handleLineChange(idx, 'agent_commission', e.target.value)} className={inputClass} style={{ minWidth: '90px' }} />
                         ) : (<span className="text-right block">{line.agent_commission || '0'}</span>)}</td>
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="text" value={line.remarks || ''} onChange={(e) => handleLineChange(idx, 'remarks', e.target.value)} className={inputClass} style={{ minWidth: '120px' }} />
                         ) : (line.remarks || '-')}</td>
                         {isEditing && (
-                          <td className="px-3 py-2">
-                            <button onClick={() => handleRemoveLine(idx)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                          <td className="px-2 py-1.5">
+                            <button onClick={() => handleRemoveLine(idx)} className="text-red-500 hover:text-red-700"><Trash2 size={14} /></button>
                           </td>
                         )}
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-slate-50 font-semibold">
-                      <td colSpan="3" className="px-3 py-2 text-right">Total:</td>
-                      <td className="px-3 py-2 text-right">{lines.reduce((s, l) => s + (parseFloat(l.quantity_received) || 0), 0)}</td>
-                      <td className="px-3 py-2 text-right text-slate-800">{lines.reduce((s, l) => s + (parseFloat(l.net_quantity) || 0), 0) || '-'}</td>
-                      <td className="px-3 py-2 text-right text-red-600">{lines.reduce((s, l) => {
+                    <tr className="bg-slate-50 font-semibold text-[11px]">
+                      <td colSpan="3" className="px-2 py-1.5 text-right">Total:</td>
+                      <td className="px-2 py-1.5 text-right">{lines.reduce((s, l) => s + (parseFloat(l.quantity_received) || 0), 0)}</td>
+                      <td className="px-2 py-1.5 text-right text-slate-800">{lines.reduce((s, l) => s + (parseFloat(l.net_quantity) || 0), 0) || '-'}</td>
+                      <td className="px-2 py-1.5 text-right text-red-600">{lines.reduce((s, l) => {
                         const rcvd = parseFloat(l.quantity_received) || 0;
                         const net = parseFloat(l.net_quantity);
                         return !isNaN(net) ? s + Math.round((rcvd - net) * 100) / 100 : s;
@@ -983,14 +972,14 @@ export default function ReceiptAdviceDetail() {
 
           {/* Totals — Total Received + Receipt Status on one row
               (replaces the old Summary card). */}
-          <div className="bg-white rounded-lg border p-3 sm:p-4">
-            <div className="grid grid-cols-2 gap-x-4">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide">Total Received</span>
-                <span className="text-sm sm:text-base font-bold text-slate-900">{receipt.total_received || '0'}</span>
+          <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <span style={{ fontSize: 9, letterSpacing: '0.05em' }} className="text-slate-400 font-semibold uppercase">Total Received</span>
+                <span className="text-[13px] font-bold text-slate-900">{receipt.total_received || '0'}</span>
               </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] sm:text-xs text-slate-500 font-medium uppercase tracking-wide">Receipt Status</span>
+              <div className="flex items-center gap-2">
+                <span style={{ fontSize: 9, letterSpacing: '0.05em' }} className="text-slate-400 font-semibold uppercase">Status</span>
                 <StatusBadge status={receipt.receipt_status || (receipt.partial_receipt_flag ? 'Partial' : 'Full')} />
               </div>
             </div>
@@ -999,12 +988,12 @@ export default function ReceiptAdviceDetail() {
           {/* Pulled out to its own full-width row so the wider column set
               (dimensions, Invoice/Received qty, Diff, Batch, Godown,
               Remarks) has room to render — mirrors the Create form. */}
-          <div className="bg-white rounded-lg border p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-2 pb-1.5 border-b">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Packing Materials ({packingLines.length})</h3>
+          <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <h3 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider">Packing Materials ({packingLines.length})</h3>
               {isEditing && (
-                <button onClick={handleAddPacking} className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-lg text-sm font-medium hover:bg-primary-100">
-                  <Plus size={16} /> Add Packing Material
+                <button onClick={handleAddPacking} className="inline-flex items-center gap-1 px-2 py-1 bg-primary-50 text-primary-700 rounded text-[11px] font-medium hover:bg-primary-100">
+                  <Plus size={14} /> Add Packing
                 </button>
               )}
             </div>
@@ -1014,93 +1003,93 @@ export default function ReceiptAdviceDetail() {
               </p>
             ) : (
               <div className="overflow-x-auto ios-scroll touch-pan-x">
-                <table className="w-full text-sm">
+                <table className="w-full text-[12px]">
                   <thead>
-                    <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b">
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">#</th>
+                    <tr className="border-b border-slate-200">
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">#</th>
                       {!isPackHidden('packaging_sku') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Packaging SKU</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">SKU</th>
                       )}
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">PO Line</th>
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">PO Line</th>
                       {!isPackHidden('length') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Length</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">L</th>
                       )}
                       {!isPackHidden('breadth') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Breadth</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">B</th>
                       )}
                       {!isPackHidden('width') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Width</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">W</th>
                       )}
                       {!isPackHidden('weight') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Weight</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Wt</th>
                       )}
                       {!isPackHidden('quantity') && (
-                        <th className="text-right px-3 py-2 font-medium text-slate-600">Invoice Quantity</th>
+                        <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase">Inv Qty</th>
                       )}
                       {!isPackHidden('net_quantity') && (
-                        <th className="text-right px-3 py-2 font-medium text-slate-600">Received Quantity</th>
+                        <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase">Rcvd Qty</th>
                       )}
-                      <th className="text-right px-3 py-2 font-medium text-slate-600">Difference in Qty</th>
+                      <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase">Diff</th>
                       {!isPackHidden('uom') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">UOM</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">UOM</th>
                       )}
                       {!isPackHidden('batch_no') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Batch No</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Batch</th>
                       )}
                       {!isPackHidden('godown_location') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Godown</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Godown</th>
                       )}
                       {!isPackHidden('remarks') && (
-                        <th className="text-left px-3 py-2 font-medium text-slate-600">Remarks</th>
+                        <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Remarks</th>
                       )}
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">Condition</th>
-                      {isEditing && <th className="px-3 py-2"></th>}
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Cond.</th>
+                      {isEditing && <th className="px-2 py-1.5"></th>}
                     </tr>
                   </thead>
                   <tbody>
                     {packingLines.map((line, idx) => (
-                      <tr key={line.id || `new-p-${idx}`} className="border-b">
-                        <td className="px-3 py-2 text-slate-500">{idx + 1}</td>
+                      <tr key={line.id || `new-p-${idx}`} className="border-b border-slate-100">
+                        <td className="px-2 py-1.5 text-slate-500">{idx + 1}</td>
                         {!isPackHidden('packaging_sku') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <CustomSelect value={line.packaging_sku || ''} onChange={(e) => handlePackingChange(idx, 'packaging_sku', e.target.value)} disabled={isPackRO('packaging_sku')} className={isPackRO('packaging_sku') ? lockedInputClass : inputClass} style={{ minWidth: '180px' }}>
                             <option value="">Select Product</option>
                             {productOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </CustomSelect>
                         ) : (line.packaging_sku_name || '-')}</td>
                         )}
-                        <td className="px-3 py-2 text-slate-600 text-xs whitespace-nowrap">{line.po_line_info || '-'}</td>
+                        <td className="px-2 py-1.5 text-slate-600 text-[11px] whitespace-nowrap">{line.po_line_info || '-'}</td>
                         {!isPackHidden('length') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="number" min="0" step="any" value={line.length || ''} onChange={(e) => handlePackingChange(idx, 'length', e.target.value)} disabled={isPackRO('length')} placeholder="Length" className={isPackRO('length') ? lockedInputClass : inputClass} style={{ minWidth: '90px' }} />
                         ) : (line.length ?? '-')}</td>
                         )}
                         {!isPackHidden('breadth') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="number" min="0" step="any" value={line.breadth || ''} onChange={(e) => handlePackingChange(idx, 'breadth', e.target.value)} disabled={isPackRO('breadth')} placeholder="Breadth" className={isPackRO('breadth') ? lockedInputClass : inputClass} style={{ minWidth: '90px' }} />
                         ) : (line.breadth ?? '-')}</td>
                         )}
                         {!isPackHidden('width') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="number" min="0" step="any" value={line.width || ''} onChange={(e) => handlePackingChange(idx, 'width', e.target.value)} disabled={isPackRO('width')} placeholder="Width" className={isPackRO('width') ? lockedInputClass : inputClass} style={{ minWidth: '90px' }} />
                         ) : (line.width ?? '-')}</td>
                         )}
                         {!isPackHidden('weight') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="number" min="0" step="any" value={line.weight || ''} onChange={(e) => handlePackingChange(idx, 'weight', e.target.value)} disabled={isPackRO('weight')} placeholder="Weight" className={isPackRO('weight') ? lockedInputClass : inputClass} style={{ minWidth: '90px' }} />
                         ) : (line.weight ?? '-')}</td>
                         )}
                         {!isPackHidden('quantity') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="number" step="0.01" min="0" value={line.quantity || ''} onChange={(e) => handlePackingChange(idx, 'quantity', e.target.value)} disabled={isPackRO('quantity')} placeholder="0.00" className={isPackRO('quantity') ? lockedInputClass : inputClass} style={{ minWidth: '100px' }} />
                         ) : (<span className="text-right block">{line.quantity}</span>)}</td>
                         )}
                         {!isPackHidden('net_quantity') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="number" step="0.01" min="0" value={line.net_quantity || ''} onChange={(e) => handlePackingChange(idx, 'net_quantity', e.target.value)} disabled={isPackRO('net_quantity')} placeholder="0.00" className={isPackRO('net_quantity') ? lockedInputClass : inputClass} style={{ minWidth: '100px' }} />
                         ) : (<span className="text-right block">{line.net_quantity ?? '-'}</span>)}</td>
                         )}
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-2 py-1.5 text-right">
                           {(() => {
                             const inv = parseFloat(line.quantity) || 0;
                             const rcv = parseFloat(line.net_quantity);
@@ -1112,17 +1101,17 @@ export default function ReceiptAdviceDetail() {
                           })()}
                         </td>
                         {!isPackHidden('uom') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="text" value={line.uom || ''} onChange={(e) => handlePackingChange(idx, 'uom', e.target.value)} disabled={isPackRO('uom')} className={isPackRO('uom') ? lockedInputClass : inputClass} style={{ minWidth: '70px' }} />
                         ) : (line.uom || '-')}</td>
                         )}
                         {!isPackHidden('batch_no') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="text" value={line.batch_no || ''} onChange={(e) => handlePackingChange(idx, 'batch_no', e.target.value)} disabled={isPackRO('batch_no')} placeholder="Batch" className={isPackRO('batch_no') ? lockedInputClass : inputClass} style={{ minWidth: '100px' }} />
                         ) : (line.batch_no || '-')}</td>
                         )}
                         {!isPackHidden('godown_location') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <CustomSelect value={line.godown_location || ''} onChange={(e) => handlePackingChange(idx, 'godown_location', e.target.value)} disabled={isPackRO('godown_location')} className={isPackRO('godown_location') ? lockedInputClass : inputClass} style={{ minWidth: '130px' }}>
                             <option value="">Select Godown</option>
                             {godownOptions.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
@@ -1130,19 +1119,19 @@ export default function ReceiptAdviceDetail() {
                         ) : (line.godown_name || '-')}</td>
                         )}
                         {!isPackHidden('remarks') && (
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <input type="text" value={line.remarks || ''} onChange={(e) => handlePackingChange(idx, 'remarks', e.target.value)} disabled={isPackRO('remarks')} placeholder="Remarks" className={isPackRO('remarks') ? lockedInputClass : inputClass} style={{ minWidth: '120px' }} />
                         ) : (line.remarks || '-')}</td>
                         )}
-                        <td className="px-3 py-2">{isEditing ? (
+                        <td className="px-2 py-1.5">{isEditing ? (
                           <CustomSelect value={line.condition || ''} onChange={(e) => handlePackingChange(idx, 'condition', e.target.value)} className={inputClass} style={{ minWidth: '110px' }}>
                             <option value="NEW">New</option>
                             <option value="DAMAGED">Damaged</option>
                           </CustomSelect>
                         ) : (line.condition_display || line.condition || '-')}</td>
                         {isEditing && (
-                          <td className="px-3 py-2">
-                            <button onClick={() => handleRemovePacking(idx)} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
+                          <td className="px-2 py-1.5">
+                            <button onClick={() => handleRemovePacking(idx)} className="text-red-500 hover:text-red-700"><Trash2 size={14} /></button>
                           </td>
                         )}
                       </tr>
@@ -1154,19 +1143,12 @@ export default function ReceiptAdviceDetail() {
           </div>
 
           {/* ==================== ADDITIONAL INFORMATION ==================== */}
-          <div className="bg-white rounded-lg border p-3 sm:p-4">
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Additional Information</h3>
-            {!isHidden('remarks') && (
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-0.5">Remarks</label>
-              {isEditing ? (
-                <textarea name="remarks" value={editData.remarks || ''} onChange={handleChange} rows={2} disabled={isReadOnly('remarks')} className={isReadOnly('remarks') ? lockedInputClass : inputClass} />
-              ) : (
-                <p className="text-sm text-slate-700">{receipt.remarks || '-'}</p>
-              )}
-            </div>
-            )}
+          {!isHidden('remarks') && receipt.remarks && !isEditing && (
+          <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+            <p style={{ fontSize: 9, lineHeight: '12px', letterSpacing: '0.05em' }} className="font-semibold text-slate-400 uppercase">Remarks</p>
+            <p style={{ fontSize: 12, lineHeight: '16px' }} className="font-medium text-slate-700 mt-0.5">{receipt.remarks}</p>
           </div>
+          )}
 
           {/* ==================== FREIGHT DETAILS (removed by request) ==================== */}
           {false && (
@@ -1350,33 +1332,33 @@ export default function ReceiptAdviceDetail() {
 
           {/* ==================== LINKED FREIGHT ADVICES ==================== */}
           {(receipt.freight_advices || []).length > 0 && (
-            <div className="bg-white rounded-lg border p-3 sm:p-4">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Linked Freight Advices ({receipt.freight_advices.length})</h3>
+            <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+              <h3 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Linked Freight Advices ({receipt.freight_advices.length})</h3>
               <div className="overflow-x-auto ios-scroll touch-pan-x">
-                <table className="w-full text-sm">
+                <table className="w-full text-[12px]">
                   <thead>
-                    <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b">
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">Advice No</th>
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">Type</th>
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">Transporter</th>
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">Terms</th>
-                      <th className="text-right px-3 py-2 font-medium text-slate-600">Amount</th>
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">Lorry No</th>
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">Origin</th>
-                      <th className="text-left px-3 py-2 font-medium text-slate-600">Status</th>
+                    <tr className="border-b border-slate-200">
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Advice No</th>
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Type</th>
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Transporter</th>
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Terms</th>
+                      <th style={{ fontSize: 9 }} className="text-right px-2 py-1.5 font-semibold text-slate-400 uppercase">Amount</th>
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Lorry No</th>
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Origin</th>
+                      <th style={{ fontSize: 9 }} className="text-left px-2 py-1.5 font-semibold text-slate-400 uppercase">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {receipt.freight_advices.map((fa, idx) => (
-                      <tr key={fa.id || idx} className="border-b hover:bg-primary-50/40 transition-colors cursor-pointer" onClick={() => navigate(`/freight/purchase/${fa.id}`)}>
-                        <td className="px-3 py-2 text-primary-600 font-medium">{fa.advice_no}</td>
-                        <td className="px-3 py-2">{fa.freight_type_display || fa.freight_type || '-'}</td>
-                        <td className="px-3 py-2">{fa.transporter_name || '-'}</td>
-                        <td className="px-3 py-2">{fa.freight_terms_display || fa.freight_terms || '-'}</td>
-                        <td className="px-3 py-2 text-right font-medium">{'\u20B9'}{Number(fa.payable_amount || fa.base_amount || 0).toLocaleString()}</td>
-                        <td className="px-3 py-2">{fa.lorry_no || '-'}</td>
-                        <td className="px-3 py-2">{fa.destination_state || '-'}</td>
-                        <td className="px-3 py-2"><StatusBadge status={fa.status_display || fa.status} /></td>
+                      <tr key={fa.id || idx} className="border-b border-slate-100 hover:bg-primary-50/40 transition-colors cursor-pointer" onClick={() => navigate(`/freight/purchase/${fa.id}`)}>
+                        <td className="px-2 py-1.5 text-primary-600 font-medium">{fa.advice_no}</td>
+                        <td className="px-2 py-1.5">{fa.freight_type_display || fa.freight_type || '-'}</td>
+                        <td className="px-2 py-1.5">{fa.transporter_name || '-'}</td>
+                        <td className="px-2 py-1.5">{fa.freight_terms_display || fa.freight_terms || '-'}</td>
+                        <td className="px-2 py-1.5 text-right font-medium">{'\u20B9'}{Number(fa.payable_amount || fa.base_amount || 0).toLocaleString()}</td>
+                        <td className="px-2 py-1.5">{fa.lorry_no || '-'}</td>
+                        <td className="px-2 py-1.5">{fa.destination_state || '-'}</td>
+                        <td className="px-2 py-1.5"><StatusBadge status={fa.status_display || fa.status} /></td>
                       </tr>
                     ))}
                   </tbody>
@@ -1387,23 +1369,20 @@ export default function ReceiptAdviceDetail() {
 
           {/* Bottom Action Bar */}
           {isEditing && (
-            <div className="flex justify-end gap-3 pt-2">
-              <button onClick={handleCancel} className="px-4 sm:px-6 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50">
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={handleCancel} className="px-3 py-1.5 text-[12px] font-medium text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50">
                 Cancel
               </button>
-              <button onClick={handleSave} disabled={isSaving} className="px-4 sm:px-6 py-2.5 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
+              <button onClick={handleSave} disabled={isSaving} className="px-3 py-1.5 text-[12px] font-medium text-white bg-primary-600 rounded hover:bg-primary-700 disabled:opacity-50">
                 {isSaving ? 'Saving...' : 'Save'}
               </button>
             </div>
           )}
-        </div>
-
-      </div>
 
       {/* Actions + Audit share a row; Attachments gets its own full row. */}
-      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 sm:gap-5 mt-3 sm:mt-6 items-start">
-          <div className="bg-white rounded-lg border p-3 sm:p-4">
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Actions</h3>
+      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-2 mt-2 items-start">
+          <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+            <h3 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Actions</h3>
             {/* Two-up — the Actions card now sits in a half-width row next
                 to Audit, so two buttons per row keeps labels readable. */}
             <div className="grid grid-cols-2 gap-2">
@@ -1552,23 +1531,26 @@ export default function ReceiptAdviceDetail() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border p-3 sm:p-4">
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2">Audit</h3>
-            <div className="space-y-2 text-sm text-slate-600">
+          <div className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+            <h3 style={{ fontSize: 11 }} className="font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Audit</h3>
+            <div className="space-y-1 text-[12px] text-slate-600">
               <div className="flex justify-between"><span>Created</span><span>{fmtDate(receipt.created_at)}</span></div>
               <div className="flex justify-between"><span>Updated</span><span>{fmtDate(receipt.updated_at)}</span></div>
             </div>
           </div>
       </div>
 
-      {/* Attachments on its own full-width row. */}
-      <div className="mt-3 sm:mt-6">
-        <FileAttachments module="RECEIPT" recordId={id} className="mt-0" />
+      {/* Attachments + Activity */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+        <div className="bg-white rounded-lg border border-slate-200">
+          <FileAttachments module="RECEIPT" recordId={id} className="mt-0" />
+        </div>
+        <div className="bg-white rounded-lg border border-slate-200">
+          <ActivityLog module="Receipt Advice" recordId={id} />
+        </div>
       </div>
 
-      <div className="mt-3 sm:mt-6">
-        <ActivityLog module="Receipt Advice" recordId={id} />
-      </div>
+      </div>{/* /max-w-6xl */}
     </MainLayout>
   );
 }

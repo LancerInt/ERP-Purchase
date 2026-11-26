@@ -268,12 +268,12 @@ function EvaluationListTab() {
         config={{
           title: (row) => row.evaluation_id || row.rfq_no || row.id,
           subtitle: (row) => row.recommended_vendor_name || row.evaluated_by_name,
+          meta: (row) => formatDate(row.evaluation_date),
           badge: (row) => {
             const s = row.approval_status_display || row.approval_status;
             return { label: s || '-', cls: s === 'APPROVED' || s === 'Approved' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-slate-100 text-slate-700 border-slate-200' };
           },
           fields: (row) => [
-            { label: 'Date',     value: formatDate(row.evaluation_date) },
             { label: 'By',       value: row.evaluated_by_name },
             { label: 'PRs',      value: (row.linked_pr_numbers || []).join(', ') || null },
           ],
