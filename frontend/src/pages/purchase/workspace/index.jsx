@@ -222,6 +222,8 @@ export default function PurchaseWorkspace() {
   const [showExact, setShowExact] = useState(false); // "detailed figures" toggle
   const [drillPivot, setDrillPivot] = useState(null); // item-rate-trend mode=pivot (vendor x month)
   const [branchTx, setBranchTx] = useState(null);   // branch-transfers payload
+  const [branchOpen, setBranchOpen] = useState(null);    // expanded branch bill id
+  const [branchBillLines, setBranchBillLines] = useState({}); // {bill_id: {loading, lines}}
 
   // ── Item Analytics UI state ──
   const [itemCat, setItemCat] = useState('');       // category filter (''=All)
@@ -251,6 +253,17 @@ export default function PurchaseWorkspace() {
       apiClient.get(`/api/purchase/item-vendor-bills/?item=${encodeURIComponent(drillItem)}&vendor=${encodeURIComponent(vendor)}&${cp}from=${dateFrom}&to=${dateTo}`)
         .then(r => setDrillVendorBills(prev => ({ ...prev, [vendor]: { loading: false, rows: r.data?.rows || [] } })))
         .catch(() => setDrillVendorBills(prev => ({ ...prev, [vendor]: { loading: false, rows: [] } })));
+    }
+  };
+  // Branch bill drill: expand a branch bill to its line items (from the bill detail).
+  const toggleBranchBill = (billId) => {
+    if (branchOpen === billId) { setBranchOpen(null); return; }
+    setBranchOpen(billId);
+    if (!branchBillLines[billId]) {
+      setBranchBillLines(prev => ({ ...prev, [billId]: { loading: true, lines: [] } }));
+      apiClient.get(`/api/purchase/bills/${billId}/`)
+        .then(r => setBranchBillLines(prev => ({ ...prev, [billId]: { loading: false, lines: r.data?.bill_lines || [] } })))
+        .catch(() => setBranchBillLines(prev => ({ ...prev, [billId]: { loading: false, lines: [] } })));
     }
   };
   const toggleGroup = (title) => setExpandedGroups(prev => ({ ...prev, [title]: !prev[title] }));
@@ -400,6 +413,8 @@ export default function PurchaseWorkspace() {
 
   // A new item / company / period invalidates the cached vendor-bill drills.
   useEffect(() => { setDrillOpenVendor(null); setDrillVendorBills({}); }, [drillItem, company, dateFrom, dateTo]);
+  // Collapse any open branch-bill drill when the scope changes.
+  useEffect(() => { setBranchOpen(null); setBranchBillLines({}); }, [company, dateFrom, dateTo]);
 
   // Collapse any open Item-Analytics product row when the scope changes.
   useEffect(() => { setItemOpen(null); }, [itemCat, company, dateFrom, dateTo]);
@@ -1231,15 +1246,60 @@ export default function PurchaseWorkspace() {
                           <table className="min-w-[640px] w-full">
                             <thead><tr><TH>Invoice #</TH><TH>Date</TH><TH>Branch</TH><TH right>Taxable</TH><TH right>Total (incl GST)</TH></tr></thead>
                             <tbody>
-                              {branchBills.map((r, i) => (
-                                <tr key={i} className="hover:bg-slate-50">
-                                  <TD clickable onClick={() => navigate(`/purchase/bills?quick=${r.bill_id}`)}>{r.bill_no || '—'}</TD>
-                                  <TD color="text-slate-500">{fmtDate(r.bill_date)}</TD>
-                                  <TD color="text-slate-600">{r.branch}</TD>
-                                  <TD right>{fmtINR(r.taxable)}</TD>
-                                  <TD right bold color="text-slate-900">{fmtINR(r.total)}</TD>
-                                </tr>
-                              ))}
+                              {branchBills.map((r, i) => {
+                                const open = branchOpen === r.bill_id;
+                                const det = branchBillLines[r.bill_id];
+                                return (
+                                  <React.Fragment key={i}>
+                                    <tr onClick={() => toggleBranchBill(r.bill_id)}
+                                      className={`cursor-pointer hover:bg-slate-50 ${open ? 'bg-indigo-50/60' : ''}`}>
+                                      <TD bold>
+                                        <ChevronDown size={12} className={`inline-block mr-1 text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
+                                        <span className="text-indigo-600 hover:underline" onClick={(e) => { e.stopPropagation(); navigate(`/purchase/bills?quick=${r.bill_id}`); }}>{r.bill_no || '—'}</span>
+                                      </TD>
+                                      <TD color="text-slate-500">{fmtDate(r.bill_date)}</TD>
+                                      <TD color="text-slate-600">{r.branch}</TD>
+                                      <TD right>{fmtINR(r.taxable)}</TD>
+                                      <TD right bold color="text-slate-900">{fmtINR(r.total)}</TD>
+                                    </tr>
+                                    {open && (
+                                      <tr>
+                                        <td colSpan={5} className="bg-slate-50 border-t border-slate-200 px-3 py-2">
+                                          {det?.loading ? (
+                                            <div className="text-[11px] text-slate-400 py-2">Loading line items…</div>
+                                          ) : (det?.lines?.length ? (
+                                            <div className="bg-white rounded-md border border-slate-200 overflow-x-auto">
+                                              <table className="w-full min-w-[520px]">
+                                                <thead><tr>
+                                                  <th className="text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-slate-200">Item</th>
+                                                  <TH>UOM</TH><TH right>Qty</TH><TH right>Rate</TH><TH right>Tax%</TH><TH right>Amount</TH>
+                                                </tr></thead>
+                                                <tbody>
+                                                  {det.lines.map((l, li) => {
+                                                    const tax = Number(l.tax_percent) > 0 ? Number(l.tax_percent) : Number(l.effective_tax_percent) || 0;
+                                                    return (
+                                                      <tr key={li} className="hover:bg-slate-50">
+                                                        <TD bold>{l.item_name || l.product_name || l.description || '—'}</TD>
+                                                        <TD color="text-slate-400">{l.uom || '—'}</TD>
+                                                        <TD right>{l.quantity != null ? fmtQty(l.quantity) : '—'}</TD>
+                                                        <TD right>{l.rate != null ? fmtRup(l.rate) : '—'}</TD>
+                                                        <TD right>{tax ? `${tax}%` : '—'}</TD>
+                                                        <TD right bold color="text-slate-900">{l.amount != null ? fmtINR(l.amount) : '—'}</TD>
+                                                      </tr>
+                                                    );
+                                                  })}
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          ) : (
+                                            <div className="text-[11px] text-slate-400 py-2">No line items on this bill.</div>
+                                          ))}
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
                               {branchBills.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate-400 text-sm">No branch bills for this period</td></tr>}
                             </tbody>
                           </table>

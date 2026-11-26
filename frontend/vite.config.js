@@ -37,16 +37,18 @@ export default defineConfig({
       interval: 300,
     },
     proxy: {
-      // This standalone's Django dev server runs on :8200 (see run_server.bat),
-      // not the ERP default :8000. Proxy /api and /media there.
+      // This standalone's Django dev server runs on :8200 (see run_server.bat).
+      // The target is env-overridable so a dev whose Django is on another port
+      // (e.g. the main ERP's :8000) can set VITE_API_TARGET without editing this
+      // file — avoids the proxy port flip-flopping in git.
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_API_TARGET || 'http://localhost:8200',
         changeOrigin: true,
       },
       // Uploaded media (e.g. staff photos) is served by Django in dev —
       // proxy it so file_url (/media/...) resolves through Vite.
       '/media': {
-        target: 'http://localhost:8000',
+        target: process.env.VITE_API_TARGET || 'http://localhost:8200',
         changeOrigin: true,
       },
     },
