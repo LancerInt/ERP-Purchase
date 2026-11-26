@@ -91,13 +91,43 @@ ROLE_GRID = {
         'Product':           VIEW,
         'Dashboard':         VIEW,
     },
+    # Office Management (Purchase) — read-only office role that sees ONLY the
+    # Purchase module in the sidebar. Grants VIEW both on the sidebar's module
+    # names (so the menu items pass canView) and on the data/endpoint modules
+    # the Purchase pages actually call (so the API returns data).
+    'Office Management (Purchase)': {
+        # Sidebar-item module names (nav `module` props).
+        'Purchase Analytics': VIEW,   # Analytics item
+        'Vendor Insights':    VIEW,   # Vendor Insights item
+        'Vendor Bill':        VIEW,   # Bills item
+        'Payment Entries':    VIEW,   # Payment Entries item
+        'Reports':            VIEW,   # Purchase Report item
+        # Underlying data / endpoint modules the pages read.
+        'Purchase Dashboard': VIEW,
+        'Payment Made':       VIEW,
+        'Vendor':             VIEW,
+        'Vendor Ledger':      VIEW,
+        'Consolidated Report': VIEW,
+        'Dashboard':          VIEW,
+    },
 }
+
+# Sidebar module names that the nav uses but setup_admin does not create. The
+# frontend's canView() checks these exact names, so they must exist as modules
+# for the Office Management (Purchase) menu to show. Created view-only.
+SIDEBAR_MODULES = [
+    ('Purchase Analytics', 'purchase-analytics', 'Purchase analytics pages', 'bar-chart-3', 101, 'PURCHASE'),
+    ('Vendor Insights', 'vendor-insights', 'Vendor insights (Vendor 360)', 'users', 102, 'PURCHASE'),
+    ('Payment Entries', 'payment-entries', 'Purchase payment entries', 'credit-card', 108, 'PURCHASE'),
+    ('Reports', 'reports', 'Consolidated reports', 'bar-chart-3', 120, 'PURCHASE'),
+]
 
 # Demo logins: (username, password, role, first, last).
 USERS = [
     ('wc', 'Pass@123', 'Warehouse Coordinator', 'Warehouse', 'Coordinator'),
     ('wm', 'Pass@123', 'Warehouse Manager',     'Warehouse', 'Manager'),
     ('pc', 'Pass@123', 'Purchase Coordinator',  'Purchase',  'Coordinator'),
+    ('office', 'Pass@123', 'Office Management (Purchase)', 'Office', 'Management'),
 ]
 
 
@@ -112,6 +142,18 @@ class Command(BaseCommand):
         if not company or not warehouse:
             w(self.style.ERROR('No Company/Warehouse — run setup_admin first.'))
             return
+
+        # --- Ensure sidebar-only modules exist (nav names setup_admin omits) ---
+        made = 0
+        for name, slug, description, icon, order, category in SIDEBAR_MODULES:
+            _, created = ERPModule.objects.get_or_create(
+                slug=slug,
+                defaults={'name': name, 'description': description, 'icon': icon,
+                          'order': order, 'category': category, 'is_active': True})
+            if created:
+                made += 1
+        if made:
+            w(self.style.SUCCESS(f'  sidebar modules created: {made}'))
 
         # --- Roles + permission grid ---
         for role_name, grid in ROLE_GRID.items():
@@ -168,4 +210,5 @@ class Command(BaseCommand):
         w('  wc / Pass@123  - Warehouse Coordinator (create + submit PR)')
         w('  wm / Pass@123  - Warehouse Manager   (proceed -> Factory Approved)')
         w('  pc / Pass@123  - Purchase Coordinator (final approve/reject; owns PO)')
+        w('  office / Pass@123 - Office Management (Purchase) (Purchase module, view-only)')
         w(self.style.SUCCESS('=' * 52))

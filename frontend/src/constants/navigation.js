@@ -375,6 +375,7 @@ export const ROLE_PRIMARY = {
   'hr coordinator (office)': 'hr',
   'warehouse hr coordinator': 'hr',
   'office manager': 'sales',
+  'office management (purchase)': 'purchase',
   'it admin': 'admin',
 };
 
@@ -423,6 +424,18 @@ export const ROLE_ITEM_WHITELIST = {
       '/purchase/evaluations',   // Evaluations
       '/purchase/orders',        // Orders (PO)
       '/purchase/receipts',      // Receipts
+    ] },
+  ],
+  // Office Management (Purchase) — a trimmed office role that sees ONLY the
+  // Purchase module (read-only). Separate from the broad 'office management'
+  // role below so that one is untouched.
+  'office management (purchase)': [
+    { section: 'purchase', items: [
+      '/purchase/dashboard',               // Analytics (Purchase Analytics)
+      '/purchase/vendor-insights',         // Vendor Insights
+      '/purchase/bills',                   // Bills
+      '/purchase/payment-entries',         // Payment Entries
+      '/reports/summary?tab=purchase',     // Purchase Report
     ] },
   ],
   'office management': [
