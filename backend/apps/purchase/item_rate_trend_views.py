@@ -24,6 +24,16 @@ from rest_framework.permissions import IsAuthenticated
 Z = Decimal('0')
 
 
+def _branch_line_q():
+    """branch_transfer_q() prefixed for a VendorBillLine queryset. Branch
+    transfers are internal stock moves, not purchases, so every item/vendor
+    analytic here excludes them — the same rule the dashboard applies to bills."""
+    from django.db.models import Q
+    return (Q(bill__vendor_invoice_no__istartswith='DC/')
+            | Q(bill__vendor__is_branch=True)
+            | Q(bill__purchase_category='BRANCH'))
+
+
 def _pd(s):
     try:
         return datetime.date.fromisoformat((s or '')[:10])
@@ -46,8 +56,12 @@ class PurchaseItemRateTrendView(APIView):
         to = _pd(request.query_params.get('to'))
         mode = (request.query_params.get('mode') or '').strip().lower()
 
+        # Branch transfers are internal stock moves, NOT purchases — excluded
+        # (see _branch_line_q), else a branch vendor's bills inflate item
+        # qty/value and show up as a "vendor" in the comparisons.
         qs = (VendorBillLine.objects.filter(is_active=True, product__isnull=False)
               .exclude(bill__status='CANCELLED')
+              .exclude(_branch_line_q())
               .select_related('bill', 'bill__vendor', 'product'))
         if company:
             qs = qs.filter(bill__vendor__company_id=company)
@@ -291,6 +305,7 @@ class PurchaseItemVendorBillsView(APIView):
 
         qs = (VendorBillLine.objects.filter(is_active=True)
               .exclude(bill__status='CANCELLED')
+              .exclude(_branch_line_q())
               .select_related('bill', 'bill__vendor', 'product'))
         if company:
             qs = qs.filter(bill__vendor__company_id=company)
@@ -369,6 +384,7 @@ class PurchaseVendorTurnoverView(APIView):
 
         qs = (VendorBillLine.objects.filter(is_active=True)
               .exclude(bill__status='CANCELLED')
+              .exclude(_branch_line_q())
               .select_related('bill', 'bill__vendor', 'product'))
         if company:
             qs = qs.filter(bill__vendor__company_id=company)
