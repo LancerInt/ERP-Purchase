@@ -33,6 +33,9 @@ const fmtINR = (v) => {
   return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 };
 const fmtRup = (v) => `₹${Math.round(num(v)).toLocaleString('en-IN')}`;
+// Opening / adjustment: signed, compact, em-dash when zero (mirrors the live
+// ERP's "OPENING / ADJ" column, e.g. "+₹3,35,260" / "-₹20,882" / "—").
+const fmtAdj = (v) => { const n = num(v); if (!n) return '—'; return `${n > 0 ? '+' : '-'}${fmtINR(Math.abs(n))}`; };
 const fmtDate = (iso) => (iso ? formatDate(iso) : '—');
 const fmtQty = (v) => num(v).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 // 'YYYY-MM' -> 'Nov 26'
@@ -163,7 +166,7 @@ function Card({ label, value, sub, color, borderColor }) {
 // A faint vertical divider on every cell except the first, so columns read as
 // separate across every analytics table. `first` drops the left border.
 function TH({ children, right, first }) {
-  return <th className={`${right ? 'text-right' : 'text-left'} sticky top-0 z-10 px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-slate-200 ${first ? '' : 'border-l border-slate-200'}`}>{children}</th>;
+  return <th className={`${right ? 'text-right' : 'text-left'} sticky top-0 z-10 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-slate-100 border-b-2 border-slate-300 ${first ? '' : 'border-l border-slate-200'}`}>{children}</th>;
 }
 function TD({ children, right, bold, color, clickable, onClick, first }) {
   // Numeric (right-aligned) cells read as values, so they default to semibold;
@@ -754,9 +757,9 @@ export default function PurchaseWorkspace() {
     const rows = vendorBreakdown
       .map(r => ({
         name: r.vendor_name || '(no vendor)',
-        billed: num(r.billed), paid: num(r.paid),
+        billed: num(r.billed), paid: num(r.paid), opening: num(r.opening),
         outstanding: num(r.outstanding), overdue: num(r.overdue),
-        is_msme: r.is_msme,
+        overdue_days: num(r.overdue_days), is_msme: r.is_msme,
       }))
       .filter(r => r.billed > 0 || r.outstanding > 0)
       .filter(r => !topMsme || (topMsme === 'msme' ? r.is_msme : !r.is_msme))
@@ -1237,9 +1240,11 @@ export default function PurchaseWorkspace() {
   // Top Vendors
   const expTopVendors = useMemo(() => ({
     cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'billed', header: 'Billed' },
-      { field: 'payable', header: 'Payable' }, { field: 'overdue', header: 'Overdue' }, { field: 'pct', header: '% of total' }],
+      { field: 'opening', header: 'Opening / Adj' }, { field: 'payable', header: 'Payable' },
+      { field: 'overdue', header: 'Overdue' }, { field: 'days', header: 'Overdue (Days)' }, { field: 'pct', header: '% of total' }],
     data: topVendors.map(r => ({ vendor: r.name + (r.is_msme ? ' (MSME)' : ''), billed: fmtRup(r.billed),
-      payable: fmtRup(r.outstanding), overdue: fmtRup(r.overdue), pct: `${r.pct.toFixed(1)}%` })),
+      opening: fmtAdj(r.opening), payable: fmtRup(r.outstanding), overdue: fmtRup(r.overdue),
+      days: r.overdue_days ? `${r.overdue_days}d` : '—', pct: `${r.pct.toFixed(1)}%` })),
   }), [topVendors]);
 
   // Item Analytics — Product Summary, EXPANDED: every product row followed by
@@ -2112,18 +2117,20 @@ export default function PurchaseWorkspace() {
                 </div>
                 <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                   <table className="w-full">
-                    <thead><tr><TH>Vendor</TH><TH right>Billed</TH><TH right>Payable</TH><TH right>Overdue</TH><TH right>% of total</TH></tr></thead>
+                    <thead><tr><TH first>Vendor</TH><TH right>Billed</TH><TH right>Opening / Adj</TH><TH right>Payable</TH><TH right>Overdue</TH><TH right>Overdue (Days)</TH><TH right>% of total</TH></tr></thead>
                     <tbody>
                       {topVendors.map((r, i) => (
                         <tr key={i} className="hover:bg-slate-50">
-                          <TD bold>{r.name}{r.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
+                          <TD first bold>{r.name}{r.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
                           <TD right>{fmtINR(r.billed)}</TD>
-                          <TD right color="text-amber-600">{r.outstanding ? fmtINR(r.outstanding) : '—'}</TD>
+                          <TD right color={r.opening > 0 ? 'text-emerald-700' : r.opening < 0 ? 'text-red-600' : 'text-slate-400'}>{fmtAdj(r.opening)}</TD>
+                          <TD right bold color="text-amber-600">{r.outstanding ? fmtINR(r.outstanding) : '—'}</TD>
                           <TD right color="text-red-600">{r.overdue ? fmtINR(r.overdue) : '—'}</TD>
+                          <TD right color={r.overdue_days ? 'text-red-600' : 'text-slate-400'}>{r.overdue_days ? `${r.overdue_days}d` : '—'}</TD>
                           <TD right color="text-slate-400">{r.pct.toFixed(1)}%</TD>
                         </tr>
                       ))}
-                      {topVendors.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate-400 text-sm">No vendor data for this period</td></tr>}
+                      {topVendors.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate-400 text-sm">No vendor data for this period</td></tr>}
                     </tbody>
                   </table>
                 </div>

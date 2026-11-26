@@ -1306,6 +1306,7 @@ class PurchaseDashboardView(APIView):
                 'bill_count': b['bill_count'] if b else 0,
                 'billed': _money(billed_net),
                 'paid': _money(paid),
+                'opening': _money(opening),
                 'outstanding': _money(balance),
                 'overdue': _money((b['overdue'] if b else _ZERO) or _ZERO),
                 'overdue_days': ((today - b['oldest_overdue']).days
@@ -1318,7 +1319,7 @@ class PurchaseDashboardView(APIView):
         for nm, amt in (op_names if msme is None else []):
             out.append({
                 'vendor_id': None, 'vendor_name': nm, 'company_name': '', 'bill_count': 0,
-                'billed': _money(_ZERO), 'paid': _money(_ZERO),
+                'billed': _money(_ZERO), 'paid': _money(_ZERO), 'opening': _money(amt),
                 'outstanding': _money(amt), 'overdue': _money(_ZERO), 'overdue_days': 0,
                 'paid_pct': 0.0, '_sort': abs(float(amt)),
             })
