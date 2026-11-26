@@ -98,6 +98,8 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       toast.success(`Vendor "${res.data.vendor_name}" created!`);
+      // No PAN → warn once that TDS will apply at the higher 206AA rate.
+      if (!form.pan.trim()) toast('No PAN on this vendor — higher TDS (206AA) will apply.', { icon: '⚠️', duration: 5000 });
       clearLookupCache('/api/vendors/');
       onCreated(res.data);
       onClose();
@@ -195,9 +197,6 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
             </Field>
             <Field label="PAN" required={isRegisteredTreatment(form.gst_treatment)} error={errors.pan}>
               <input type="text" name="pan" value={form.pan} onChange={handleChange} maxLength={10} className={fieldClass('pan')} placeholder="Enter PAN" />
-              {!form.pan.trim() && !errors.pan && (
-                <p className="mt-1 text-[11px] text-amber-600">No PAN → higher TDS applies.</p>
-              )}
             </Field>
           </div>
 
