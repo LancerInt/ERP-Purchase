@@ -872,6 +872,11 @@ export default function ReportsSummary() {
   };
   const withScope = (path) => { const q = scopeQS(); return q ? `${path}${path.includes('?') ? '&' : '?'}${q}` : path; };
   const partyHref = (key) => (tab.link ? withScope(tab.link(key)) : null);
+  // Link straight to ONE bill/invoice's quick-view (?quick=<id>), scoped to the
+  // active company. Falls back to the vendor filter when the row has no id.
+  const billHref = (id, vendorKey) => (id && tab.listRoute
+    ? withScope(`${tab.listRoute}?quick=${encodeURIComponent(id)}`)
+    : partyHref(vendorKey));
   // Each category bar opens that category's actual bills (the Bills page reads
   // ?purchase_category=), scoped to the same company & period — so a click
   // shows the rows behind the number. 'Unclassified' has no category filter, so
@@ -1641,7 +1646,12 @@ export default function ReportsSummary() {
                                       {bills.length === 0 && <tr><td colSpan={5} className="px-2 py-3 text-center text-xs text-slate-400">No open bills.</td></tr>}
                                       {bills.map((b, i) => (
                                         <tr key={i} className="hover:bg-white">
-                                          <td className="px-2 py-1 font-medium text-slate-700">{b.no}</td>
+                                          <td className="px-2 py-1 font-medium text-slate-700">
+                                            {(b._r && (b._r.id || b._r.bill_id)) ? (
+                                              <a href={billHref(b._r.id || b._r.bill_id, r._key) || '#'} className="text-blue-600 hover:underline"
+                                                onClick={(e) => { e.preventDefault(); const h = billHref(b._r.id || b._r.bill_id, r._key); if (h) navigate(h.replace(window.location.origin, '')); }}>{b.no}</a>
+                                            ) : b.no}
+                                          </td>
                                           <td className="px-2 py-1 text-slate-500">{b.date || '—'}</td>
                                           <td className="px-2 py-1 text-slate-500">{b.due || '—'}</td>
                                           <td className="px-2 py-1 text-right tabular-nums text-rose-600">{INR(b.out)}</td>
@@ -1766,8 +1776,8 @@ export default function ReportsSummary() {
                                       {!inflow && it.msme && <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full text-indigo-700 bg-indigo-50 border border-indigo-200">MSME</span>}
                                     </td>
                                     <td className="px-4 py-2">
-                                      <a href={partyHref(it.vendor) || '#'} className="text-blue-600 font-semibold hover:underline"
-                                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); const h = partyHref(it.vendor); if (h) navigate(h.replace(window.location.origin, '')); }}>{it.no}</a>
+                                      <a href={billHref(it.id, it.vendor) || '#'} className="text-blue-600 font-semibold hover:underline"
+                                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); const h = billHref(it.id, it.vendor); if (h) navigate(h.replace(window.location.origin, '')); }}>{it.no}</a>
                                     </td>
                                     {showCat && <td className="px-4 py-2">{it.cat ? <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${catTone(it.cat)}`}>{catLabel(it.cat)}</span> : <span className="text-slate-300">—</span>}</td>}
                                     <td className="px-4 py-2 text-slate-500">{it.date || '—'}</td>
