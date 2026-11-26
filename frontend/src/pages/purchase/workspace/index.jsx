@@ -2178,25 +2178,37 @@ export default function PurchaseWorkspace() {
                                 {vendors.length > 0 ? (
                                   <div className="bg-white rounded-md border border-slate-200 overflow-auto max-h-[50vh]">
                                     <table className="w-full min-w-[640px]">
-                                      <thead><tr>
-                                        <th className="sticky top-0 left-0 z-20 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200">Vendor</th>
-                                        <TH>UOM</TH>
-                                        {itemMonths.map(m => <th key={m} className="sticky top-0 z-10 text-right px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200 min-w-[88px]">{monthLabel(m)}</th>)}
-                                        <TH right>Total Qty</TH><TH right>Total Value</TH>
-                                      </tr></thead>
+                                      <thead>
+                                        <tr>
+                                          <th rowSpan={2} className="sticky top-0 left-0 z-20 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-slate-200">Vendor</th>
+                                          <th rowSpan={2} className="sticky top-0 z-10 bg-slate-100 text-left px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 border-b-2 border-l border-slate-200">UOM</th>
+                                          {itemMonths.map(m => <th key={m} colSpan={2} className="sticky top-0 z-10 text-center px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b border-l border-slate-200">{monthLabel(m)}</th>)}
+                                          <th rowSpan={2} className="sticky top-0 z-10 text-right px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total Qty</th>
+                                          <th rowSpan={2} className="sticky top-0 z-10 text-right px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-indigo-700 bg-slate-100 border-b-2 border-l border-slate-200">Total Value</th>
+                                        </tr>
+                                        <tr>
+                                          {itemMonths.map(m => (
+                                            <React.Fragment key={m}>
+                                              <th className="sticky top-[22px] z-10 text-right px-2 py-1 text-[8px] font-semibold uppercase text-slate-500 bg-slate-50 border-b-2 border-l border-slate-200 min-w-[52px]">Qty</th>
+                                              <th className="sticky top-[22px] z-10 text-right px-2 py-1 text-[8px] font-semibold uppercase text-slate-500 bg-slate-50 border-b-2 border-slate-200 min-w-[62px]">Rate</th>
+                                            </React.Fragment>
+                                          ))}
+                                        </tr>
+                                      </thead>
                                       <tbody>
                                         {vendors.map((v, vi) => (
                                           <tr key={vi} className={`hover:bg-slate-50 ${v.cheapest ? 'bg-emerald-50/50' : ''}`}>
                                             <td className={`sticky left-0 px-2 py-1.5 text-[11px] font-semibold border-b border-slate-100 z-10 ${v.cheapest ? 'bg-emerald-50/50' : 'bg-white'}`}>
-                                              {v.vendor}{v.cheapest && <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wide text-emerald-700">cheapest</span>}
+                                              {v.vendor}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}{v.cheapest && <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wide text-emerald-700">cheapest</span>}
                                             </td>
                                             <td className="px-2 py-1.5 text-[11px] text-slate-400 border-b border-slate-100">{r.uom || '—'}</td>
                                             {itemMonths.map(m => {
                                               const c = v.cells[m];
                                               return (
-                                                <td key={m} className="text-right px-2 py-1.5 text-[10px] tabular-nums font-semibold border-b border-l border-slate-100">
-                                                  {c ? <span className="text-slate-700">{fmtQty(c.qty)}<span className="text-slate-400"> · {fmtRup((c.rate || 0) * (c.qty || 0))}</span></span> : <span className="text-slate-300">—</span>}
-                                                </td>
+                                                <React.Fragment key={m}>
+                                                  <td className="text-right px-2 py-1.5 text-[10px] tabular-nums font-semibold text-slate-700 border-b border-l border-slate-100">{c && c.qty ? fmtQty(c.qty) : <span className="text-slate-300">—</span>}</td>
+                                                  <td className="text-right px-2 py-1.5 text-[10px] tabular-nums text-slate-600 border-b border-slate-100">{c && c.qty ? fmtRup(c.rate || 0) : <span className="text-slate-300">—</span>}</td>
+                                                </React.Fragment>
                                               );
                                             })}
                                             <td className="text-right px-2 py-1.5 text-[11px] tabular-nums font-semibold border-b border-l border-slate-200">{fmtQty(v.qty)}</td>
@@ -2210,7 +2222,13 @@ export default function PurchaseWorkspace() {
                                           {itemMonths.map(m => {
                                             const q = vendors.reduce((s, v) => s + (v.cells[m]?.qty || 0), 0);
                                             const val = vendors.reduce((s, v) => s + ((v.cells[m]?.rate || 0) * (v.cells[m]?.qty || 0)), 0);
-                                            return <td key={m} className="text-right px-2 py-1.5 text-[10px] tabular-nums font-bold text-indigo-800 border-t border-l border-slate-200">{q ? <span>{fmtQty(q)}<span className="text-indigo-400"> · {fmtRup(val)}</span></span> : '—'}</td>;
+                                            const rate = q > 0 ? val / q : 0;
+                                            return (
+                                              <React.Fragment key={m}>
+                                                <td className="text-right px-2 py-1.5 text-[10px] tabular-nums font-bold text-indigo-800 border-t border-l border-slate-200">{q ? fmtQty(q) : '—'}</td>
+                                                <td className="text-right px-2 py-1.5 text-[10px] tabular-nums font-bold text-indigo-800 border-t border-slate-200">{q ? fmtRup(rate) : '—'}</td>
+                                              </React.Fragment>
+                                            );
                                           })}
                                           <td className="text-right px-2 py-1.5 text-[11px] tabular-nums font-extrabold text-indigo-800 border-t border-l border-slate-200">{fmtQty(vendors.reduce((s, v) => s + v.qty, 0))}</td>
                                           <td className="text-right px-2 py-1.5 text-[11px] tabular-nums font-extrabold text-indigo-800 border-t border-l border-slate-200">{fmtINR(vendors.reduce((s, v) => s + v.value, 0))}</td>
@@ -2704,13 +2722,23 @@ export default function PurchaseWorkspace() {
                                       {(v.items || []).length > 0 ? (
                                         <div className="bg-white rounded-md border border-slate-200 overflow-auto max-h-[50vh]">
                                           <table className="min-w-[640px] w-full">
-                                            <thead><tr>
-                                              <th className="sticky top-0 left-0 z-20 bg-slate-100 text-left px-2 py-1 text-[9px] font-bold uppercase text-indigo-700">Product</th>
-                                              <th className="sticky top-0 z-10 bg-slate-100 text-left px-2 py-1 text-[9px] font-bold uppercase text-indigo-700">UOM</th>
-                                              {vturnMonths.map(m => <th key={m} className="sticky top-0 z-10 bg-slate-100 text-center px-2 py-1 text-[9px] font-bold uppercase text-indigo-700 border-l border-slate-200 min-w-[72px]">{monthLabel(m)}</th>)}
-                                              <th className="sticky top-0 z-10 bg-slate-100 text-right px-2 py-1 text-[9px] font-extrabold uppercase text-indigo-700 border-l border-slate-200">Total Qty</th>
-                                              <th className="sticky top-0 z-10 bg-slate-100 text-right px-2 py-1 text-[9px] font-extrabold uppercase text-indigo-700 border-l border-slate-200">Total Value</th>
-                                            </tr></thead>
+                                            <thead>
+                                              <tr>
+                                                <th rowSpan={2} className="sticky top-0 left-0 z-20 bg-slate-100 text-left px-2 py-1 text-[9px] font-bold uppercase text-indigo-700 border-b-2 border-slate-200">Product</th>
+                                                <th rowSpan={2} className="sticky top-0 z-10 bg-slate-100 text-left px-2 py-1 text-[9px] font-bold uppercase text-indigo-700 border-b-2 border-l border-slate-200">UOM</th>
+                                                {vturnMonths.map(m => <th key={m} colSpan={2} className="sticky top-0 z-10 bg-slate-100 text-center px-2 py-1 text-[9px] font-bold uppercase text-indigo-700 border-b border-l border-slate-200">{monthLabel(m)}</th>)}
+                                                <th rowSpan={2} className="sticky top-0 z-10 bg-slate-100 text-right px-2 py-1 text-[9px] font-extrabold uppercase text-indigo-700 border-b-2 border-l border-slate-200">Total Qty</th>
+                                                <th rowSpan={2} className="sticky top-0 z-10 bg-slate-100 text-right px-2 py-1 text-[9px] font-extrabold uppercase text-indigo-700 border-b-2 border-l border-slate-200">Total Value</th>
+                                              </tr>
+                                              <tr>
+                                                {vturnMonths.map(m => (
+                                                  <React.Fragment key={m}>
+                                                    <th className="sticky top-[22px] z-10 bg-slate-50 text-right px-2 py-1 text-[8px] font-semibold uppercase text-slate-500 border-b-2 border-l border-slate-200 min-w-[52px]">Qty</th>
+                                                    <th className="sticky top-[22px] z-10 bg-slate-50 text-right px-2 py-1 text-[8px] font-semibold uppercase text-slate-500 border-b-2 border-slate-200 min-w-[62px]">Rate</th>
+                                                  </React.Fragment>
+                                                ))}
+                                              </tr>
+                                            </thead>
                                             <tbody>
                                               {v.items.map((it, ii) => (
                                                 <tr key={ii} className="hover:bg-slate-50 border-b border-slate-100">
@@ -2718,14 +2746,12 @@ export default function PurchaseWorkspace() {
                                                   <td className="px-2 py-1 text-[10px] text-slate-400">{it.uom || '—'}</td>
                                                   {vturnMonths.map(m => {
                                                     const md = it.by_month?.[m];
-                                                    return <td key={m} className="text-right px-2 py-1 text-[10px] tabular-nums border-l border-slate-100">
-                                                      {md ? (
-                                                        <div className="leading-tight">
-                                                          <div className="font-semibold text-slate-700"><span className="text-slate-400 font-normal text-[8px] mr-0.5">Qty</span>{fmtQty(md.qty)}</div>
-                                                          <div className="text-slate-500 text-[9px]"><span className="text-slate-400 mr-0.5">Rate</span>{md.qty > 0 ? fmtRup(md.value / md.qty) : '—'}</div>
-                                                        </div>
-                                                      ) : <span className="text-slate-300">—</span>}
-                                                    </td>;
+                                                    return (
+                                                      <React.Fragment key={m}>
+                                                        <td className="text-right px-2 py-1 text-[10px] tabular-nums font-semibold text-slate-700 border-l border-slate-100">{md && md.qty ? fmtQty(md.qty) : <span className="text-slate-300">—</span>}</td>
+                                                        <td className="text-right px-2 py-1 text-[10px] tabular-nums text-slate-600 border-slate-100">{md && md.qty ? fmtRup(md.value / md.qty) : <span className="text-slate-300">—</span>}</td>
+                                                      </React.Fragment>
+                                                    );
                                                   })}
                                                   <td className="text-right px-2 py-1 text-[10px] font-bold tabular-nums text-slate-700 border-l border-slate-200">{fmtQty(it.total_qty)}</td>
                                                   <td className="text-right px-2 py-1 text-[10px] font-bold tabular-nums text-indigo-700 border-l border-slate-200">{fmtINR(it.total_value)}</td>
