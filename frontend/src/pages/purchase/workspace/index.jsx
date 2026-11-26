@@ -16,9 +16,11 @@ import {
   Shield, RotateCcw, Clock, Users as UsersIcon, Star,
   UserX, UserPlus, Target, BarChart3, ArrowLeftRight,
   Loader2, X, Calendar, Sparkles, Check, Building2, GitBranch,
+  FileSpreadsheet, FileText,
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import apiClient from '../../../utils/api.js';
+import exportToExcel from '../../../utils/exportExcel.js';
 import { useGlobalCompany } from '@/hooks/useGlobalCompany.js';
 import { formatDate } from '@/utils/formatters';
 
@@ -193,6 +195,48 @@ function BreakdownPivot({ breakdown, fmt }) {
   );
 }
 
+// ── Per-table export (Excel + PDF) ───────────────────────────────────
+// Opens a print window and triggers the browser's Print-to-PDF, mirroring the
+// Reports page. cols = [{field, header}]; data = [{field: value}].
+function exportTablePdf({ title, metaLines = [], cols, data, landscape }) {
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const thead = `<tr>${cols.map((c, i) => `<th style="text-align:${i === 0 ? 'left' : 'right'}">${esc(c.header)}</th>`).join('')}</tr>`;
+  const tbody = data.map((r) => `<tr>${cols.map((c, i) => `<td style="text-align:${i === 0 ? 'left' : 'right'}">${esc(r[c.field])}</td>`).join('')}</tr>`).join('');
+  const w = window.open('', '_blank');
+  if (!w) return;
+  w.document.write(`<!doctype html><html><head><title>${esc(title)}</title>
+    <style>@page{size:A4 ${landscape ? 'landscape' : 'portrait'};margin:12mm}
+    body{font-family:Arial,sans-serif;color:#1e293b}h2{margin:0 0 2px;font-size:18px}
+    .meta{color:#64748b;font-size:12px;margin-bottom:12px;line-height:1.5}
+    table{width:100%;border-collapse:collapse;font-size:11px}
+    th{background:#f1f5f9;padding:6px 8px;border:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:#475569}
+    td{padding:5px 8px;border:1px solid #eef2f7}</style></head>
+    <body><h2>${esc(title)}</h2><div class="meta">${metaLines.map(esc).join('<br>')}</div>
+    <table><thead>${thead}</thead><tbody>${tbody}</tbody></table>
+    <div style="margin-top:10px;color:#94a3b8;font-size:10px">Lancer ERP · Purchase Analytics</div>
+    <script>window.onload=function(){window.print();}<\/script></body></html>`);
+  w.document.close();
+}
+
+function TableExport({ cols, data, filename, title, metaLines = [], landscape }) {
+  if (!data || data.length === 0) return null;
+  const btn = 'text-[11px] font-semibold rounded-md px-2.5 py-1 border inline-flex items-center gap-1 transition';
+  return (
+    <div className="flex items-center gap-2">
+      <button type="button" title="Download Excel"
+        onClick={() => exportToExcel(data, cols, filename, 'Sheet1', null, [title, ...metaLines])}
+        className={`${btn} border-emerald-200 text-emerald-700 bg-white hover:bg-emerald-50`}>
+        <FileSpreadsheet size={12} /> Excel
+      </button>
+      <button type="button" title="Download PDF"
+        onClick={() => exportTablePdf({ title, metaLines, cols, data, landscape })}
+        className={`${btn} border-slate-300 text-slate-600 bg-white hover:border-indigo-400 hover:text-indigo-700`}>
+        <FileText size={12} /> PDF
+      </button>
+    </div>
+  );
+}
+
 export default function PurchaseWorkspace() {
   const navigate = useNavigate();
   const { company, companies, setCompany } = useGlobalCompany();
@@ -291,6 +335,14 @@ export default function PurchaseWorkspace() {
   const companyName = co ? (co.legal_name || co.trade_name || co.company_code || 'Company') : 'All Companies';
   const companyGstin = co?.gstin || '';
   const initials = (companyName || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+
+  // Period label for export banners — the active preset's label, else the range.
+  const periodLabel = useMemo(() => {
+    const p = DATE_PRESETS.find(x => x.key === activePeriod);
+    return p ? p.label : `${fmtDate(dateFrom)} — ${fmtDate(dateTo)}`;
+  }, [activePeriod, dateFrom, dateTo]);
+  const exportMeta = useMemo(() => [`${companyName} · ${periodLabel}`], [companyName, periodLabel]);
+  const slug = (s) => String(s || 'export').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
   // ── Fetch on company / date change ──
   useEffect(() => {
@@ -508,6 +560,113 @@ export default function PurchaseWorkspace() {
     return { byMonth, grand };
   }, [branchRows, branchMonths]);
 
+  // ── Export datasets (cols + flat rows) per table ──
+  // Top Vendors
+  const expTopVendors = useMemo(() => ({
+    cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'billed', header: 'Billed' },
+      { field: 'payable', header: 'Payable' }, { field: 'overdue', header: 'Overdue' }, { field: 'pct', header: '% of total' }],
+    data: topVendors.map(r => ({ vendor: r.name + (r.is_msme ? ' (MSME)' : ''), billed: fmtRup(r.billed),
+      payable: fmtRup(r.outstanding), overdue: fmtRup(r.overdue), pct: `${r.pct.toFixed(1)}%` })),
+  }), [topVendors]);
+
+  // Item Analytics — Product Summary
+  const expItems = useMemo(() => ({
+    cols: [{ field: 'product', header: 'Product' }, { field: 'uom', header: 'UOM' }, { field: 'qty', header: 'Qty' },
+      { field: 'avg', header: 'Avg price' }, { field: 'min', header: 'Min' }, { field: 'max', header: 'Max' }, { field: 'value', header: 'Value' }],
+    data: itemRows.map(r => {
+      const { min, max } = itemMinMax(r.item);
+      return { product: r.item, uom: r.uom || '', qty: fmtQty(r.qty), avg: fmtRup(r.avg),
+        min: min != null ? fmtRup(min) : '', max: max != null ? fmtRup(max) : '', value: fmtRup(r.value) };
+    }),
+  }), [itemRows, pivotByItem, pointsByItem]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Purchase Trend — monthly breakdown (compact + exact share the shape)
+  const buildBreakdownExport = (fmt) => {
+    const months = breakdown?.months || [];
+    const rows = breakdown?.rows || {};
+    const cols = [{ field: 'type', header: 'Type' }, ...months.map(m => ({ field: `m_${m.month}`, header: m.label })), { field: 'total', header: 'Total' }];
+    const defs = [['Purchases', 'purchases', ''], ['+ Debit Notes', 'debit_notes', '+'], ['- Credit Notes', 'credit_notes', '-'],
+      ['Net Turnover', 'net', ''], ['Branch Transfers', 'branch_transfers', ''], ['Freight / Charges', 'freight', '']];
+    const data = defs.map(([label, k, sign]) => {
+      const row = { type: label };
+      months.forEach(m => { const v = rows[k]?.[m.month]; row[`m_${m.month}`] = v ? `${sign}${fmt(v)}` : ''; });
+      row.total = rows[k]?.total ? `${sign}${fmt(rows[k].total)}` : '';
+      return row;
+    });
+    return { cols, data };
+  };
+  const expTrend = useMemo(() => buildBreakdownExport(fmtINR), [breakdown]); // eslint-disable-line react-hooks/exhaustive-deps
+  const expTrendExact = useMemo(() => buildBreakdownExport(fmtExact), [breakdown]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Vendor Turnover
+  const expVturn = useMemo(() => ({
+    cols: [{ field: 'vendor', header: 'Vendor' }, ...vturnMonths.map(m => ({ field: `m_${m}`, header: monthLabel(m) })), { field: 'total', header: 'Total' }],
+    data: vturnVendors.map(v => {
+      const row = { vendor: v.vendor };
+      vturnMonths.forEach(m => { row[`m_${m}`] = v.by_month?.[m] ? fmtRup(v.by_month[m]) : ''; });
+      row.total = fmtRup(v.by_month?.total);
+      return row;
+    }),
+  }), [vturnVendors, vturnMonths]);
+
+  // Item Drill-down — vendor-wise
+  const expDrillVendors = useMemo(() => ({
+    cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'uom', header: 'UOM' }, { field: 'qty', header: 'Qty' },
+      { field: 'avg', header: 'Avg Price' }, { field: 'value', header: 'Total Value' }, { field: 'pct', header: '% Share' }],
+    data: drillVendors.map(v => ({ vendor: v.vendor + (v.cheapest ? ' (cheapest)' : ''), uom: drillSelected?.uom || '',
+      qty: fmtQty(v.qty), avg: fmtRup(v.avg), value: fmtRup(v.value), pct: `${v.pct.toFixed(1)}%` })),
+  }), [drillVendors, drillSelected]);
+
+  // Item Drill-down — monthly price summary
+  const expDrillMonthly = useMemo(() => ({
+    cols: [{ field: 'month', header: 'Month' }, { field: 'qty', header: 'Qty' }, { field: 'avg', header: 'Avg Price' },
+      ...(drillHasMinMax ? [{ field: 'min', header: 'Min Price' }, { field: 'max', header: 'Max Price' }] : [])],
+    data: drillMonthly.map(r => ({ month: monthLabel(r.month), qty: r.qty ? fmtQty(r.qty) : '', avg: r.rate != null ? fmtRup(r.rate) : '',
+      min: r.min != null ? fmtRup(r.min) : '', max: r.max != null ? fmtRup(r.max) : '' })),
+  }), [drillMonthly, drillHasMinMax]);
+
+  // Item Drill-down — vendor × month pivot (uses the active measure)
+  const expDrillPivot = useMemo(() => {
+    const fmtCell = (x) => x == null ? '' : (drillMeasure === 'value' ? fmtRup(x) : drillMeasure === 'rate' ? fmtRup(x) : fmtQty(x));
+    const cols = [{ field: 'vendor', header: 'Vendor' }, ...drillMonths.map(m => ({ field: `m_${m}`, header: monthLabel(m) })), { field: 'total', header: 'Total' }];
+    const data = drillVendors.map(v => {
+      const row = { vendor: v.vendor };
+      drillMonths.forEach(m => {
+        const c = v.cells[m];
+        const val = !c ? null : drillMeasure === 'qty' ? c.qty : drillMeasure === 'rate' ? c.rate : (c.rate != null && c.qty != null ? c.rate * c.qty : null);
+        row[`m_${m}`] = fmtCell(val);
+      });
+      row.total = fmtCell(drillMeasure === 'qty' ? v.qty : drillMeasure === 'value' ? v.value : v.avg);
+      return row;
+    });
+    return { cols, data };
+  }, [drillVendors, drillMonths, drillMeasure]);
+
+  // TDS Summary
+  const expTds = useMemo(() => ({
+    cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'section', header: 'Section' }, { field: 'rate', header: 'Rate' },
+      { field: 'base', header: 'FY base' }, { field: 'erp', header: 'ERP TDS' }, { field: 'tally', header: 'Tally TDS' }, { field: 'diff', header: 'Diff' }],
+    data: tdsRows.map(r => ({ vendor: r.vendor, section: r.section || '', rate: `${num(r.rate_pct).toFixed(2)}%`,
+      base: fmtRup(num(r.fy_aggregate)), erp: fmtRup(num(r.erp_tds)), tally: fmtRup(num(r.tally_tds)), diff: fmtRup(num(r.difference)) })),
+  }), [tdsRows]);
+
+  // Branch Transfers — summary (branch × month) + bills
+  const expBranchSummary = useMemo(() => ({
+    cols: [{ field: 'branch', header: 'Branch' }, ...branchMonths.map(m => ({ field: `m_${m.month}`, header: m.label })), { field: 'total', header: 'Total' }],
+    data: branchRows.map(b => {
+      const row = { branch: b.branch };
+      branchMonths.forEach(m => { row[`m_${m.month}`] = b.by_month?.[m.month] ? fmtRup(b.by_month[m.month]) : ''; });
+      row.total = fmtRup(b.by_month?.total);
+      return row;
+    }),
+  }), [branchRows, branchMonths]);
+  const expBranchBills = useMemo(() => ({
+    cols: [{ field: 'invoice', header: 'Invoice #' }, { field: 'date', header: 'Date' }, { field: 'branch', header: 'Branch' },
+      { field: 'taxable', header: 'Taxable' }, { field: 'total', header: 'Total (incl GST)' }],
+    data: branchBills.map(r => ({ invoice: r.bill_no || '', date: fmtDate(r.bill_date), branch: r.branch,
+      taxable: fmtRup(r.taxable), total: fmtRup(r.total) })),
+  }), [branchBills]);
+
   // ── Render ──
   return createPortal(
     <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col text-[13px] leading-relaxed" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -687,6 +846,10 @@ export default function PurchaseWorkspace() {
                   <Card label="Total Overdue" value={fmtINR(totalOverdue)} color="text-red-600" borderColor="border-red-400" />
                   <Card label="Payment Rate" value={`${paymentRate.toFixed(1)}%`} sub="Paid / Billed" color="text-emerald-600" borderColor="border-emerald-400" />
                 </div>
+                <div className="flex items-center justify-between gap-3 mb-1.5">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Top Vendors by Payable</div>
+                  <TableExport cols={expTopVendors.cols} data={expTopVendors.data} filename={`top-vendors-${slug(companyName)}`} title="Top Vendors by Payable" metaLines={exportMeta} />
+                </div>
                 <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
                   <table className="w-full">
                     <thead><tr><TH>Vendor</TH><TH right>Billed</TH><TH right>Payable</TH><TH right>Overdue</TH><TH right>% of total</TH></tr></thead>
@@ -729,7 +892,10 @@ export default function PurchaseWorkspace() {
                   </div>
                 </div>
                 {/* Monthly Turnover Breakdown (taxable, ex-GST) */}
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Monthly Turnover Breakdown <span className="text-slate-400 font-semibold normal-case">(taxable, ex-GST)</span></div>
+                <div className="flex items-center justify-between gap-3 mb-1.5">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Monthly Turnover Breakdown <span className="text-slate-400 font-semibold normal-case">(taxable, ex-GST)</span></div>
+                  <TableExport cols={expTrend.cols} data={expTrend.data} filename={`purchase-trend-${slug(companyName)}`} title="Monthly Turnover Breakdown" metaLines={exportMeta} landscape />
+                </div>
                 {breakdown == null
                   ? <div className="bg-white rounded-lg border border-slate-300 shadow-sm py-8 text-center text-slate-400 text-sm mb-4">Loading…</div>
                   : <div className="mb-4"><BreakdownPivot breakdown={breakdown} fmt={fmtINR} /></div>}
@@ -737,11 +903,14 @@ export default function PurchaseWorkspace() {
                 {/* Detailed figures (exact ₹) — collapsible */}
                 {breakdown != null && (breakdown.months || []).length > 0 && (
                   <div>
-                    <button type="button" onClick={() => setShowExact(s => !s)}
-                      className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600 hover:text-indigo-700 mb-1.5">
-                      <ChevronDown size={13} className={`transition-transform ${showExact ? '' : '-rotate-90'}`} />
-                      Detailed figures <span className="text-slate-400 font-semibold normal-case">(exact ₹ for Tally verification)</span>
-                    </button>
+                    <div className="flex items-center justify-between gap-3 mb-1.5">
+                      <button type="button" onClick={() => setShowExact(s => !s)}
+                        className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-600 hover:text-indigo-700">
+                        <ChevronDown size={13} className={`transition-transform ${showExact ? '' : '-rotate-90'}`} />
+                        Detailed figures <span className="text-slate-400 font-semibold normal-case">(exact ₹ for Tally verification)</span>
+                      </button>
+                      <TableExport cols={expTrendExact.cols} data={expTrendExact.data} filename={`purchase-trend-exact-${slug(companyName)}`} title="Detailed figures (exact ₹)" metaLines={exportMeta} landscape />
+                    </div>
                     {showExact && <BreakdownPivot breakdown={breakdown} fmt={fmtExact} />}
                   </div>
                 )}
@@ -751,8 +920,9 @@ export default function PurchaseWorkspace() {
             {/* ===== Item Analytics ===== */}
             {!loading && activeSection === 'pa_item' && (
               <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
-                <div className="px-4 py-2.5 text-[12px] font-bold text-slate-800 border-b border-slate-100">
-                  Product Summary <span className="font-medium text-slate-400 text-[11px] ml-1">({itemRows.length} products · click to expand)</span>
+                <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-3">
+                  <div className="text-[12px] font-bold text-slate-800">Product Summary <span className="font-medium text-slate-400 text-[11px] ml-1">({itemRows.length} products · click to expand)</span></div>
+                  <TableExport cols={expItems.cols} data={expItems.data} filename={`item-analytics-${slug(companyName)}`} title="Item Analytics — Product Summary" metaLines={exportMeta} />
                 </div>
                 <table className="w-full">
                   <thead><tr><TH>Product</TH><TH>UOM</TH><TH right>Qty</TH><TH right>Avg price</TH><TH right>Min</TH><TH right>Max</TH><TH right>Value</TH></tr></thead>
@@ -903,7 +1073,10 @@ export default function PurchaseWorkspace() {
                     {/* Vendor-wise table (only for multi-vendor items) */}
                     {drillVendors.length > 0 ? (
                       <>
-                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Vendor-wise Purchases</div>
+                        <div className="flex items-center justify-between gap-3 mb-1.5">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Vendor-wise Purchases</div>
+                          <TableExport cols={expDrillVendors.cols} data={expDrillVendors.data} filename={`item-drill-vendors-${slug(drillSelected?.item)}`} title={`${drillSelected?.item} — Vendor-wise Purchases`} metaLines={exportMeta} />
+                        </div>
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden mb-4">
                           <table className="w-full">
                             <thead><tr><TH>Vendor</TH><TH>UOM</TH><TH right>Qty</TH><TH right>Avg Price</TH><TH right>Total Value</TH><TH right>% Share</TH></tr></thead>
@@ -974,7 +1147,10 @@ export default function PurchaseWorkspace() {
                     {/* Monthly price summary */}
                     {drillMonthly.length > 0 && (
                       <>
-                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Monthly Price Summary</div>
+                        <div className="flex items-center justify-between gap-3 mb-1.5">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Monthly Price Summary</div>
+                          <TableExport cols={expDrillMonthly.cols} data={expDrillMonthly.data} filename={`item-drill-monthly-${slug(drillSelected?.item)}`} title={`${drillSelected?.item} — Monthly Price Summary`} metaLines={exportMeta} />
+                        </div>
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto mb-4">
                           <table className="min-w-[520px] w-full">
                             <thead><tr>
@@ -1003,13 +1179,16 @@ export default function PurchaseWorkspace() {
                       <>
                         <div className="flex items-center justify-between gap-3 mb-1.5">
                           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Vendor × Month Pivot</div>
-                          <div className="flex gap-1">
-                            {[['qty', 'Qty'], ['rate', 'Avg Rate'], ['value', 'Value']].map(([k, lbl]) => (
-                              <button key={k} type="button" onClick={() => setDrillMeasure(k)}
-                                className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition ${drillMeasure === k ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}`}>
-                                {lbl}
-                              </button>
-                            ))}
+                          <div className="flex items-center gap-2">
+                            <div className="flex gap-1">
+                              {[['qty', 'Qty'], ['rate', 'Avg Rate'], ['value', 'Value']].map(([k, lbl]) => (
+                                <button key={k} type="button" onClick={() => setDrillMeasure(k)}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition ${drillMeasure === k ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}`}>
+                                  {lbl}
+                                </button>
+                              ))}
+                            </div>
+                            <TableExport cols={expDrillPivot.cols} data={expDrillPivot.data} filename={`item-drill-pivot-${slug(drillSelected?.item)}`} title={`${drillSelected?.item} — Vendor × Month Pivot`} metaLines={[...exportMeta, `Measure: ${drillMeasure}`]} landscape />
                           </div>
                         </div>
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
@@ -1069,6 +1248,10 @@ export default function PurchaseWorkspace() {
                   <Card label="Tally TDS (deducted)" value={fmtRup(num(tds?.tally_total))} color="text-sky-600" borderColor="border-sky-400" />
                   <Card label="Difference" value={fmtRup(num(tds?.difference_total))} sub={`${num(tds?.vendor_count)} vendors`} color={num(tds?.difference_total) > 0 ? 'text-amber-600' : 'text-emerald-600'} borderColor="border-amber-400" />
                 </div>
+                <div className="flex items-center justify-between gap-3 mb-1.5">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">TDS by Vendor</div>
+                  <TableExport cols={expTds.cols} data={expTds.data} filename={`tds-summary-${slug(companyName)}`} title="TDS Summary by Vendor" metaLines={exportMeta} />
+                </div>
                 <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-hidden">
                   <table className="w-full">
                     <thead><tr><TH>Vendor</TH><TH>Section</TH><TH right>Rate</TH><TH right>FY base</TH><TH right>ERP TDS</TH><TH right>Tally TDS</TH><TH right>Diff</TH></tr></thead>
@@ -1102,8 +1285,11 @@ export default function PurchaseWorkspace() {
                   <div className="text-center py-16 text-slate-400 text-sm">No vendor turnover in this period{vturnCat ? ' for this category' : ''}.</div>
                 ) : (
                   <>
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                      Vendor Turnover <span className="text-slate-400 font-semibold normal-case ml-1">(click vendor to see items purchased)</span>
+                    <div className="flex items-center justify-between gap-3 mb-1.5">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                        Vendor Turnover <span className="text-slate-400 font-semibold normal-case ml-1">(click vendor to see items purchased)</span>
+                      </div>
+                      <TableExport cols={expVturn.cols} data={expVturn.data} filename={`vendor-turnover-${slug(companyName)}`} title="Vendor Turnover" metaLines={exportMeta} landscape />
                     </div>
                     <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
                       <table className="min-w-[720px] w-full">
@@ -1206,8 +1392,11 @@ export default function PurchaseWorkspace() {
                       <div className="text-center py-16 text-slate-400 text-sm">No branch transfers in this period.</div>
                     ) : (
                       <>
-                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                          Branch Transfer Summary <span className="text-slate-400 font-semibold normal-case ml-1">(excluded from Purchases)</span>
+                        <div className="flex items-center justify-between gap-3 mb-1.5">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                            Branch Transfer Summary <span className="text-slate-400 font-semibold normal-case ml-1">(excluded from Purchases)</span>
+                          </div>
+                          <TableExport cols={expBranchSummary.cols} data={expBranchSummary.data} filename={`branch-summary-${slug(companyName)}`} title="Branch Transfer Summary" metaLines={exportMeta} landscape />
                         </div>
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto mb-5">
                           <table className="min-w-[720px] w-full">
@@ -1239,8 +1428,11 @@ export default function PurchaseWorkspace() {
                           </table>
                         </div>
 
-                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                          Branch Bills <span className="text-slate-400 font-semibold normal-case ml-1">({branchBills.length})</span>
+                        <div className="flex items-center justify-between gap-3 mb-1.5">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                            Branch Bills <span className="text-slate-400 font-semibold normal-case ml-1">({branchBills.length})</span>
+                          </div>
+                          <TableExport cols={expBranchBills.cols} data={expBranchBills.data} filename={`branch-bills-${slug(companyName)}`} title="Branch Bills" metaLines={exportMeta} />
                         </div>
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-x-auto">
                           <table className="min-w-[640px] w-full">
