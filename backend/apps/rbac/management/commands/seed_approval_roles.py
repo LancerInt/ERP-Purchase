@@ -81,6 +81,9 @@ ROLE_GRID = {
         'Purchase Order':    perm(can_view=True, can_create=True, can_edit=True,
                                   can_approve=True, can_reject=True, can_send_email=True,
                                   can_export=True, can_print=True),
+        # Receipts: view-only — the PC tracks what has been received against
+        # the POs it owns, but receiving itself is the warehouse roles' job.
+        'Receipt Advice':    VIEW,
         'Vendor Bill':       FULL,
         'Payment Made':      FULL,
         'Vendor Credit':     FULL,
