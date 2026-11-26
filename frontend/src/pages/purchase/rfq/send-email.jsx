@@ -162,7 +162,6 @@ function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
                 {VENDOR_GST_TREATMENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </CustomSelect>
               {errors.gst_treatment && <p className="mt-1 text-xs text-red-600">{errors.gst_treatment}</p>}
-              {!form.gst_treatment && <p className="mt-1 text-xs text-slate-500">Select &quot;Unregistered Business&quot; if no GSTIN</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-0.5">GSTIN {isRegisteredTreatment(form.gst_treatment) && <span className="text-red-500">*</span>}</label>
