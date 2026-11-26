@@ -2792,6 +2792,132 @@ class PurchaseAnalyticsView(APIView):
         })
 
 
+def _month_iter(start, end):
+    """Yield (ym_label, month_start, month_end) for every calendar month that
+    the [start, end] window touches, clipped to the window at both ends."""
+    cur = date(start.year, start.month, 1)
+    while cur <= end:
+        # last day of this month
+        nxt = date(cur.year + 1, 1, 1) if cur.month == 12 else date(cur.year, cur.month + 1, 1)
+        m_end = nxt - timedelta(days=1)
+        yield (
+            cur.strftime('%Y-%m'),
+            max(cur, start),
+            min(m_end, end),
+        )
+        cur = nxt
+
+
+class PurchaseMonthlyBreakdownView(APIView):
+    """GET /api/purchase/monthly-breakdown/?company=&from=&to=&vendor=
+
+    Per-calendar-month purchase turnover breakdown (the procurement mirror of
+    the Sales "Monthly Turnover Breakdown" + "Detailed figures" tables):
+
+        Purchases (ex-GST taxable)  +  Debit Notes (returns)
+          − Credit Notes (vendor credits)  =  Net
+        plus, reported separately (already excluded from Purchases above):
+          Branch Transfers · Freight / Charges
+
+    Every figure reuses the exact querysets behind the Total-Purchase tile
+    (PurchaseDashboardView._total_purchase), so the monthly numbers reconcile
+    with the dashboard. All values are EXACT (paise), for Tally verification.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, HasModulePermission]
+    module_name = 'Purchase Dashboard'
+    alternate_modules = ['Purchase Analytics', 'Vendor Insights']
+
+    @staticmethod
+    def _purchases_taxable(start, end, company_id, vendor_id, dup_cache):
+        """Ex-GST taxable purchases for [start, end] — the same scope as
+        _total_purchase's `taxable` (RM+Packing purchases, charges included,
+        OPENING/CANCELLED/expense-like/journal excluded, dups removed)."""
+        bqs = (PurchaseDashboardView._bill_qs(company_id, vendor_id)
+               .filter(bill_date__gte=start, bill_date__lte=end)
+               .exclude(tally_guid__startswith='OPENING')
+               .exclude(status='CANCELLED')
+               .exclude(is_expense=True)
+               .exclude(purchase_category__in=_EXPENSE_CATS)
+               .exclude(tally_voucher_type__icontains='journal'))
+        dups = _cached_dup_bill_ids(bqs, dup_cache)
+        if dups:
+            bqs = bqs.exclude(id__in=dups)
+        agg = bqs.aggregate(sub=Sum('subtotal'), oc=Sum('other_charges'))
+        return (agg['sub'] or _ZERO), (agg['oc'] or _ZERO)   # (taxable, on-bill charges/freight)
+
+    @staticmethod
+    def _notes(start, end, company_id, vendor_id, note_type):
+        """Purchase-side DebitNote total for the month. note_type 'DEBIT' =
+        returns (reduce purchases), 'CREDIT' = vendor credits. Same ledger /
+        tally_group filter the Total-Purchase tile uses."""
+        from sales.models import DebitNote
+        q = DebitNote.objects.filter(is_active=True, side='PURCHASE', note_type=note_type,
+                                     note_date__gte=start, note_date__lte=end)
+        if company_id:
+            q = q.filter(company_id=company_id)
+        if vendor_id:
+            q = q.filter(vendor_id=vendor_id)
+        if note_type == 'DEBIT':
+            # Only notes booked on a PURCHASE ledger are goods returns (mirrors
+            # _total_purchase); a note on another ledger is a price adjustment.
+            q = q.exclude(Q(tally_group__regex=r'\S') & ~Q(tally_group__icontains='purchase'))
+        return q.aggregate(t=Sum('amount'))['t'] or _ZERO
+
+    @staticmethod
+    def _branch(start, end, company_id, vendor_id, dup_cache):
+        """Branch-transfer value for the month — the same signal as the
+        Total-Purchase tile's Branch scope (branch_transfer_q over a
+        transfers-included base, OPENING/CANCELLED/is_expense/dups treated the
+        same). Reported as 'already excluded from Purchases above'."""
+        base = (PurchaseDashboardView._bill_qs(company_id, vendor_id, include_transfers=True)
+                .filter(bill_date__gte=start, bill_date__lte=end)
+                .exclude(tally_guid__startswith='OPENING')
+                .exclude(status='CANCELLED')
+                .exclude(is_expense=True))
+        base = base.exclude(id__in=_cached_dup_bill_ids(base, dup_cache))
+        return base.filter(branch_transfer_q()).aggregate(t=Sum('subtotal'))['t'] or _ZERO
+
+    def get(self, request, *args, **kwargs):
+        frm = request.query_params.get('from')
+        to = request.query_params.get('to')
+        company_id = request.query_params.get('company') or None
+        vendor_id = request.query_params.get('vendor') or None
+        # Reuse the shared range resolver (custom window, capped & ordered).
+        start, end, label = PurchaseDashboardView._resolve_range('custom', frm, to)
+
+        dup_cache = {}
+        months = []
+        keys = ('purchases', 'debit_notes', 'credit_notes', 'net', 'branch_transfers', 'freight')
+        rows = {k: {'total': _ZERO} for k in keys}
+
+        for ym, m_start, m_end in _month_iter(start, end):
+            months.append({'month': ym, 'label': '{:%b %Y}'.format(m_start)})
+            taxable, charges = self._purchases_taxable(m_start, m_end, company_id, vendor_id, dup_cache)
+            dn = self._notes(m_start, m_end, company_id, vendor_id, 'DEBIT')      # returns
+            cn = self._notes(m_start, m_end, company_id, vendor_id, 'CREDIT')     # vendor credits
+            branch = self._branch(m_start, m_end, company_id, vendor_id, dup_cache)
+            net = taxable + dn - cn
+            per = {
+                'purchases': taxable, 'debit_notes': dn, 'credit_notes': cn,
+                'net': net, 'branch_transfers': branch, 'freight': charges,
+            }
+            for k, v in per.items():
+                rows[k][ym] = _money(v)
+                rows[k]['total'] += (v or _ZERO)
+
+        for k in keys:
+            rows[k]['total'] = _money(rows[k]['total'])
+
+        return Response({
+            'period': {'label': label, 'from': start.isoformat(), 'to': end.isoformat()},
+            'company_id': company_id,
+            'vendor_id': vendor_id,
+            'months': months,
+            'rows': rows,
+        })
+
+
 class PurchaseImportReconcileView(APIView):
     """Date-wise import reconciliation for purchases (Purchase Analytics footer).
 

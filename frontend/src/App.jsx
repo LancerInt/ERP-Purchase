@@ -142,7 +142,7 @@ const EvaluationNew = lazy(() => import('./pages/purchase/evaluations/new.jsx'))
 const EvaluationDetail = lazy(() => import('./pages/purchase/evaluations/[id].jsx'));
 // EvaluationDashboard merged into EvaluationList (index.jsx) as a tab
 const PurchaseLifecycleDashboard = lazy(() => import('./pages/purchase/lifecycle/index.jsx'));
-const PurchaseDashboard = lazy(() => import('./pages/purchase/dashboard/index.jsx'));
+const PurchaseDashboard = lazy(() => import('./pages/purchase/workspace/index.jsx'));
 const PurchaseDashboardOverview = lazy(() => import('./pages/purchase/overview/index.jsx'));
 const PurchaseStock = lazy(() => import('./pages/purchase/stock/index.jsx'));
 const PurchaseStockDetail = lazy(() => import('./pages/purchase/stock/[id].jsx'));
