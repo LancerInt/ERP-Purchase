@@ -639,8 +639,19 @@ class VendorViewSet(SoftDeleteMixin, BulkImportMixin, viewsets.ModelViewSet):
                 vendor.gstin_portal_status = data.get('status') or ''
                 vendor.gstin_snapshot = data.get('raw') or {}
                 vendor.gstin_verified_at = timezone.now()
-                vendor.save(update_fields=['gstin_portal_status', 'gstin_snapshot',
-                                           'gstin_verified_at', 'updated_at'])
+                updated = ['gstin_portal_status', 'gstin_snapshot',
+                           'gstin_verified_at', 'updated_at']
+                # Apply the portal TRUTH to the fields that drive TDS, but only
+                # fill blanks — never clobber a value the operator set by hand.
+                portal_cat = data.get('deductee_category') or ''
+                if portal_cat and not (vendor.deductee_category or '').strip():
+                    vendor.deductee_category = portal_cat
+                    updated.append('deductee_category')
+                portal_pan = (data.get('pan') or '').strip().upper()
+                if portal_pan and not (vendor.pan or '').strip():
+                    vendor.pan = portal_pan
+                    updated.append('pan')
+                vendor.save(update_fields=updated)
 
         warning = ''
         if data.get('status') in ('CANCELLED', 'SUSPENDED'):

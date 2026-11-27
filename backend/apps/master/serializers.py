@@ -344,6 +344,11 @@ class VendorSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(source='company.company_code', read_only=True)
     bank_details = VendorBankDetailSerializer(many=True, read_only=True)
     linked_customer_name = serializers.SerializerMethodField()
+    # Verified-GSTIN convenience markers (model properties) — let the UI show a
+    # Verified badge, prompt a re-verify when stale, and warn on a non-ACTIVE status.
+    is_gstin_verified = serializers.ReadOnlyField()
+    gstin_verification_stale = serializers.ReadOnlyField()
+    gstin_status_ok = serializers.ReadOnlyField()
     # Write-only: the specific Customer the user picked in the suggestion picker.
     # When present it links to THAT record (via link_existing_customer) instead
     # of running the auto-matcher. Never stored directly; popped in create/update.
@@ -374,6 +379,7 @@ class VendorSerializer(serializers.ModelSerializer):
             # GSTIN portal verification (A5) — status/snapshot are set by the
             # verify endpoint, read-only here.
             'gstin_verified_at', 'gstin_portal_status', 'gstin_snapshot',
+            'is_gstin_verified', 'gstin_verification_stale', 'gstin_status_ok',
             # Also-a-customer link. linked_customer / its name are managed by
             # the party-linking service, so they are read-only here.
             'is_group',
@@ -782,6 +788,9 @@ class VendorDetailSerializer(serializers.ModelSerializer):
     bank_details = VendorBankDetailSerializer(many=True, read_only=True)
     preferred_transporters = serializers.StringRelatedField(many=True, read_only=True)
     allowed_warehouses = serializers.StringRelatedField(many=True, read_only=True)
+    is_gstin_verified = serializers.ReadOnlyField()
+    gstin_verification_stale = serializers.ReadOnlyField()
+    gstin_status_ok = serializers.ReadOnlyField()
 
     class Meta:
         model = Vendor
@@ -798,6 +807,7 @@ class VendorDetailSerializer(serializers.ModelSerializer):
             'has_written_agreement', 'written_agreement_doc',
             'gstin_certificate', 'is_rcm', 'is_group',
             'gstin_verified_at', 'gstin_portal_status', 'gstin_snapshot',
+            'is_gstin_verified', 'gstin_verification_stale', 'gstin_status_ok',
             'active_flag', 'bank_details', 'preferred_transporters',
             'allowed_warehouses', 'is_active', 'created_at', 'updated_at'
         ]

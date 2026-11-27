@@ -442,7 +442,7 @@ export default function CreateVendor() {
           { label: 'Create New' },
         ]}
       />
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
         <form onSubmit={handleSubmit}>
           {Object.keys(serverErrors).length > 0 && (
             <div className="mb-4 p-4 bg-red-50 border border-red-300 rounded-lg">
@@ -456,20 +456,20 @@ export default function CreateVendor() {
               </ul>
             </div>
           )}
-          <EditGate canEdit={editable} className="space-y-4 sm:space-y-6">
+          <EditGate canEdit={editable} className="lg:columns-2 lg:gap-x-6 [&>div]:break-inside-avoid [&>div]:mb-3">
           {/* Section: Basic Information */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Basic Information</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-primary-700 mb-1.5 pb-1 border-b">Basic Information</h3>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Vendor Code</label>
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Vendor Code</label>
                 {/* Live preview: <company>-VEN-### (sequence per company).
                     Auto-assigned on save — shown here once a company is picked. */}
-                <input type="text" value={formData.company ? (nextCode || 'Generating…') : 'Select a company first'} disabled className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-100 text-slate-600 cursor-not-allowed" />
+                <input type="text" value={formData.company ? (nextCode || 'Generating…') : 'Select a company first'} disabled className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-slate-100 text-slate-600 cursor-not-allowed" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Vendor Name <span className="text-red-500">*</span></label>
-                <input type="text" name="vendor_name" value={formData.vendor_name} onChange={handleChange} required maxLength={255} className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.vendor_name ? 'border-red-400 bg-red-50' : dupMatches.length ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Enter vendor name" />
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Vendor Name <span className="text-red-500">*</span></label>
+                <input type="text" name="vendor_name" value={formData.vendor_name} onChange={handleChange} required maxLength={255} className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.vendor_name ? 'border-red-400 bg-red-50' : dupMatches.length ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Enter vendor name" />
                 {dupMatches.length > 0 && (
                   <div className="mt-1 text-xs text-amber-700">
                     <span className="font-medium">Possible duplicate — this name matches an existing vendor:</span>
@@ -483,15 +483,15 @@ export default function CreateVendor() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Vendor Type <span className="text-red-500">*</span></label>
-                <CustomSelect name="vendor_type" value={formData.vendor_type} onChange={handleChange} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.vendor_type ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Vendor Type <span className="text-red-500">*</span></label>
+                <CustomSelect name="vendor_type" value={formData.vendor_type} onChange={handleChange} required className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.vendor_type ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
                   <option value="">Select...</option>
                   {VENDOR_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </CustomSelect>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Company <span className="text-red-500">*</span></label>
-                <CustomSelect name="company" value={formData.company} onChange={handleChange} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.company ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Company <span className="text-red-500">*</span></label>
+                <CustomSelect name="company" value={formData.company} onChange={handleChange} required className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.company ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
                   <option value="">Select...</option>
                   {companies.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </CustomSelect>
@@ -501,12 +501,12 @@ export default function CreateVendor() {
 
           {/* Section: Tax & Compliance */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Tax & Compliance</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-primary-700 mb-1.5 pb-1 border-b">Tax & Compliance</h3>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">GSTIN {isRegisteredTreatment(formData.gst_treatment) && <span className="text-red-500">*</span>}</label>
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">GSTIN {isRegisteredTreatment(formData.gst_treatment) && <span className="text-red-500">*</span>}</label>
                 <div className="flex items-center gap-2">
-                  <input type="text" name="gstin" value={formData.gstin} onChange={handleChange} onBlur={handleBlur} required={isRegisteredTreatment(formData.gst_treatment)} aria-invalid={gstinClash.length > 0 || !!fieldErr.gstin} maxLength={15} className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${(gstinClash.length || fieldErr.gstin) ? 'border-red-400 bg-red-50' : gstinOtherCompany.length ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Enter GSTIN" />
+                  <input type="text" name="gstin" value={formData.gstin} onChange={handleChange} onBlur={handleBlur} required={isRegisteredTreatment(formData.gst_treatment)} aria-invalid={gstinClash.length > 0 || !!fieldErr.gstin} maxLength={15} className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${(gstinClash.length || fieldErr.gstin) ? 'border-red-400 bg-red-50' : gstinOtherCompany.length ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Enter GSTIN" />
                   {gstVerifyEnabled && (
                     <button type="button" onClick={verifyGstin} disabled={gstVerifying} className="shrink-0 px-3 py-2 text-xs font-medium border border-primary-300 text-primary-700 rounded-lg hover:bg-primary-50 disabled:opacity-50">
                       {gstVerifying ? '…' : 'Verify'}
@@ -541,8 +541,8 @@ export default function CreateVendor() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">GST Treatment <span className="text-red-500">*</span></label>
-                <CustomSelect name="gst_treatment" value={formData.gst_treatment} onChange={handleChange} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.gst_treatment ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">GST Treatment <span className="text-red-500">*</span></label>
+                <CustomSelect name="gst_treatment" value={formData.gst_treatment} onChange={handleChange} required className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.gst_treatment ? 'border-red-400 bg-red-50' : 'border-slate-300'}`}>
                   <option value="">Select GST treatment</option>
                   {VENDOR_GST_TREATMENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </CustomSelect>
@@ -550,8 +550,8 @@ export default function CreateVendor() {
                 {!formData.gst_treatment && <p className="mt-1 text-xs text-slate-500">Select &quot;Unregistered Business&quot; if vendor has no GSTIN</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">PAN <span className="text-red-500">*</span></label>
-                <input type="text" name="pan" value={formData.pan} onChange={handleChange} onBlur={handleBlur} required maxLength={10} aria-invalid={!!fieldErr.pan || panMismatch} className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${fieldErr.pan ? 'border-red-400 bg-red-50' : panMismatch ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Enter PAN" />
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">PAN <span className="text-red-500">*</span></label>
+                <input type="text" name="pan" value={formData.pan} onChange={handleChange} onBlur={handleBlur} required maxLength={10} aria-invalid={!!fieldErr.pan || panMismatch} className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${fieldErr.pan ? 'border-red-400 bg-red-50' : panMismatch ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`} placeholder="Enter PAN" />
                 {fieldErr.pan && (
                   <p role="alert" className="mt-1 text-xs text-red-600">{fieldErr.pan}</p>
                 )}
@@ -560,8 +560,8 @@ export default function CreateVendor() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">TDS Rate (%)</label>
-                <input type="number" step="any" name="tds_rate" value={formData.tds_rate} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter TDS rate" />
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">TDS Rate (%)</label>
+                <input type="number" step="any" name="tds_rate" value={formData.tds_rate} onChange={handleChange} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter TDS rate" />
                 {tdsHint && tdsHint.section_code && (
                   <p className="mt-1 text-xs text-slate-500">
                     Auto: {tdsHint.section_code}
@@ -572,8 +572,8 @@ export default function CreateVendor() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">TCS Rate (%)</label>
-                <input type="number" step="any" name="tcs_rate" value={formData.tcs_rate} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter TCS rate" />
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">TCS Rate (%)</label>
+                <input type="number" step="any" name="tcs_rate" value={formData.tcs_rate} onChange={handleChange} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter TCS rate" />
               </div>
             </div>
             <GstDetailsPanel details={gstDetails} />
@@ -581,7 +581,7 @@ export default function CreateVendor() {
 
           {/* Section: Government Verification & Compliance */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Government Verification &amp; Compliance</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wide text-primary-700 mb-1.5 pb-1 border-b">Government Verification &amp; Compliance</h3>
             <div className="space-y-4">
               {/* Toggles row */}
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -606,10 +606,10 @@ export default function CreateVendor() {
               {/* MSME details — revealed only when MSME is on */}
               {formData.is_msme && (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 sm:p-4">
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">MSME Category <span className="text-red-500">*</span></label>
-                      <CustomSelect name="msme_category" value={formData.msme_category} onChange={handleChange} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                      <label className="block text-xs font-medium text-slate-600 mb-0.5">MSME Category <span className="text-red-500">*</span></label>
+                      <CustomSelect name="msme_category" value={formData.msme_category} onChange={handleChange} required className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
                         <option value="">Select...</option>
                         <option value="MICRO">Micro</option>
                         <option value="SMALL">Small</option>
@@ -617,11 +617,11 @@ export default function CreateVendor() {
                       </CustomSelect>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Udyam / UAM No. <span className="text-red-500">*</span></label>
-                      <input type="text" name="msme_udyam_no" value={formData.msme_udyam_no} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="UDYAM-XX-00-0000000" />
+                      <label className="block text-xs font-medium text-slate-600 mb-0.5">Udyam / UAM No. <span className="text-red-500">*</span></label>
+                      <input type="text" name="msme_udyam_no" value={formData.msme_udyam_no} onChange={handleChange} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="UDYAM-XX-00-0000000" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Udyam Certificate <span className="text-red-500">*</span></label>
+                      <label className="block text-xs font-medium text-slate-600 mb-0.5">Udyam Certificate <span className="text-red-500">*</span></label>
                       <input type="file" name="msme_certificate" onChange={handleFileChange} accept=".pdf,.jpg,.jpeg,.png" className="w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary-50 file:text-primary-700" />
                     </div>
                   </div>
@@ -632,7 +632,7 @@ export default function CreateVendor() {
                     </label>
                     {formData.has_written_agreement && (
                       <div className="mt-2 max-w-md">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Written Agreement Document <span className="text-red-500">*</span></label>
+                        <label className="block text-xs font-medium text-slate-600 mb-0.5">Written Agreement Document <span className="text-red-500">*</span></label>
                         <input type="file" name="written_agreement_doc" onChange={handleFileChange} accept=".pdf,.jpg,.jpeg,.png" className="w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary-50 file:text-primary-700" />
                       </div>
                     )}
@@ -650,7 +650,7 @@ export default function CreateVendor() {
               {/* GSTIN certificate — relevant for registered vendors */}
               {isRegisteredTreatment(formData.gst_treatment) && (
                 <div className="max-w-md">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">GST Registration Certificate</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-0.5">GST Registration Certificate</label>
                   <input type="file" name="gstin_certificate" onChange={handleFileChange} accept=".pdf,.jpg,.jpeg,.png" className="w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary-50 file:text-primary-700" />
                 </div>
               )}
@@ -659,53 +659,53 @@ export default function CreateVendor() {
 
           {/* Section: Address */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Address</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              <div className="col-span-2 md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Address <span className="text-red-500">*</span></label>
-                <textarea name="address" value={formData.address} onChange={handleChange} required rows={3} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter address" />
+            <h3 className="text-xs font-bold uppercase tracking-wide text-primary-700 mb-1.5 pb-1 border-b">Address</h3>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Address <span className="text-red-500">*</span></label>
+                <textarea name="address" value={formData.address} onChange={handleChange} required rows={2} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter address" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">City <span className="text-red-500">*</span></label>
-                <input type="text" name="city" value={formData.city} onChange={handleChange} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter city" />
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">City <span className="text-red-500">*</span></label>
+                <input type="text" name="city" value={formData.city} onChange={handleChange} required className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter city" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">State <span className="text-red-500">*</span></label>
-                <CustomSelect name="state" value={formData.state} onChange={handleChange} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">State <span className="text-red-500">*</span></label>
+                <CustomSelect name="state" value={formData.state} onChange={handleChange} required className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
                   <option value="">Select State...</option>
                   {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                 </CustomSelect>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Country <span className="text-red-500">*</span></label>
-                <CustomSelect name="country" value={formData.country} onChange={handleChange} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Country <span className="text-red-500">*</span></label>
+                <CustomSelect name="country" value={formData.country} onChange={handleChange} required className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
                   <option value="">Select Country...</option>
                   {COUNTRIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </CustomSelect>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Pincode <span className="text-red-500">*</span></label>
-                <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter pincode" />
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Pincode <span className="text-red-500">*</span></label>
+                <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} required className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter pincode" />
               </div>
             </div>
           </div>
 
           {/* Section: Contact Information */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Contact Information</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-primary-700 mb-1.5 pb-1 border-b">Contact Information</h3>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Contact Person</label>
-                <input type="text" name="contact_person" value={formData.contact_person} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter contact person" />
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Contact Person</label>
+                <input type="text" name="contact_person" value={formData.contact_person} onChange={handleChange} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter contact person" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Contact Email <span className="text-red-500">*</span></label>
-                <input type="email" name="contact_email" value={formData.contact_email} onChange={handleChange} required className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.contact_email ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} placeholder="Enter contact email" />
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Contact Email <span className="text-red-500">*</span></label>
+                <input type="email" name="contact_email" value={formData.contact_email} onChange={handleChange} required className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${serverErrors.contact_email ? 'border-red-400 bg-red-50' : 'border-slate-300'}`} placeholder="Enter contact email" />
                 {serverErrors.contact_email && <p className="mt-1 text-xs text-red-600">{serverErrors.contact_email}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Contact Phone</label>
-                <input type="text" name="contact_phone" value={formData.contact_phone} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter contact phone" />
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Contact Phone</label>
+                <input type="text" name="contact_phone" value={formData.contact_phone} onChange={handleChange} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter contact phone" />
               </div>
             </div>
           </div>
@@ -723,11 +723,11 @@ export default function CreateVendor() {
             </div>
           ) : (
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Payment & Credit</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-primary-700 mb-1.5 pb-1 border-b">Payment & Credit</h3>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Payment Terms <span className="text-red-500">*</span></label>
-                <CustomSelect name="payment_terms" value={formData.payment_terms} onChange={handleChange} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Payment Terms <span className="text-red-500">*</span></label>
+                <CustomSelect name="payment_terms" value={formData.payment_terms} onChange={handleChange} required className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
                   <option value="">Select...</option>
                   {/* MSME Micro/Small suppliers are capped at 15/45 days
                       (MSMED Act §15); allowedPaymentTerms filters the list.
@@ -747,8 +747,8 @@ export default function CreateVendor() {
                   against NET_15 / NET_30. */}
               {formData.payment_terms === 'CUSTOM' && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Custom Payment Days <span className="text-red-500">*</span></label>
-                  <input type="number" name="custom_payment_days" value={formData.custom_payment_days} onChange={handleChange} required className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter custom days" />
+                  <label className="block text-xs font-medium text-slate-600 mb-0.5">Custom Payment Days <span className="text-red-500">*</span></label>
+                  <input type="number" name="custom_payment_days" value={formData.custom_payment_days} onChange={handleChange} required className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter custom days" />
                 </div>
               )}
               {/* GST Type drives the rate fields below. CGST+SGST mode
@@ -757,8 +757,8 @@ export default function CreateVendor() {
                   used to live in this row — removed per user request
                   (freight is captured at the PO / receipt level now). */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">GST Type</label>
-                <CustomSelect name="gst_type" value={formData.gst_type} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">GST Type</label>
+                <CustomSelect name="gst_type" value={formData.gst_type} onChange={handleChange} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
                   <option value="">Select...</option>
                   <option value="CGST_SGST">CGST + SGST (Intra-State)</option>
                   <option value="IGST">IGST (Inter-State)</option>
@@ -767,44 +767,44 @@ export default function CreateVendor() {
               {formData.gst_type === 'CGST_SGST' && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">GST %</label>
-                    <input type="number" step="any" name="gst" value={formData.gst} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="e.g. 18" />
+                    <label className="block text-xs font-medium text-slate-600 mb-0.5">GST %</label>
+                    <input type="number" step="any" name="gst" value={formData.gst} onChange={handleChange} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="e.g. 18" />
                   </div>
                   {/* SGST + CGST are auto-filled half-and-half as the
                       user types GST. Rendered read-only so the user
                       can see the split but doesn't have to keep them
                       in sync manually. */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">SGST %</label>
-                    <input type="number" step="any" name="sgst_rate" value={formData.sgst_rate} readOnly className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-50" placeholder="Auto" />
+                    <label className="block text-xs font-medium text-slate-600 mb-0.5">SGST %</label>
+                    <input type="number" step="any" name="sgst_rate" value={formData.sgst_rate} readOnly className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-slate-50" placeholder="Auto" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">CGST %</label>
-                    <input type="number" step="any" name="cgst_rate" value={formData.cgst_rate} readOnly className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-50" placeholder="Auto" />
+                    <label className="block text-xs font-medium text-slate-600 mb-0.5">CGST %</label>
+                    <input type="number" step="any" name="cgst_rate" value={formData.cgst_rate} readOnly className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-slate-50" placeholder="Auto" />
                   </div>
                 </>
               )}
               {formData.gst_type === 'IGST' && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">IGST %</label>
-                  <input type="number" step="any" name="igst_rate" value={formData.igst_rate} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="e.g. 18" />
+                  <label className="block text-xs font-medium text-slate-600 mb-0.5">IGST %</label>
+                  <input type="number" step="any" name="igst_rate" value={formData.igst_rate} onChange={handleChange} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="e.g. 18" />
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Credit Limit</label>
-                <input type="number" step="any" name="credit_limit" value={formData.credit_limit} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter credit limit" />
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Credit Limit</label>
+                <input type="number" step="any" name="credit_limit" value={formData.credit_limit} onChange={handleChange} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter credit limit" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Credit Days</label>
-                <input type="number" name="credit_days" value={formData.credit_days} onChange={handleChange} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter credit days" />
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Credit Days</label>
+                <input type="number" name="credit_days" value={formData.credit_days} onChange={handleChange} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter credit days" />
               </div>
               <div className="flex items-center gap-2">
                 <input type="checkbox" name="active_flag" checked={formData.active_flag} onChange={handleChange} className="rounded border-slate-300" />
                 <label className="text-sm text-slate-700">Active</label>
               </div>
-              <div className="col-span-2 md:col-span-2 lg:col-span-3">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Freight Split Notes</label>
-                <textarea name="freight_split_notes" value={formData.freight_split_notes} onChange={handleChange} rows={3} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter freight split notes" />
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Freight Split Notes</label>
+                <textarea name="freight_split_notes" value={formData.freight_split_notes} onChange={handleChange} rows={2} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter freight split notes" />
               </div>
             </div>
           </div>
@@ -812,22 +812,22 @@ export default function CreateVendor() {
 
           {/* Section: Additional */}
           <div>
-            <h3 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b">Additional</h3>
-            <div className="grid grid-cols-2 md:grid-cols-2 gap-3 sm:gap-4">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-primary-700 mb-1.5 pb-1 border-b">Additional</h3>
+            <div className="grid grid-cols-2 md:grid-cols-2 gap-x-4 gap-y-2">
               <div className="col-span-2 md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
-                <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">Notes</label>
+                <textarea name="notes" value={formData.notes} onChange={handleChange} rows={2} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
               </div>
             </div>
           </div>
 
+          </EditGate>
           {/* Actions — sticky at the bottom of the viewport so Save/Cancel stay
               reachable on this long form without scrolling to the end. */}
-          <div className="flex flex-row justify-end gap-2 pt-4 border-t sticky bottom-0 bg-white/95 backdrop-blur -mx-3 sm:-mx-6 px-3 sm:px-6 pb-3 sm:pb-4 z-10">
+          <div className="flex flex-row justify-end gap-2 pt-3 mt-2 border-t sticky bottom-0 bg-white/95 backdrop-blur -mx-3 sm:-mx-4 px-3 sm:px-4 pb-3 sm:pb-4 z-10">
             <button type="button" onClick={() => navigate(-1)} className="px-4 sm:px-6 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
             <button type="submit" disabled={isLoading || gstinClash.length > 0 || dupMatches.length > 0} title={gstinClash.length > 0 ? 'Resolve the duplicate GSTIN first' : dupMatches.length > 0 ? 'Resolve the duplicate name first' : undefined} className="px-4 sm:px-6 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">{isLoading ? 'Saving...' : 'Save'}</button>
           </div>
-          </EditGate>
         </form>
       </div>
     </MainLayout>

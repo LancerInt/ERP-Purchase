@@ -914,6 +914,35 @@ class Vendor(BaseModel):
     def __str__(self):
         return f"{self.vendor_code} - {self.vendor_name}"
 
+    # Re-verify a GSTIN after this many days — a status (CANCELLED/SUSPENDED)
+    # can change after a stale "verified" snapshot, so the UI prompts a refresh.
+    GSTIN_VERIFY_STALE_DAYS = 90
+
+    @property
+    def is_gstin_verified(self):
+        """True once the GSTIN has been verified against the portal (a snapshot
+        exists). A convenience marker so the UI/filters don't infer it from the
+        timestamp. Independent of the resulting status — see gstin_status_ok."""
+        return self.gstin_verified_at is not None
+
+    @property
+    def gstin_verification_stale(self):
+        """True when a verified GSTIN is older than GSTIN_VERIFY_STALE_DAYS, so
+        the status may have changed since. False when never verified (nothing to
+        be stale) — call is_gstin_verified first."""
+        if not self.gstin_verified_at:
+            return False
+        from django.utils import timezone
+        from datetime import timedelta
+        return timezone.now() - self.gstin_verified_at > timedelta(days=self.GSTIN_VERIFY_STALE_DAYS)
+
+    @property
+    def gstin_status_ok(self):
+        """True only when verified AND the portal status is ACTIVE. CANCELLED /
+        SUSPENDED verified vendors return False so callers can warn before
+        transacting (the status never BLOCKS, per decision)."""
+        return self.is_gstin_verified and self.gstin_portal_status == 'ACTIVE'
+
     def save(self, *args, **kwargs):
         if not self.vendor_code:
             self.vendor_code = self._generate_vendor_code()
@@ -1299,11 +1328,78 @@ class Transporter(BaseModel):
     # to identity + contact only. The RATING_CHOICES class constant
     # above is kept intentionally to avoid breaking any in-flight
     # migrations that reference it; safe to drop in a future cleanup.
+
+    # ── Tax / compliance (freight, road-only shipper) ──────────────────
+    # These feed the freight tax engine in purchase/freight_rules.py. The
+    # model only STORES the inputs; every rule (RCM / TDS / MSME / FCM) is
+    # computed by that tested module, never duplicated here.
+
+    # Constitution — drives §194C rate (1% individual/HUF vs 2% company/firm).
+    CONSTITUTION_CHOICES = (
+        ('INDIVIDUAL', 'Individual / HUF'),
+        ('COMPANY', 'Company / Firm / AOP'),
+    )
+    constitution = models.CharField(
+        max_length=12, blank=True, default='', choices=CONSTITUTION_CHOICES,
+        help_text='Individual/HUF → 194C 1%; Company/Firm → 2%.')
+    pan = models.CharField(
+        max_length=10, blank=True, default='',
+        help_text='PAN — absence forces §206AA 20% TDS.')
+    # §194C(6): a goods-transport operator owning ≤10 carriages who furnishes
+    # PAN + a declaration is fully TDS-exempt.
+    owns_10_or_fewer_carriages = models.BooleanField(default=False)
+    has_194c_declaration = models.BooleanField(
+        default=False,
+        help_text='Valid §194C(6) small-carrier declaration on file.')
+
+    # GTA / RCM. A GTA issuing a consignment note is RCM-eligible; a GTA that
+    # filed Annexure V for an FY charges forward (FCM) instead.
+    is_gta = models.BooleanField(
+        default=True, help_text='Goods Transport Agency (issues consignment notes).')
+    gst_registered = models.BooleanField(
+        default=True, help_text='GST-registered — an unregistered GTA under RCM '
+                                'needs a self-invoice (§31(3)(f)).')
+    annexure_v_opted_fy = models.CharField(
+        max_length=7, blank=True, default='',
+        help_text="FY (e.g. '2026-27') the GTA opted for forward charge via "
+                  "Annexure V. Blank = reverse charge (RCM).")
+    FCM_SLAB_CHOICES = (('5', '5% (no ITC to GTA)'), ('12', '12% (with ITC)'))
+    fcm_slab = models.CharField(
+        max_length=2, blank=True, default='', choices=FCM_SLAB_CHOICES,
+        help_text='Forward-charge slab when Annexure V opted.')
+
+    # ── MSME (transporter is MSME-registered under Udyam) ──────────────
+    # Mirrors Vendor's MSME block: only MICRO/SMALL get §15 45-day protection.
+    MSME_CATEGORY_CHOICES = (
+        ('MICRO', 'Micro'),
+        ('SMALL', 'Small'),
+        ('MEDIUM', 'Medium'),
+    )
+    is_msme = models.BooleanField(
+        default=False, help_text='Registered under MSMED Act (Udyam).')
+    msme_category = models.CharField(
+        max_length=10, blank=True, default='', choices=MSME_CATEGORY_CHOICES,
+        help_text='Micro/Small get §15 45-day protection; Medium does not.')
+    msme_udyam_no = models.CharField(max_length=25, blank=True, default='')
+    has_msme_agreement = models.BooleanField(
+        default=False,
+        help_text='Written supply agreement — allows 45-day terms; without it 15.')
+
     active_flag = models.BooleanField(default=True, db_index=True)
 
     class Meta:
         db_table = 'master_transporter'
         ordering = ['transporter_code']
+
+    def save(self, *args, **kwargs):
+        # Auto-flag MSME when a Udyam number or category is present — mirrors
+        # Vendor.save (master/models.py ~945). The category still governs
+        # whether the 15/45-day cap applies.
+        if (self.msme_udyam_no or '').strip() or (self.msme_category or '').strip():
+            self.is_msme = True
+        if self.pan:
+            self.pan = self.pan.upper().strip()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.transporter_code} - {self.name}"
