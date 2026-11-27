@@ -132,7 +132,7 @@ export default function PurchaseOrderList() {
     ));
   };
 
-  const thCls = "text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap";
+  const thCls = "text-left px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 whitespace-nowrap";
 
   return (
     <MainLayout>
@@ -186,8 +186,8 @@ export default function PurchaseOrderList() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-[32px] border border-slate-200 rounded-md bg-white cursor-pointer pl-3 pr-8"
-          style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }}
+          className="h-[30px] text-[12px] font-medium text-slate-700 border border-slate-200 rounded-md bg-white cursor-pointer pl-3 pr-8 leading-none appearance-none bg-no-repeat focus:ring-1 focus:ring-primary-400 focus:border-primary-400"
+          style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2360594a' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")", backgroundPosition: 'right 8px center', backgroundSize: '12px' }}
         >
           <option value="ALL">Status</option>
           <option value="DRAFT">Draft</option>
@@ -256,7 +256,7 @@ export default function PurchaseOrderList() {
           <div className="overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
+              <tr className="bg-primary-50 border-b-2 border-slate-200">
                 <th className={thCls}>PO Number</th>
                 {!colHidden('linked_pr_numbers') && <th className={thCls}>PR No</th>}
                 {!colHidden('product_names') && <th className={thCls} style={{ width: 160 }}>Products</th>}
@@ -283,19 +283,19 @@ export default function PurchaseOrderList() {
                   <tr
                     key={row.id}
                     onClick={() => navigate(`/purchase/orders/${row.id}`)}
-                    className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                    className="border-b border-slate-200 hover:bg-primary-50/50 cursor-pointer transition-colors"
                   >
-                    <td className="px-2 py-2 font-semibold text-slate-800">{row.po_no}</td>
-                    {!colHidden('linked_pr_numbers') && <td className="px-2 py-2">{renderPrLinks(row)}</td>}
-                    {!colHidden('product_names') && <td className="px-2 py-2 truncate" style={{ maxWidth: 160 }}><ProductsCell names={row.product_names} /></td>}
-                    {!colHidden('vendor_name') && <td className="px-2 py-2 text-slate-600 truncate">{row.vendor_name || '—'}</td>}
-                    {!colHidden('company_name') && <td className="px-2 py-2 text-slate-600 truncate">{row.company_name || '—'}</td>}
-                    {!colHidden('warehouse_name') && <td className="px-2 py-2 text-slate-600 truncate">{row.warehouse_name || '—'}</td>}
-                    {!colHidden('po_date') && <td className="px-2 py-2 text-slate-500">{row.po_date ? formatDate(row.po_date) : '—'}</td>}
-                    {!colHidden('total_order_value') && <td className="px-2 py-2 text-slate-700 font-medium">{row.total_order_value ? formatCurrency(row.total_order_value) : '₹0'}</td>}
-                    {!colHidden('fulfillment_status') && <td className="px-2 py-2"><StatusBadge status={row.fulfillment_status || row.status} /></td>}
+                    <td className="px-3 py-3 font-semibold text-slate-800">{row.po_no}</td>
+                    {!colHidden('linked_pr_numbers') && <td className="px-3 py-3">{renderPrLinks(row)}</td>}
+                    {!colHidden('product_names') && <td className="px-3 py-3 truncate" style={{ maxWidth: 160 }}><ProductsCell names={row.product_names} /></td>}
+                    {!colHidden('vendor_name') && <td className="px-3 py-3 text-slate-700 truncate">{row.vendor_name || '—'}</td>}
+                    {!colHidden('company_name') && <td className="px-3 py-3 text-slate-600 truncate">{row.company_name || '—'}</td>}
+                    {!colHidden('warehouse_name') && <td className="px-3 py-3 text-slate-600 truncate">{row.warehouse_name || '—'}</td>}
+                    {!colHidden('po_date') && <td className="px-3 py-3 text-slate-600 whitespace-nowrap">{row.po_date ? formatDate(row.po_date) : '—'}</td>}
+                    {!colHidden('total_order_value') && <td className="px-3 py-3 text-slate-800 font-semibold tabular-nums whitespace-nowrap">{row.total_order_value ? formatCurrency(row.total_order_value) : '₹0'}</td>}
+                    {!colHidden('fulfillment_status') && <td className="px-3 py-3"><StatusBadge status={row.fulfillment_status || row.status} /></td>}
                     {!colHidden('email_sent') && (
-                      <td className="px-2 py-2">
+                      <td className="px-3 py-3">
                         {row.email_sent ? (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-medium">
                             <MailCheck size={11} /> Sent
@@ -307,14 +307,14 @@ export default function PurchaseOrderList() {
                         )}
                       </td>
                     )}
-                    <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
+                    <td className="px-3 py-3" onClick={e => e.stopPropagation()}>
                       {canCreate('Receipt Advice') && inProgress && !row.is_fully_received && (row.email_sent || startedReceiving) ? (
                         <button onClick={() => navigate(`/purchase/receipts/new?po_id=${row.id}`)} className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-600 text-white text-[11px] font-medium rounded-md hover:bg-indigo-700 transition">
                           <PackageCheck size={12} /> Receipt
                         </button>
                       ) : null}
                     </td>
-                    <td className="px-2 py-1.5">
+                    <td className="px-3 py-3">
                       <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                         {canEdit('Purchase Order') && (
                           <button onClick={() => navigate(`/purchase/orders/${row.id}`)} className="p-1 text-blue-600 hover:bg-blue-50 rounded transition" title="Edit">

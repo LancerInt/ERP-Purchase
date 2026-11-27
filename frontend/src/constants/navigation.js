@@ -97,7 +97,8 @@ export const NAV_SECTIONS = [
       // Standalone (no Tally): Email Bill Inbox, Mappings removed.
       { name: 'Payment Entries', path: '/purchase/payment-entries', module: 'Payment Entries', icon: CreditCard },
       // Stock moved to the INVENTORY group (warehouse-owned).
-      { name: 'Purchase Report', path: '/reports/summary?tab=purchase', module: 'Reports', icon: BarChart3 },
+      // 'Purchase Report' (/reports/summary?tab=purchase) removed — the Analytics
+      // workspace replaces it. Route kept so old bookmarks don't 404.
     ],
   },
   {
@@ -434,7 +435,7 @@ export const ROLE_ITEM_WHITELIST = {
     { section: 'purchase', items: [
       '/purchase/dashboard',               // Analytics (Purchase Analytics)
       '/purchase/bills',                   // Bills
-      '/reports/summary?tab=purchase',     // Purchase Report
+      // Purchase Report dropped — Analytics workspace covers it.
     ] },
   ],
   'office management': [
