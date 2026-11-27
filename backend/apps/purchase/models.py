@@ -4359,6 +4359,31 @@ class LocalFreight(BaseModel):
     dc_material = models.CharField(max_length=255, blank=True, default='')
     dc_value = models.DecimalField(max_digits=18, decimal_places=2, default=0)   # goods value — reference only
 
+    # ── Freight tax engine fields (computed via purchase/freight_rules.py) ──
+    # Consignment note (LR/Bilty) makes the service GTA → RCM-eligible.
+    consignment_note_no = models.CharField(max_length=60, blank=True, default='')
+    inter_state = models.BooleanField(
+        default=False, help_text='Inter-state → IGST; else CGST+SGST.')
+
+    # Ancillary charges clubbed into the taxable value (composite supply, §8).
+    loading_charges = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    unloading_charges = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    detention_charges = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    fuel_surcharge = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    # Charge mechanism decided per advice: RCM (we pay reverse charge),
+    # FCM (transporter charges GST on its bill), NONE (non-GTA rental).
+    MECHANISM_CHOICES = (('RCM', 'Reverse charge'), ('FCM', 'Forward charge'), ('NONE', 'Not GTA'))
+    charge_mechanism = models.CharField(
+        max_length=4, blank=True, default='', choices=MECHANISM_CHOICES, db_index=True)
+    # Stored computed figures (snapshot at save; recomputable from freight_rules).
+    taxable_value = models.DecimalField(max_digits=18, decimal_places=2, default=0)   # freight + ancillaries
+    rcm_gst = models.DecimalField(max_digits=18, decimal_places=2, default=0)         # 5% reverse-charge GST
+    gst_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)      # FCM GST on transporter bill
+    tds_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)      # §194C deducted
+    needs_self_invoice = models.BooleanField(default=False)  # §31(3)(f) unregistered-GTA RCM
+    sac_code = models.CharField(max_length=6, blank=True, default='')  # 996511 GTA / 996791 rental
+
     class Meta:
         db_table = 'purchase_local_freight'
         ordering = ['-date', '-created_at']
@@ -4376,6 +4401,59 @@ class LocalFreight(BaseModel):
                 + (self.additional_freight_amount or Decimal('0'))
                 - (self.less_amount or Decimal('0'))
                 - (self.tds_less or Decimal('0')))
+
+    def compute_freight_taxes(self, current_fy, as_of=None, fy_aggregate=None):
+        """Compute and store this advice's tax fields from the single tested
+        rule source (purchase/freight_rules.py) + the linked transporter.
+
+        Mutates (does not save) charge_mechanism, taxable_value, rcm_gst,
+        gst_amount, tds_amount, needs_self_invoice, sac_code. Returns self.
+        A caller computes once then .save(update_fields=...).
+        """
+        from . import freight_rules as fr
+
+        t = self.transporter
+        has_note = bool((self.consignment_note_no or '').strip())
+        is_gta = bool(getattr(t, 'is_gta', True)) and has_note
+
+        sac, _ = fr.classify_road_service(has_note)
+        self.sac_code = sac
+
+        self.taxable_value = fr.composite_taxable_value(
+            self.freight_amount,
+            loading=self.loading_charges, unloading=self.unloading_charges,
+            detention=self.detention_charges, fuel_surcharge=self.fuel_surcharge)
+
+        mech = fr.freight_charge_mechanism(
+            is_gta=is_gta, has_consignment_note=has_note,
+            annexure_v_opted_fy=getattr(t, 'annexure_v_opted_fy', ''),
+            current_fy=current_fy)
+        self.charge_mechanism = mech
+
+        if mech == 'RCM':
+            r = fr.compute_rcm_gst(self.taxable_value, is_gta=True,
+                                   inter_state=self.inter_state)
+            self.rcm_gst = r['total']
+            self.gst_amount = Decimal('0')
+            self.needs_self_invoice = fr.needs_self_invoice(
+                mechanism='RCM', supplier_registered=bool(getattr(t, 'gst_registered', True)))
+        elif mech == 'FCM':
+            self.gst_amount = fr.compute_fcm_gst(
+                self.taxable_value, slab_12=(getattr(t, 'fcm_slab', '') == '12'))
+            self.rcm_gst = Decimal('0')
+            self.needs_self_invoice = False
+        else:   # NONE (non-GTA rental): ordinary GST, no RCM/self-invoice
+            self.rcm_gst = Decimal('0')
+            self.needs_self_invoice = False
+
+        self.tds_amount = fr.compute_freight_tds(
+            self.taxable_value,
+            is_individual=(getattr(t, 'constitution', '') == 'INDIVIDUAL'),
+            has_pan=bool(getattr(t, 'pan', '')),
+            fy_aggregate_including_this=(fy_aggregate if fy_aggregate is not None else self.taxable_value),
+            owns_10_or_fewer_carriages=bool(getattr(t, 'owns_10_or_fewer_carriages', False)),
+            has_declaration=bool(getattr(t, 'has_194c_declaration', False)))
+        return self
 
     def get_total_paid(self):
         """Inline 'Amount Pay' captured on the bill + any ledger payments."""
