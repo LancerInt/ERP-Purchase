@@ -368,12 +368,12 @@ export default function QuoteResponseList() {
 
                           {/* RFQ Date */}
                           {isColVisible('quote_date') && (
-                            <td className="px-2 py-2 text-slate-500">{row.quote_date ? formatDate(row.quote_date) : '-'}</td>
+                            <td className="px-2 py-2 text-slate-500 whitespace-nowrap">{row.quote_date ? formatDate(row.quote_date) : '-'}</td>
                           )}
 
                           {/* Valid Till */}
                           {isColVisible('price_valid_till') && (
-                            <td className="px-2 py-2 text-slate-500">{row.price_valid_till ? formatDate(row.price_valid_till) : '-'}</td>
+                            <td className="px-2 py-2 text-slate-500 whitespace-nowrap">{row.price_valid_till ? formatDate(row.price_valid_till) : '-'}</td>
                           )}
 
                           {/* Currency */}

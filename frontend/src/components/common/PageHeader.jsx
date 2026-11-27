@@ -32,7 +32,7 @@ export default function PageHeader({
         {breadcrumbs.length > 0 && (
           <nav aria-label="Breadcrumb" className="hidden sm:flex items-center gap-1.5 px-4 pt-2.5 text-[11px] text-teal-50/80">
             {breadcrumbs.map((crumb, idx) => {
-              const to = crumb.href || crumb.path;
+              const to = crumb.href || crumb.path || crumb.to;
               return (
                 <span key={idx} className="flex items-center gap-1.5">
                   {idx > 0 && <span className="text-white/40">/</span>}
@@ -159,21 +159,17 @@ export default function PageHeader({
           {breadcrumbs.length > 0 && (
             <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 min-w-0 flex-wrap">
               {breadcrumbs.map((crumb, idx) => {
-                const to = crumb.href || crumb.path;
+                const to = crumb.href || crumb.path || crumb.to;
                 const last = idx === breadcrumbs.length - 1;
                 return (
                   <span key={idx} className="flex items-center gap-1.5 min-w-0">
                     {idx > 0 && <span className="text-slate-300" aria-hidden="true">/</span>}
-                    {to ? (
+                    {last ? (
+                      <span aria-current="page" className="text-sm font-semibold text-slate-900 truncate">{crumb.label}</span>
+                    ) : to ? (
                       <Link to={to} className="text-xs text-primary-600 font-medium hover:text-primary-700 hover:underline">{crumb.label}</Link>
                     ) : (
-                      <span
-                        aria-current={last ? 'page' : undefined}
-                        className={last
-                          ? 'text-sm font-semibold text-slate-900 truncate'
-                          : 'text-xs text-slate-500'}>
-                        {crumb.label}
-                      </span>
+                      <span className="text-xs text-primary-600 font-medium">{crumb.label}</span>
                     )}
                   </span>
                 );
@@ -208,16 +204,19 @@ export default function PageHeader({
       {breadcrumbs.length > 0 && (
         <nav className="hidden sm:flex items-center gap-1.5 sm:gap-2 text-xs text-slate-500 mb-1 flex-wrap">
           {breadcrumbs.map((crumb, idx) => {
-            // Pages are split between `href` and `path` for the crumb
-            // target — accept both so every breadcrumb stays clickable.
-            const to = crumb.href || crumb.path;
+            const to = crumb.href || crumb.path || crumb.to;
+            const last = idx === breadcrumbs.length - 1;
+            // Consistent rule: parent crumbs are teal (section colour), the
+            // current page (last crumb) is grey — whether or not it links.
             return (
               <span key={idx} className="flex items-center gap-1.5 sm:gap-2">
                 {idx > 0 && <span>/</span>}
-                {to ? (
+                {last ? (
+                  <span className="text-slate-600 font-semibold">{crumb.label}</span>
+                ) : to ? (
                   <Link to={to} className="text-primary-600 font-medium hover:text-primary-700 hover:underline">{crumb.label}</Link>
                 ) : (
-                  <span className="text-slate-600 font-semibold">{crumb.label}</span>
+                  <span className="text-primary-600 font-medium">{crumb.label}</span>
                 )}
               </span>
             );

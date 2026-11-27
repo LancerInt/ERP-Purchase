@@ -117,7 +117,7 @@ export default function ImportBankStatements() {
       <PageHeader
         title="Import Bank Statements"
         subtitle="Upload a statement and record the payments in it"
-        breadcrumbs={[{ label: 'Purchase' }, { label: 'Payments Made', to: '/purchase/payments-made' }, { label: 'Import' }]}
+        breadcrumbs={[{ label: 'Finance' }, { label: 'Payments Made', to: '/purchase/payments-made' }, { label: 'Import' }]}
       />
       {/* Drill into a statement: record its rows INLINE on the page (no popup). */}
       {active && (

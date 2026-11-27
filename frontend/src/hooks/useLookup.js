@@ -237,12 +237,20 @@ export default function useLookup(endpoint, options = {}) {
     });
   }, [endpoint, autoFetch]);
 
+  // Prefix the unique code for warehouses / godowns / companies, so pickers
+  // read "CODE — Name" (e.g. "TVP-SS — Formulation-01") and are easy to scan.
+  const withCode = (item, name) => {
+    const code = item.godown_code || item.warehouse_code || item.company_code;
+    if (code && name && !String(name).startsWith(code)) return `${code} — ${name}`;
+    return name;
+  };
+
   // Build options array for <select> elements
   const selectOptions = items.map(item => ({
     value: item[valueField],
     label: typeof labelField === 'function'
       ? labelField(item)
-      : (item[labelField]
+      : withCode(item, item[labelField]
         || item.name
         || item.product_name
         || item.godown_name

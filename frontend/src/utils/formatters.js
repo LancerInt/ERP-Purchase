@@ -67,7 +67,7 @@ export const formatPercentage = (value, decimalPlaces = 2) => {
 };
 
 // Date Formatters
-export const formatDate = (dateString, formatStr = 'dd-MMM-yyyy') => {
+export const formatDate = (dateString, formatStr = 'dd-MM-yyyy') => {
   if (!dateString) return '';
   try {
     const date = typeof dateString === 'string' ? parseISO(dateString) : dateString;
@@ -78,7 +78,7 @@ export const formatDate = (dateString, formatStr = 'dd-MMM-yyyy') => {
   }
 };
 
-export const formatDateTime = (dateString, formatStr = 'dd-MMM-yyyy HH:mm') => {
+export const formatDateTime = (dateString, formatStr = 'dd-MM-yyyy HH:mm') => {
   return formatDate(dateString, formatStr);
 };
 

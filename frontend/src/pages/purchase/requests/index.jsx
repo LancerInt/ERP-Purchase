@@ -636,7 +636,7 @@ export default function PurchaseRequestList() {
                   onClick={() => navigate(`/purchase/requests/${row.id}`)}
                   className="odd:bg-white even:bg-primary-50/40 border-b border-slate-100 hover:bg-primary-50/70 cursor-pointer transition-colors"
                 >
-                  <td className="px-2 py-2">
+                  <td className="px-2 py-2 whitespace-nowrap">
                     <div className="flex items-center gap-1.5">
                       <span className="font-semibold text-slate-800">{row.pr_no}</span>
                       {row.allow_rfq_skip && (
@@ -648,8 +648,8 @@ export default function PurchaseRequestList() {
                   <td className="px-2 py-2 text-slate-600 truncate">{row.company_name || '—'}</td>
                   <td className="px-2 py-2 text-slate-600 truncate">{row.warehouse_name || '—'}</td>
                   <td className="px-2 py-2 text-slate-600 truncate">{row.preferred_vendor_name || '—'}</td>
-                  <td className="px-2 py-2 text-slate-500">{row.request_date ? formatDate(row.request_date) : '—'}</td>
-                  <td className="px-2 py-2 text-slate-500">{row.required_by_date ? formatDate(row.required_by_date) : '—'}</td>
+                  <td className="px-2 py-2 text-slate-500 whitespace-nowrap">{row.request_date ? formatDate(row.request_date) : '—'}</td>
+                  <td className="px-2 py-2 text-slate-500 whitespace-nowrap">{row.required_by_date ? formatDate(row.required_by_date) : '—'}</td>
                   <td className="px-2 py-2"><StatusBadge status={row.approval_status || 'DRAFT'} /></td>
                   <td className="px-2 py-2 truncate">
                     {row.linked_rfq_no ? (
