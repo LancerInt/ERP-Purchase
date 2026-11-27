@@ -132,7 +132,6 @@ export default function ZohoPurchaseAnalytics() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Purchase Analytics"
         subtitle="Vendor-wise & product-wise tracking (quantity exact, value approximate)"
         breadcrumbs={[{ label: 'Purchase' }, { label: 'Analytics' }]}

@@ -156,7 +156,6 @@ export default function VendorDuesPage() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Vendor Dues"
         subtitle="Track pending payments and outstanding balances"
         breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Vendor Dues' }]}

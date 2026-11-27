@@ -375,7 +375,6 @@ export default function ScanInbox() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Scan Invoices"
         subtitle="Drop scanned purchase invoices — AI reads each bill; you review, then it fills the item lines."
         breadcrumbs={[{ label: 'Import Data' }, { label: 'Scan Inbox' }]}

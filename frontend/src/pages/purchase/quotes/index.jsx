@@ -184,7 +184,6 @@ export default function QuoteResponseList() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Quote Responses"
         subtitle="RFQ-wise summary of vendor quote responses"
         breadcrumbs={[{ label: 'Sourcing' }, { label: 'Quotes' }]}

@@ -342,7 +342,7 @@ export default function PaymentEntries() {
 
   return (
     <MainLayout>
-      <PageHeader compact title="Payment Entries"
+      <PageHeader  title="Payment Entries"
         breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Payment Entries' }]} />
 
       {/* Tabs: the plain entries list, and a By-Category reconciliation that

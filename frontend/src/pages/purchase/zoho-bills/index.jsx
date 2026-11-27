@@ -71,7 +71,6 @@ export default function ZohoBillsList() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Bills (Zoho)"
         subtitle="SRA bills imported from Zoho Creator"
         breadcrumbs={[{ label: 'Purchase' }, { label: 'Bills (Zoho)' }]}

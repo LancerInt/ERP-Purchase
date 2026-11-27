@@ -503,7 +503,6 @@ export default function PurchaseRequestList() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Purchase Requests"
         subtitle="Manage purchase requests and approvals"
         breadcrumbs={[{ label: 'Sourcing' }, { label: 'Requests (PR)' }]}

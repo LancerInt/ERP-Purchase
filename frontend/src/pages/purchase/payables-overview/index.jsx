@@ -127,7 +127,6 @@ export default function PayablesOverview() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Payables Overview"
         subtitle="What we owed, what we paid, and what's still outstanding"
         breadcrumbs={[{ label: 'Purchase' }, { label: 'Payables Overview' }]}

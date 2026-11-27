@@ -168,7 +168,6 @@ export default function ZohoPurchaseDashboard() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Purchase Dashboard"
         subtitle="Top vendors & products, month-on-month trend, and exceptions"
         breadcrumbs={[{ label: 'Purchase' }, { label: 'Dashboard' }]}

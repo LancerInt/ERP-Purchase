@@ -588,7 +588,6 @@ export default function PurchaseLifecycleDashboard() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Purchase Flow Dashboard"
         subtitle="Visualize the complete lifecycle of a Purchase Request"
         breadcrumbs={[

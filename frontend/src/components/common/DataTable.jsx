@@ -347,7 +347,7 @@ export default function DataTable({
           {onExport && <div className="h-10 w-24 bg-slate-200 rounded-lg animate-pulse" />}
         </div>
         <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="h-10 bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b border-primary-100" />
+          <div className="h-10 bg-primary-50 border-b-2 border-slate-300" />
           <div className="divide-y divide-slate-100">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="h-11 bg-white flex items-center px-4 gap-4">
@@ -446,8 +446,8 @@ export default function DataTable({
           sm:block`, so this mobile list stays hidden there (no double view). */}
       <div className="hidden sm:block overflow-x-auto border border-slate-200 rounded-xl shadow-sm">
         <table className="w-full min-w-[800px]">
-          {/* Header — subtle blue tint (app-wide) so tables read less plain */}
-          <thead className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b border-primary-100">
+          {/* Header — teal-soft tint (SS Biochem standard table look) */}
+          <thead className="bg-primary-50 border-b-2 border-slate-300">
             <tr>
               {expandableContent && <th className="px-2 py-3 fine:py-2 w-8"></th>}
               {showBulkSelect && (
@@ -466,7 +466,7 @@ export default function DataTable({
               {normalizedColumns.map((col) => (
                 <th
                   key={col.field}
-                  className={`${cellPad} text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap`}
+                  className={`${cellPad} text-left text-[11px] font-bold text-primary-700 uppercase tracking-wider whitespace-nowrap`}
                   style={{ width: col.width }}
                 >
                   {col.sortable !== false ? (
@@ -524,8 +524,8 @@ export default function DataTable({
                   <React.Fragment key={row.id}>
                     <tr
                       onClick={() => { if (window.getSelection()?.toString()) return; onRowClick && onRowClick(row); }}
-                      className={`transition-colors duration-150 odd:bg-white even:bg-slate-100/70 ${
-                        onRowClick ? 'cursor-pointer hover:bg-primary-50' : 'hover:bg-primary-50/40'
+                      className={`transition-colors duration-150 odd:bg-white even:bg-primary-50/40 ${
+                        onRowClick ? 'cursor-pointer hover:bg-primary-50' : 'hover:bg-primary-50/70'
                       } ${isExpanded ? 'bg-primary-50/50' : ''}`}
                     >
                       {expandableContent && (

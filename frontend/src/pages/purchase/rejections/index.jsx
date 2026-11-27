@@ -76,7 +76,6 @@ export default function MaterialRejectionList() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Material Rejections"
         subtitle="Manage material rejections against receipts"
         breadcrumbs={[{ label: 'Rejections' }]}

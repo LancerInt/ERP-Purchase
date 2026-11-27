@@ -894,7 +894,6 @@ export default function VendorBillList({ expenseOnly = false } = {}) {
         </div>
       )}
       <PageHeader
-        compact
         title={expenseOnly ? 'Expense Bills' : 'Vendor Bills'}
         subtitle={expenseOnly
           ? 'Direct & indirect expense bookings (journals / GST journals)'

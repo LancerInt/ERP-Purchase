@@ -259,7 +259,7 @@ function BreakdownPivot({ breakdown, fmt }) {
   const rows = breakdown?.rows || {};
   if (!months.length) return <div className="text-center py-8 text-slate-400 text-sm">No data for this period.</div>;
   const Row = ({ label, k, sign, labelCls, rowCls }) => (
-    <tr className={rowCls || 'hover:bg-slate-50'}>
+    <tr className={rowCls || 'hover:bg-primary-50/70'}>
       <td className={`sticky left-0 bg-white px-2 py-1.5 text-[11px] font-semibold border-b border-slate-100 z-10 ${labelCls || 'text-slate-700'}`}>{label}</td>
       {months.map(m => {
         const v = rows[k]?.[m.month];
@@ -1527,7 +1527,7 @@ export default function PurchaseWorkspace() {
         {/* Company switcher — click the avatar/name to change the global company. */}
         <div className="relative flex-1 min-w-0">
           <button type="button" onClick={() => setCompanyMenuOpen(o => !o)}
-            className="flex items-center gap-2.5 max-w-full rounded-lg px-1.5 py-1 -mx-1.5 hover:bg-slate-50 transition">
+            className="flex items-center gap-2.5 max-w-full rounded-lg px-1.5 py-1 -mx-1.5 odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70 transition">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-white flex items-center justify-center font-extrabold text-[13px] flex-shrink-0">{initials}</div>
             <div className="min-w-0 text-left">
               <div className="text-sm font-bold text-slate-900 truncate flex items-center gap-1">
@@ -1786,7 +1786,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>Vendor</TH><TH>Invoice</TH><TH>Due Date</TH><TH right>Days</TH><TH>Status</TH><TH right>Outstanding</TH></tr></thead>
                       <tbody>
                         {payWeek.rows.map((b, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
+                          <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{b.vendor_name}{b.vendor_is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
                             <TD clickable onClick={() => navigate(`/purchase/bills?quick=${b.bill_id}`)}>{b.bill_no || b.vendor_invoice_no || '—'}</TD>
                             <TD color="text-slate-800">{fmtDate(b.due_date)}</TD>
@@ -1832,7 +1832,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>Vendor</TH><TH>Invoice</TH><TH>Due Date</TH><TH right>Days Late</TH><TH>Band</TH><TH right>Outstanding</TH></tr></thead>
                       <tbody>
                         {payAged.rows.map((b, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
+                          <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{b.vendor_name}{b.vendor_is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
                             <TD clickable onClick={() => navigate(`/purchase/bills?quick=${b.bill_id}`)}>{b.bill_no || b.vendor_invoice_no || '—'}</TD>
                             <TD color="text-slate-800">{fmtDate(b.due_date)}</TD>
@@ -1892,7 +1892,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>Vendor</TH><TH>Invoice</TH><TH>Due Date</TH><TH right>Due In</TH><TH>Category</TH><TH right>Outstanding</TH></tr></thead>
                       <tbody>
                         {payUpRows.map((b, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
+                          <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{b.vendor_name}{b.vendor_is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
                             <TD clickable onClick={() => navigate(`/purchase/bills?quick=${b.bill_id}`)}>{b.bill_no || b.vendor_invoice_no || '—'}</TD>
                             <TD color="text-slate-800">{fmtDate(b.due_date)}</TD>
@@ -1930,7 +1930,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>Vendor</TH><TH>Category</TH><TH right>Purchase Value</TH><TH right>Outstanding</TH><TH right>% Share</TH></tr></thead>
                       <tbody>
                         {vTop.rows.map((v, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
+                          <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD first bold>{v.vendor_name}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
                             <TD><CatPill cat={v.purchase_category} /></TD>
                             <TD right bold color="text-indigo-700">{fmtINR(v.period_value)}</TD>
@@ -1967,7 +1967,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>Vendor</TH><TH>Category</TH><TH>Last Bill</TH><TH right>Days Inactive</TH><TH right>Lifetime Value</TH><TH right>Outstanding</TH><TH>Risk</TH></tr></thead>
                       <tbody>
                         {vInact.rows.map((v, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
+                          <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{v.vendor_name}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
                             <TD><CatPill cat={v.purchase_category} /></TD>
                             <TD color="text-slate-800">{fmtDate(v.last_bill_date)}</TD>
@@ -2006,7 +2006,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>Vendor</TH><TH>Category</TH><TH right>Purchase Value</TH><TH right>Bills</TH><TH right>Return Rate</TH><TH right>Outstanding</TH><TH>Score</TH></tr></thead>
                       <tbody>
                         {vScore.rows.map((v, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
+                          <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{v.vendor_name}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
                             <TD><CatPill cat={v.purchase_category} /></TD>
                             <TD right bold color="text-indigo-700">{fmtINR(v.period_value)}</TD>
@@ -2044,7 +2044,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>Item</TH><TH>Category</TH><TH>Sole Vendor</TH><TH right>Qty</TH><TH right>Value</TH></tr></thead>
                       <tbody>
                         {vSingle.items.map((i, k) => (
-                          <tr key={k} className="hover:bg-slate-50">
+                          <tr key={k} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{i.item}</TD>
                             <TD color="text-slate-500">{i.category}</TD>
                             <TD>{i.vendor}{i.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
@@ -2081,7 +2081,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>Vendor</TH><TH>Bill</TH><TH>Bill Date</TH><TH right>Days Since Bill</TH><TH right>Balance</TH><TH>Status</TH></tr></thead>
                       <tbody>
                         {vMsme.bills.map((b, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
+                          <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{b.vendor_name}</TD>
                             <TD clickable onClick={() => navigate(`/purchase/bills?quick=${b.bill_id}`)}>{b.bill_no || b.vendor_invoice_no || '—'}</TD>
                             <TD color="text-slate-800">{fmtDate(b.bill_date)}</TD>
@@ -2119,7 +2119,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>Item</TH><TH>Category</TH><TH right>Current Avg</TH><TH right>Change %</TH><TH right>Spread %</TH><TH>Cheapest Vendor</TH><TH right>Overpay</TH></tr></thead>
                       <tbody>
                         {vPrice.items.map((i, k) => (
-                          <tr key={k} className="hover:bg-slate-50">
+                          <tr key={k} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{i.item}</TD>
                             <TD color="text-slate-500">{i.category}</TD>
                             <TD right>{fmtRup(i.curAvg)}</TD>
@@ -2158,7 +2158,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>Vendor</TH><TH>Category</TH><TH>First Bill</TH><TH right>Bills</TH><TH right>Value</TH><TH>Status</TH></tr></thead>
                       <tbody>
                         {vNew.rows.map((v, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
+                          <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{v.vendor_name}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
                             <TD><CatPill cat={v.purchase_category} /></TD>
                             <TD color="text-slate-800">{fmtDate(v.first_bill_date)}</TD>
@@ -2212,7 +2212,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>Tier</TH><TH right>Vendors</TH><TH right>Value</TH><TH right>% of total</TH><TH right>Cumulative %</TH><TH right>Avg / Vendor</TH></tr></thead>
                       <tbody>
                         {vConc.tiers.map((t, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
+                          <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{t.label}</TD>
                             <TD right>{t.count}</TD>
                             <TD right bold color="text-indigo-700">{fmtINR(t.value)}</TD>
@@ -2246,7 +2246,7 @@ export default function PurchaseWorkspace() {
                     <thead><tr><TH first>Vendor</TH><TH right>Billed</TH><TH right>Opening / Adj</TH><TH right>Payable</TH><TH right>Overdue</TH><TH right>Overdue (Days)</TH><TH right>% of total</TH></tr></thead>
                     <tbody>
                       {topVendors.map((r, i) => (
-                        <tr key={i} className="hover:bg-slate-50">
+                        <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                           <TD first bold>{r.name}{r.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
                           <TD right>{fmtINR(r.billed)}</TD>
                           <TD right color={r.opening > 0 ? 'text-emerald-700' : r.opening < 0 ? 'text-red-600' : 'text-slate-400'}>{fmtAdj(r.opening)}</TD>
@@ -2360,7 +2360,7 @@ export default function PurchaseWorkspace() {
                       return (
                         <React.Fragment key={i}>
                           <tr onClick={() => setItemOpen(open ? null : r.item)}
-                            className={`cursor-pointer hover:bg-slate-50 ${open ? 'bg-indigo-50/60' : ''}`}>
+                            className={`cursor-pointer hover:bg-primary-50/70 ${open ? 'bg-primary-50' : 'odd:bg-white even:bg-primary-50/40'}`}>
                             <TD bold>
                               <ChevronDown size={12} className={`inline-block mr-1 text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
                               {r.item}
@@ -2397,7 +2397,7 @@ export default function PurchaseWorkspace() {
                                       </thead>
                                       <tbody>
                                         {vendors.map((v, vi) => (
-                                          <tr key={vi} className={`hover:bg-slate-50 ${v.cheapest ? 'bg-emerald-50/50' : ''}`}>
+                                          <tr key={vi} className={`hover:bg-primary-50/70 ${v.cheapest ? 'bg-emerald-50/50' : 'odd:bg-white even:bg-primary-50/40'}`}>
                                             <td className={`sticky left-0 px-2 py-1.5 text-[11px] font-semibold border-b border-slate-100 z-10 ${v.cheapest ? 'bg-emerald-50/50' : 'bg-white'}`}>
                                               {v.vendor}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}{v.cheapest && <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wide text-emerald-700">cheapest</span>}
                                             </td>
@@ -2508,7 +2508,7 @@ export default function PurchaseWorkspace() {
                                 return (
                                   <React.Fragment key={i}>
                                     <tr onClick={() => toggleDrillVendor(v.vendor)}
-                                      className={`cursor-pointer hover:bg-slate-50 ${open ? 'bg-indigo-50/60' : v.cheapest ? 'bg-emerald-50/50' : ''}`}>
+                                      className={`cursor-pointer hover:bg-primary-50/70 ${open ? 'bg-primary-50' : v.cheapest ? 'bg-emerald-50/50' : 'odd:bg-white even:bg-primary-50/40'}`}>
                                       <TD bold>
                                         <ChevronDown size={12} className={`inline-block mr-1 text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
                                         {v.vendor}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}{v.cheapest && <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wide text-emerald-700 align-middle">cheapest</span>}
@@ -2532,7 +2532,7 @@ export default function PurchaseWorkspace() {
                                                 </tr></thead>
                                                 <tbody>
                                                   {drill.rows.map((r, ri) => (
-                                                    <tr key={ri} className="hover:bg-slate-50">
+                                                    <tr key={ri} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                                                       <TD color="text-slate-500">{monthLabel(r.month)}</TD>
                                                       <TD clickable onClick={() => navigate(`/purchase/bills?quick=${r.bill_id}`)}>{r.bill_no || '—'}</TD>
                                                       <TD color="text-slate-500">{r.bill_date ? formatDate(r.bill_date) : '—'}</TD>
@@ -2581,7 +2581,7 @@ export default function PurchaseWorkspace() {
                             </tr></thead>
                             <tbody>
                               {drillMonthly.map((r, i) => (
-                                <tr key={i} className="hover:bg-slate-50">
+                                <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                                   <TD bold>{monthLabel(r.month)}</TD>
                                   <TD right>{r.qty ? fmtQty(r.qty) : '—'}</TD>
                                   <TD right>{r.rate != null ? fmtRup(r.rate) : '—'}</TD>
@@ -2630,7 +2630,7 @@ export default function PurchaseWorkspace() {
                                 const fmtCell = (x) => x == null ? '—' : (drillMeasure === 'value' ? fmtINR(x) : drillMeasure === 'rate' ? fmtRup(x) : fmtQty(x));
                                 const rowTotal = drillMeasure === 'qty' ? v.qty : drillMeasure === 'value' ? v.value : v.avg;
                                 return (
-                                  <tr key={i} className="hover:bg-slate-50">
+                                  <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                                     <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 border-b border-slate-100 z-10">{v.vendor}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</td>
                                     {drillMonths.map(m => <td key={m} className="text-right px-2 py-1 text-[10px] tabular-nums font-semibold border-b border-l border-slate-100">{fmtCell(cellVal(v.cells[m]))}</td>)}
                                     <td className="text-right px-2 py-1 text-[11px] font-bold tabular-nums text-indigo-700 border-b border-l border-slate-200">{fmtCell(rowTotal)}</td>
@@ -2688,7 +2688,7 @@ export default function PurchaseWorkspace() {
                       </tr></thead>
                       <tbody>
                         {['Billed', 'Paid', 'Payment %'].map((metric, mi) => (
-                          <tr key={metric} className="hover:bg-slate-50">
+                          <tr key={metric} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <td className={`sticky left-0 z-10 bg-white px-2 py-1.5 text-[11px] font-semibold border-b border-slate-100 ${mi === 1 ? 'text-emerald-700' : mi === 2 ? 'text-amber-600' : 'text-slate-800'}`}>{metric}</td>
                             {(accPay.monthly || []).map(m => {
                               const val = mi === 0 ? (m.billed ? fmtRup(m.billed) : '—') : mi === 1 ? (m.paid ? fmtRup(m.paid) : '—') : (m.pct != null ? `${m.pct}%` : '—');
@@ -2710,7 +2710,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>Vendor</TH><TH right>Outstanding</TH><TH right>Overdue</TH><TH>Rating</TH></tr></thead>
                       <tbody>
                         {(accPay.slowest || []).map((r, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
+                          <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{r.vendor}</TD>
                             <TD right color="text-amber-600">{fmtRup(r.outstanding)}</TD>
                             <TD right color={r.overdue ? 'text-rose-600' : 'text-slate-300'}>{r.overdue ? fmtRup(r.overdue) : '—'}</TD>
@@ -2775,7 +2775,7 @@ export default function PurchaseWorkspace() {
                             debit: r => Number(r.debit) || 0, credit: r => Number(r.credit) || 0,
                             balance: r => Number(r.balance) || 0, date: r => r.date || '',
                           }).map((r, i) => (
-                            <tr key={i} className="hover:bg-slate-50">
+                            <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                               <TD color="text-slate-800">{fmtDate(r.date)}</TD>
                               <TD>{r.particulars}{r.sub && <span className="block text-[9px] text-slate-400">{r.sub}</span>}</TD>
                               <TD bold>{r.vendor}</TD>
@@ -2819,7 +2819,7 @@ export default function PurchaseWorkspace() {
                             const open = ledgerOpen === v.vendor_id;
                             return (
                               <React.Fragment key={v.vendor_id}>
-                                <tr onClick={() => setLedgerOpen(open ? null : v.vendor_id)} className={`cursor-pointer hover:bg-slate-50 ${open ? 'bg-indigo-50/60' : ''}`}>
+                                <tr onClick={() => setLedgerOpen(open ? null : v.vendor_id)} className={`cursor-pointer hover:bg-primary-50/70 ${open ? 'bg-primary-50' : 'odd:bg-white even:bg-primary-50/40'}`}>
                                   <TD bold>
                                     <ChevronDown size={12} className={`inline-block mr-1 text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
                                     {v.vendor}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}
@@ -2839,7 +2839,7 @@ export default function PurchaseWorkspace() {
                                           <tbody>
                                             <tr className="bg-slate-50"><TD> </TD><TD bold>Opening Balance</TD><TD> </TD><TD> </TD><TD right> </TD><TD right> </TD><TD right bold>{fmtRup(v.opening)} <span className="text-[9px] text-slate-400 font-bold">{v.opening_type}</span></TD></tr>
                                             {v.ledger.map((r, i) => (
-                                              <tr key={i} className="hover:bg-slate-50">
+                                              <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                                                 <TD color="text-slate-800">{fmtDate(r.date)}</TD>
                                                 <TD>{r.particulars}{r.sub && <span className="block text-[9px] text-slate-400">{r.sub}</span>}</TD>
                                                 <TD><VchPill type={r.vch_type} /></TD>
@@ -2900,7 +2900,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>No</TH><TH>Vendor</TH><TH>Date</TH><TH right>Amount</TH></tr></thead>
                       <tbody>
                         {(accNotes.recent_debit || []).map((r, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
+                          <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{r.no}</TD><TD color="text-slate-600">{r.vendor}</TD>
                             <TD color="text-slate-800">{fmtDate(r.date)}</TD>
                             <TD right bold color="text-emerald-700">{fmtRup(r.amount)}</TD>
@@ -2920,7 +2920,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>No</TH><TH>Vendor</TH><TH>Date</TH><TH right>Amount</TH></tr></thead>
                       <tbody>
                         {(accNotes.recent_credit || []).map((r, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
+                          <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{r.no}</TD><TD color="text-slate-600">{r.vendor}</TD>
                             <TD color="text-slate-800">{fmtDate(r.date)}</TD>
                             <TD right bold color="text-rose-600">{fmtRup(r.amount)}</TD>
@@ -2972,7 +2972,7 @@ export default function PurchaseWorkspace() {
                       <thead><tr><TH first>Month</TH><TH right>CGST</TH><TH right>SGST</TH><TH right>IGST</TH><TH right>Total GST</TH></tr></thead>
                       <tbody>
                         {(accGst.monthly || []).map((m, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
+                          <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                             <TD bold>{m.label}</TD>
                             <TD right>{m.cgst ? fmtRup(m.cgst) : '—'}</TD>
                             <TD right>{m.sgst ? fmtRup(m.sgst) : '—'}</TD>
@@ -3005,7 +3005,7 @@ export default function PurchaseWorkspace() {
                     <thead><tr><TH first>Vendor</TH><TH>Section</TH><TH right>Rate</TH><TH right>FY base</TH><TH right>ERP TDS</TH><TH right>Tally TDS</TH><TH right>Diff</TH></tr></thead>
                     <tbody>
                       {tdsRows.map((r, i) => (
-                        <tr key={i} className="hover:bg-slate-50">
+                        <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                           <TD bold>{r.vendor}</TD>
                           <TD color="text-slate-500">{r.section || '—'}</TD>
                           <TD right>{num(r.rate_pct).toFixed(2)}%</TD>
@@ -3052,7 +3052,7 @@ export default function PurchaseWorkspace() {
                             return (
                               <React.Fragment key={i}>
                                 <tr onClick={() => setVturnOpen(open ? null : v.vendor)}
-                                  className={`cursor-pointer hover:bg-slate-50 ${open ? 'bg-indigo-50/60' : ''}`}>
+                                  className={`cursor-pointer hover:bg-primary-50/70 ${open ? 'bg-primary-50' : 'odd:bg-white even:bg-primary-50/40'}`}>
                                   <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 border-b border-slate-100 z-10">
                                     <span className="flex items-center gap-1">
                                       <ChevronDown size={11} className={`text-slate-400 transition-transform flex-shrink-0 ${open ? '' : '-rotate-90'}`} />
@@ -3092,7 +3092,7 @@ export default function PurchaseWorkspace() {
                                             </thead>
                                             <tbody>
                                               {v.items.map((it, ii) => (
-                                                <tr key={ii} className="hover:bg-slate-50 border-b border-slate-100">
+                                                <tr key={ii} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70 border-b border-slate-100">
                                                   <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-medium text-slate-800 z-10">{it.item}</td>
                                                   <td className="px-2 py-1 text-[10px] text-slate-500 font-medium">{it.uom || '—'}</td>
                                                   {vturnMonths.map(m => {
@@ -3168,7 +3168,7 @@ export default function PurchaseWorkspace() {
                             </tr></thead>
                             <tbody>
                               {branchRows.map((b, i) => (
-                                <tr key={i} className="hover:bg-slate-50">
+                                <tr key={i} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                                   <td className="sticky left-0 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 border-b border-slate-100 z-10 whitespace-nowrap truncate max-w-[200px]" title={b.branch}>{shortBranch(b.branch)}</td>
                                   {branchMonths.map(m => (
                                     <td key={m.month} className="text-right px-2 py-1 text-[10px] tabular-nums font-semibold border-b border-l border-slate-100">
@@ -3205,7 +3205,7 @@ export default function PurchaseWorkspace() {
                                 return (
                                   <React.Fragment key={i}>
                                     <tr onClick={() => toggleBranchBill(r.bill_id)}
-                                      className={`cursor-pointer hover:bg-slate-50 ${open ? 'bg-indigo-50/60' : ''}`}>
+                                      className={`cursor-pointer hover:bg-primary-50/70 ${open ? 'bg-primary-50' : 'odd:bg-white even:bg-primary-50/40'}`}>
                                       <TD bold>
                                         <ChevronDown size={12} className={`inline-block mr-1 text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
                                         <span className="text-indigo-600 hover:underline" onClick={(e) => { e.stopPropagation(); navigate(`/purchase/bills?quick=${r.bill_id}`); }}>{r.bill_no || '—'}</span>
@@ -3231,7 +3231,7 @@ export default function PurchaseWorkspace() {
                                                   {det.lines.map((l, li) => {
                                                     const tax = Number(l.tax_percent) > 0 ? Number(l.tax_percent) : Number(l.effective_tax_percent) || 0;
                                                     return (
-                                                      <tr key={li} className="hover:bg-slate-50">
+                                                      <tr key={li} className="odd:bg-white even:bg-primary-50/40 hover:bg-primary-50/70">
                                                         <TD bold>{l.item_name || l.product_name || l.description || '—'}</TD>
                                                         <TD color="text-slate-400">{l.uom || '—'}</TD>
                                                         <TD right>{l.quantity != null ? fmtQty(l.quantity) : '—'}</TD>

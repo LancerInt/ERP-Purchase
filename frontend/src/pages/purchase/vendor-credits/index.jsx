@@ -139,7 +139,6 @@ export default function VendorCreditList() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Vendor Notes & Advances"
         subtitle="Manage vendor credit notes, debit notes and advance payments"
         breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Vendor Notes & Advances' }]}

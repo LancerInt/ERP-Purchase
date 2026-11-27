@@ -3124,7 +3124,6 @@ export default function CreateReceiptAdvice() {
                   module="RECEIPT"
                   recordId={null}
                   category="TRANSPORT"
-                  compact
                   hideUpload
                   presetPendingFiles={pendingTransportAttachments}
                   onPendingChange={(files) => { pendingTransportAttachmentsRef.current = files; setPendingTransportAttachments(files); }}

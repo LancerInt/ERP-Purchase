@@ -381,7 +381,6 @@ export default function PurchaseDashboardOverview() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Purchase Dashboard"
         subtitle="Top vendors & products, month-on-month trend, and exception reports"
         breadcrumbs={[{ label: 'Purchase', href: '/purchase/requests' }, { label: 'Dashboard' }]}

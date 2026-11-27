@@ -13,7 +13,67 @@ export default function PageHeader({
   onBack = null,
   compact = false,
   hideCompanyFilter = false,
+  band = false,          // teal-gradient banner header (SS Biochem house style)
 }) {
+  // ── Teal band header (SS Biochem house style) ──────────────────────────
+  // One consistent banner across every page: breadcrumb + back + title/subtitle
+  // on the left, company filter + page actions on the right, on a teal gradient.
+  if (band) {
+    const backBtn = onBack ? (
+      <button type="button" onClick={onBack} aria-label="Back"
+        className="shrink-0 w-8 h-8 rounded border border-white/40 bg-white/15 text-white flex items-center justify-center hover:bg-white/25 transition">
+        <ChevronLeft size={18} />
+      </button>
+    ) : (
+      <BackToModule className="!ml-0 !p-0 !rounded !w-8 !h-8 flex items-center justify-center border border-white/40 !bg-white/15 !text-white hover:!bg-white/25" />
+    );
+    return (
+      <div className="mb-3 print:hidden shadow-sm bg-gradient-to-r from-[#1d6b5c] to-[#2b8273]">
+        {breadcrumbs.length > 0 && (
+          <nav aria-label="Breadcrumb" className="hidden sm:flex items-center gap-1.5 px-4 pt-2.5 text-[11px] text-teal-50/80">
+            {breadcrumbs.map((crumb, idx) => {
+              const to = crumb.href || crumb.path;
+              return (
+                <span key={idx} className="flex items-center gap-1.5">
+                  {idx > 0 && <span className="text-white/40">/</span>}
+                  {to ? <Link to={to} className="hover:text-white font-medium">{crumb.label}</Link>
+                      : <span className="text-white/90 font-medium">{crumb.label}</span>}
+                </span>
+              );
+            })}
+          </nav>
+        )}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            {backBtn}
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-extrabold text-white truncate">{title}</h1>
+              {subtitle && <p className="hidden sm:block text-[11.5px] text-teal-50/85 mt-0.5 truncate">{subtitle}</p>}
+            </div>
+          </div>
+          {actions.left && <div className="flex flex-wrap items-center gap-1.5 shrink-0">{actions.left}</div>}
+          <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 shrink-0">
+            {!hideCompanyFilter && <CompanyFilter onDark />}
+            {actions.right}
+            {actions.onImport && <Button variant="outline" icon={Download} responsiveLabel onClick={actions.onImport} className="border-white/40 text-white hover:bg-white/15" title="Import">Import</Button>}
+            {actions.onExport && <Button variant="outline" icon={Upload} responsiveLabel onClick={actions.onExport} className="border-white/40 text-white hover:bg-white/15" title="Export">Export</Button>}
+            {actions.onFilter && <Button variant="outline" icon={Filter} responsiveLabel onClick={actions.onFilter} className="border-white/40 text-white hover:bg-white/15" title="Filters">Filters</Button>}
+            {actions.onConfigureFields && <Button variant="outline" icon={Settings2} responsiveLabel onClick={actions.onConfigureFields} className="border-white/40 text-white hover:bg-white/15" title="Fields">Fields</Button>}
+            {actions.onPrint && <Button variant="outline" icon={Printer} iconOnly onClick={actions.onPrint} className="border-white/40 text-white hover:bg-white/15" aria-label="Print" title="Print" />}
+            {actions.createLink && (
+              <Button as={Link} to={actions.createLink} variant="primary" icon={Plus} className="!bg-white !text-[#12463c] hover:!bg-teal-50 !rounded">
+                {actions.createLabel || 'New'}
+              </Button>
+            )}
+            {Array.isArray(actions.extraLinks) && actions.extraLinks.map((lnk) => (
+              <Button key={lnk.to} as={Link} to={lnk.to} variant="outline" icon={Plus} className="border-white/40 text-white hover:bg-white/15">{lnk.label}</Button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   /* Back chevron. When the page supplies `onBack` (e.g. Customer Insights
      returning from a customer's 360 to its welcome list) we use that;
      otherwise the default module-back behaviour. Shared by both layouts. */

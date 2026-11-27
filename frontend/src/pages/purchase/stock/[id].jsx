@@ -86,7 +86,6 @@ export default function StockProductDetail() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title={data?.product || 'Stock'}
         subtitle="Movement history — opening stock + receipts in, used out, running balance"
         breadcrumbs={[

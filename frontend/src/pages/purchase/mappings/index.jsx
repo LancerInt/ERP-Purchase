@@ -64,7 +64,6 @@ export default function Mappings() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Tally Mappings"
         subtitle="Saved name → ERP-master links used by Scan Invoices & Tally import. Edit or delete to fix a wrong match — Tally itself is never changed."
         breadcrumbs={[{ label: 'Purchase' }, { label: 'Mappings' }]}

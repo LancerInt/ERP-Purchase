@@ -3638,7 +3638,6 @@ export default function PurchaseDashboard() {
           be a duplicate — hide it there, like the sales customer-ledger page. */}
       {!ledgerOpen && (
         <PageHeader
-          compact
           title="Purchase Analytics"
           breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Analytics' }]}
           actions={{

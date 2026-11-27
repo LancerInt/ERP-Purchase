@@ -123,7 +123,6 @@ export default function RFQList() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Request for Quotation"
         subtitle="Manage RFQs sent to vendors"
         breadcrumbs={[{ label: 'Sourcing' }, { label: 'RFQ' }]}

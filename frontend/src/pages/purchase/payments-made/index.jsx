@@ -234,7 +234,6 @@ export default function PaymentsMadeList() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Payments Made"
         subtitle="Track payments made to vendors"
         breadcrumbs={[{ label: 'Finance' }, { label: 'Payments Made' }]}

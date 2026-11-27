@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
+import Pagination from '../../../components/common/Pagination';
 import StatusBadge from '../../../components/common/StatusBadge';
 import ProductsCell from '../../../components/common/ProductsCell';
 import { Eye, Pencil, PackageCheck, Trash2, MailCheck, Mail, X, Loader2 } from 'lucide-react';
@@ -137,7 +138,6 @@ export default function PurchaseOrderList() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Purchase Orders"
         subtitle="Manage all purchase orders"
         breadcrumbs={[{ label: 'Sourcing' }, { label: 'Orders (PO)' }]}
@@ -336,26 +336,8 @@ export default function PurchaseOrderList() {
           </div>
         </div>
 
-        {/* Pagination */}
-        {filteredData.length > 0 && (
-          <div className="flex items-center justify-between px-1 py-2 text-[11px] text-slate-500">
-            <span>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredData.length)} of {filteredData.length}</span>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i;
-                return (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={`w-7 h-7 rounded text-[11px] font-medium ${p === page ? 'bg-primary-600 text-white' : 'hover:bg-slate-100 text-slate-600'}`}
-                  >
-                    {p}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {/* Pagination (shared component) */}
+        <Pagination page={page} pageSize={PAGE_SIZE} total={filteredData.length} onChange={setPage} />
       </div>
       </ListState>
     </MainLayout>

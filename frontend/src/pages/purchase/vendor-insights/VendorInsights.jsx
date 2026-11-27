@@ -933,7 +933,6 @@ export default function VendorInsights() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Vendor Insights"
         subtitle="360° view of a vendor — purchases, payables & payment history"
         icon={Sparkles}

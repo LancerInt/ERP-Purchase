@@ -157,7 +157,6 @@ export default function Stock() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Stock"
         subtitle="On-hand per product — opening stock + receipts − used. 'Unused' means nothing issued yet."
         breadcrumbs={[{ label: 'Purchase', href: '/purchase/dashboard' }, { label: 'Stock' }]}

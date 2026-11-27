@@ -118,7 +118,6 @@ export default function VendorPaymentAdviceList() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Vendor Payment Advice"
         subtitle="Manage vendor bills and payment schedules"
         breadcrumbs={[{ label: 'Vendor Payment Advice' }]}
