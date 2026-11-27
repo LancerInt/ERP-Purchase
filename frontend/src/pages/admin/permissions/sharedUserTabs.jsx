@@ -279,7 +279,7 @@ export function UserOverridesTab({ fieldsEndpoint, allPerms, moduleLabel = 'modu
                   </div>
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-slate-100 border-b border-slate-200 text-xs">
+                      <tr className="bg-primary-50 border-b-2 border-slate-300 text-xs">
                         <th className="text-left px-4 py-2 font-medium text-slate-600">Field</th>
                         <th className="text-left px-4 py-2 font-medium text-slate-600 w-40">Override</th>
                       </tr>
@@ -485,7 +485,7 @@ export function DataTab() {
       <div className="hidden sm:block overflow-auto border border-slate-200 rounded-lg">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-100 border-b border-slate-200">
+            <tr className="bg-primary-50 border-b-2 border-slate-300">
               <th className="text-left px-4 py-2 font-semibold text-slate-700">User</th>
               {warehouses.map(w => (
                 <th key={w.id} className="text-center px-2 py-2 font-medium text-slate-600 text-xs">

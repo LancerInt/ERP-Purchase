@@ -220,7 +220,7 @@ export default function PayeeMappings() {
           </div>
           <div className="overflow-auto max-h-[60vh]">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+              <thead className="sticky top-0 bg-primary-50 border-b-2 border-slate-300 text-[11px] uppercase tracking-wide text-primary-700">
                 <tr>
                   <th className="w-10 px-3 py-2.5"></th>
                   <th className="text-left px-3 py-2.5 font-semibold">Payee (from statement)</th>
@@ -283,7 +283,7 @@ export default function PayeeMappings() {
         ) : (
           <div className="overflow-auto max-h-[60vh]">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+              <thead className="sticky top-0 bg-primary-50 border-b-2 border-slate-300 text-[11px] uppercase tracking-wide text-primary-700">
                 <tr>
                   <th className="text-left px-3 py-2.5 font-semibold">Payee</th>
                   <th className="text-left px-3 py-2.5 font-semibold capitalize">{meta.noun}</th>

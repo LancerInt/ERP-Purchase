@@ -300,7 +300,7 @@ export default function WagePaymentCreate() {
               <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-sm" style={{ minWidth: '900px' }}>
                   <thead>
-                    <tr className="bg-slate-50 border-b">
+                    <tr className="bg-primary-50 border-b-2 border-slate-300">
                       <th className="px-3 py-2 w-10"></th>
                       <th className="text-left px-3 py-2 font-medium text-slate-600">Wage Entry</th>
                       <th className="text-left px-3 py-2 font-medium text-slate-600">Source</th>

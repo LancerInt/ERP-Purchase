@@ -174,7 +174,7 @@ export default function WageEntryDetail() {
               <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-slate-50 border-b">
+                    <tr className="bg-primary-50 border-b-2 border-slate-300">
                       <th className="text-left px-3 py-2 text-xs text-slate-500 uppercase">#</th>
                       <th className="text-left px-3 py-2 text-xs text-slate-500 uppercase">Type</th>
                       {!isLineHidden('contractor') && <th className="text-left px-3 py-2 text-xs text-slate-500 uppercase">Contractor</th>}

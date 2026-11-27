@@ -133,7 +133,7 @@ export default function PurchaseOrderList() {
     ));
   };
 
-  const thCls = "text-left px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 whitespace-nowrap";
+  const thCls = "text-left px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-primary-700 whitespace-nowrap";
 
   return (
     <MainLayout>
@@ -283,7 +283,7 @@ export default function PurchaseOrderList() {
                   <tr
                     key={row.id}
                     onClick={() => navigate(`/purchase/orders/${row.id}`)}
-                    className="border-b border-slate-200 hover:bg-primary-50/50 cursor-pointer transition-colors"
+                    className="odd:bg-white even:bg-primary-50/40 border-b border-slate-200 hover:bg-primary-50/70 cursor-pointer transition-colors"
                   >
                     <td className="px-3 py-3 font-semibold text-slate-800">{row.po_no}</td>
                     {!colHidden('linked_pr_numbers') && <td className="px-3 py-3">{renderPrLinks(row)}</td>}

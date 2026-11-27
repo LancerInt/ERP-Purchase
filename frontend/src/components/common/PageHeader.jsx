@@ -165,7 +165,7 @@ export default function PageHeader({
                   <span key={idx} className="flex items-center gap-1.5 min-w-0">
                     {idx > 0 && <span className="text-slate-300" aria-hidden="true">/</span>}
                     {to ? (
-                      <Link to={to} className="text-xs text-slate-500 hover:text-primary-600">{crumb.label}</Link>
+                      <Link to={to} className="text-xs text-primary-600 font-medium hover:text-primary-700 hover:underline">{crumb.label}</Link>
                     ) : (
                       <span
                         aria-current={last ? 'page' : undefined}
@@ -215,9 +215,9 @@ export default function PageHeader({
               <span key={idx} className="flex items-center gap-1.5 sm:gap-2">
                 {idx > 0 && <span>/</span>}
                 {to ? (
-                  <Link to={to} className="hover:text-primary-600">{crumb.label}</Link>
+                  <Link to={to} className="text-primary-600 font-medium hover:text-primary-700 hover:underline">{crumb.label}</Link>
                 ) : (
-                  <span className="text-slate-700 font-medium">{crumb.label}</span>
+                  <span className="text-slate-600 font-semibold">{crumb.label}</span>
                 )}
               </span>
             );

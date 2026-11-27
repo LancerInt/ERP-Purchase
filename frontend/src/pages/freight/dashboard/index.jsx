@@ -295,7 +295,7 @@ export default function FreightDashboard() {
   return (
     <MainLayout>
       <div className="space-y-4">
-        <PageHeader compact title="Freight Analytics" subtitle="Freight spend across inward and local"
+        <PageHeader  title="Freight Analytics" subtitle="Freight spend across inward and local"
           breadcrumbs={[{ label: 'Freight' }, { label: 'Analytics' }]} icon={BarChart3} />
 
         {/* Filter bar — period + company + warehouse + transporter. */}
@@ -419,7 +419,7 @@ export default function FreightDashboard() {
             <div className="px-4 py-3 border-b border-slate-200 text-sm font-semibold text-slate-700">Top transporters</div>
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
-                <thead><tr className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                <thead><tr className="bg-primary-50 border-b-2 border-slate-300 text-[11px] uppercase tracking-wide text-primary-700">
                   <th className="px-4 py-2 text-left font-semibold">Transporter</th>
                   <th className="px-3 py-2 text-right font-semibold">Records</th>
                   <th className="px-3 py-2 text-right font-semibold">Inward</th>

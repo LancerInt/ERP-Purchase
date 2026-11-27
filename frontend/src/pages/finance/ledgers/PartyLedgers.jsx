@@ -718,7 +718,6 @@ export default function PartyLedgers() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Ledger"
         breadcrumbs={[{ label: 'Import Data', href: '/import/overview' }, { label: 'Ledger' }]}
         center={controls}

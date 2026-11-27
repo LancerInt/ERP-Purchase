@@ -99,7 +99,6 @@ export default function TwoWayFreight() {
     <MainLayout>
       <div className="space-y-3 sm:space-y-4">
         <PageHeader
-          compact
           title="Two-way Freight"
           subtitle="Transporters carrying freight both inward (purchase) and outward (sales)"
           breadcrumbs={[{ label: 'Freight' }, { label: 'Two-way' }]}
@@ -123,7 +122,7 @@ export default function TwoWayFreight() {
           <div className="hidden sm:block overflow-x-auto border border-slate-200 rounded-xl shadow-sm bg-white">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                <tr className="bg-primary-50 border-b-2 border-slate-300 text-[11px] uppercase tracking-wide text-primary-700">
                   <th className="px-3 py-2.5 text-left font-semibold">Transporter</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Inward #</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Inward ₹</th>

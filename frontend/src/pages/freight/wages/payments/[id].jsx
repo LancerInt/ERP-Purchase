@@ -132,7 +132,7 @@ export default function WagePaymentDetail() {
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm" style={{ minWidth: '800px' }}>
                 <thead>
-                  <tr className="bg-slate-50 border-b">
+                  <tr className="bg-primary-50 border-b-2 border-slate-300">
                     <th className="text-left px-3 py-2 font-medium text-slate-600">Wage Entry</th>
                     <th className="text-left px-3 py-2 font-medium text-slate-600">Source</th>
                     <th className="text-left px-3 py-2 font-medium text-slate-600">Work Date</th>

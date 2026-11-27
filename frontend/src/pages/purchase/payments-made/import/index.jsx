@@ -138,10 +138,7 @@ export default function ImportBankStatements() {
       )}
 
       {!active && (<>
-      <button
-        onClick={() => window.history.state?.idx > 0 ? navigate(-1) : navigate('/purchase/payments-made')}
-        className="inline-flex items-center gap-1 mb-4 text-sm text-slate-500 hover:text-slate-700"
-      ><ArrowLeft size={15} /> Back to Payments Made</button>
+      {/* Redundant back removed — the PageHeader already has a back button. */}
 
       {/* Inline upload */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 mb-5">
@@ -170,7 +167,7 @@ export default function ImportBankStatements() {
           </div>
           <div>
             <button type="button" onClick={upload} disabled={busy || !account || !file}
-              className="w-full h-10 inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+              className="w-full h-10 inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
               {busy ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
               {busy ? 'Reading…' : 'Read statement'}
             </button>
@@ -184,10 +181,10 @@ export default function ImportBankStatements() {
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-medium text-slate-500 mr-1">Company</span>
           <button type="button" onClick={() => setCompany('')}
-            className={`px-2.5 py-1 text-xs font-medium rounded-full border ${company === '' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'}`}>All</button>
+            className={`px-2.5 py-1 text-xs font-medium rounded-full border ${company === '' ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'}`}>All</button>
           {companyOptions.map((c) => (
             <button key={c.value} type="button" onClick={() => setCompany(c.value)}
-              className={`px-2.5 py-1 text-xs font-medium rounded-full border ${company === c.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'}`}>{c.label}</button>
+              className={`px-2.5 py-1 text-xs font-medium rounded-full border ${company === c.value ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'}`}>{c.label}</button>
           ))}
         </div>
       </div>
@@ -220,7 +217,7 @@ export default function ImportBankStatements() {
                     <div className="shrink-0 flex items-center gap-1.5">
                       <button
                         onClick={() => setActive({ id: s.id, account: s.bank_account?.id || '' })}
-                        className={`h-8 px-3 rounded-lg text-xs font-medium ${done ? 'border border-slate-300 bg-white text-slate-600 hover:bg-slate-50' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                        className={`h-8 px-3 rounded-lg text-xs font-medium ${done ? 'border border-slate-300 bg-white text-slate-600 hover:bg-slate-50' : 'bg-primary-600 text-white hover:bg-primary-700'}`}
                       >{done ? 'Review' : 'Record'}</button>
                       <button
                         onClick={() => dismissStatement(s)}
@@ -240,11 +237,11 @@ export default function ImportBankStatements() {
                   </div>
 
                   <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                    <div className={`h-full ${done ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: `${pct}%` }} />
+                    <div className={`h-full ${done ? 'bg-emerald-500' : 'bg-primary-500'}`} style={{ width: `${pct}%` }} />
                   </div>
                   {(s.by_type?.payments || s.by_type?.transfers || s.by_type?.expenses || s.by_type?.other) ? (
                     <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
-                      {s.by_type.payments ? <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">{s.by_type.payments} payment(s)</span> : null}
+                      {s.by_type.payments ? <span className="px-1.5 py-0.5 rounded bg-primary-50 text-primary-700">{s.by_type.payments} payment(s)</span> : null}
                       {s.by_type.transfers ? <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">{s.by_type.transfers} transfer(s)</span> : null}
                       {s.by_type.expenses ? <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700">{s.by_type.expenses} expense(s)</span> : null}
                       {s.by_type.other ? <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{s.by_type.other} other</span> : null}

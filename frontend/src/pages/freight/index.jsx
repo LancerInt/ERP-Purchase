@@ -599,7 +599,6 @@ export default function UnifiedFreightList() {
       )}
 
       <PageHeader
-        compact
         title={lockedDirection === 'Sales' ? 'Outward Freight' : 'Inward Freight'}
         subtitle={lockedDirection === 'Sales'
           ? 'Outbound freight from warehouse to customer'

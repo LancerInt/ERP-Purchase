@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
+import Pagination from '../../../components/common/Pagination';
 import StatusBadge from '../../../components/common/StatusBadge';
 import ProductsCell from '../../../components/common/ProductsCell';
 import { Pencil, FileText, Trash2, Eye, Mail, X, Loader2 } from 'lucide-react';
@@ -106,7 +107,6 @@ export default function RFQList() {
     return result;
   }, [data, datePeriod, customRange, statusFilter, searchTerm]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
   const pagedData = filteredData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   useEffect(() => { setPage(1); }, [filteredData.length]);
 
@@ -236,7 +236,7 @@ export default function RFQList() {
         <div className="border border-slate-200 rounded-md overflow-hidden bg-white">
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
+              <tr className="bg-primary-50 border-b-2 border-slate-300">
                 <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">RFQ No</th>
                 {colVisible('linked_pr_numbers') && <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap">Linked PRs</th>}
                 <th className="text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap" style={{ width: 180 }}>Products</th>
@@ -257,7 +257,7 @@ export default function RFQList() {
                 <tr
                   key={row.id}
                   onClick={() => navigate(`/purchase/rfq/${row.id}`)}
-                  className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="odd:bg-white even:bg-primary-50/40 border-b border-slate-100 hover:bg-primary-50/70 cursor-pointer transition-colors"
                 >
                   <td className="px-2 py-2 font-semibold text-slate-800">{row.rfq_no}</td>
                   {colVisible('linked_pr_numbers') && (
@@ -328,26 +328,8 @@ export default function RFQList() {
           </table>
         </div>
 
-        {/* Pagination */}
-        {filteredData.length > 0 && (
-          <div className="flex items-center justify-between px-1 py-2 text-[11px] text-slate-500">
-            <span>{(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, filteredData.length)} of {filteredData.length}</span>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i;
-                return (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={`w-7 h-7 rounded text-[11px] font-medium ${p === page ? 'bg-primary-600 text-white' : 'hover:bg-slate-100 text-slate-600'}`}
-                  >
-                    {p}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {/* Pagination (shared component) */}
+        <Pagination page={page} pageSize={PAGE_SIZE} total={filteredData.length} onChange={setPage} />
       </div>
       </ListState>
     </MainLayout>

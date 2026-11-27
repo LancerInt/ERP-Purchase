@@ -245,7 +245,6 @@ export default function FreightPaymentList() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Freight Payments"
         subtitle="Payments made to transporters"
         breadcrumbs={[{ label: 'Freight' }, { label: 'Freight Payments' }]}

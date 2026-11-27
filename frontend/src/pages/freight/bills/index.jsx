@@ -232,7 +232,6 @@ export default function FreightBills() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Freight Bills"
         subtitle="Freight as payable bills — inward and local"
         breadcrumbs={[{ label: 'Freight' }, { label: 'Freight Bills' }]}

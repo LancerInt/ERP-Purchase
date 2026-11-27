@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
+import Pagination from '../../../components/common/Pagination';
 import StatusBadge from '../../../components/common/StatusBadge';
 import ProductsCell from '../../../components/common/ProductsCell';
 import { Pencil, Trash2, Truck, FileText, Users, CheckCircle2, Eye, X, Loader2 } from 'lucide-react';
@@ -157,7 +158,6 @@ export default function ReceiptAdviceList() {
     return result;
   }, [data, datePeriod, customRange, statusFilter, searchTerm]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
   const pagedData = filteredData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   useEffect(() => { setPage(1); }, [filteredData.length]);
 
@@ -228,7 +228,7 @@ export default function ReceiptAdviceList() {
     return <button onClick={(e) => { e.stopPropagation(); navigate(`/freight/wages/new?receipt_id=${row.id}`); }} className="p-1 bg-purple-50 text-purple-600 rounded hover:bg-purple-100 transition" title="Create Wages"><Users size={14} /></button>;
   };
 
-  const thCls = "text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap";
+  const thCls = "text-left px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-primary-700 whitespace-nowrap";
 
   return (
     <MainLayout>
@@ -286,7 +286,7 @@ export default function ReceiptAdviceList() {
           <div className="overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
+              <tr className="bg-primary-50 border-b-2 border-slate-300">
                 <th className={thCls}>Receipt No</th>
                 {!colHidden('linked_po_numbers') && <th className={thCls}>PO No</th>}
                 {!colHidden('vendor_name') && <th className={thCls}>Vendor</th>}
@@ -307,7 +307,7 @@ export default function ReceiptAdviceList() {
               ) : pagedData.map(row => {
                 const isApproved = row.approval_status === 'APPROVED';
                 return (
-                  <tr key={row.id} onClick={() => navigate(`/purchase/receipts/${row.id}`)} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
+                  <tr key={row.id} onClick={() => navigate(`/purchase/receipts/${row.id}`)} className="odd:bg-white even:bg-primary-50/40 border-b border-slate-100 hover:bg-primary-50/70 cursor-pointer transition-colors">
                     <td className="px-2 py-2 font-semibold text-slate-800 whitespace-nowrap">{row.receipt_advice_no}</td>
                     {!colHidden('linked_po_numbers') && <td className="px-2 py-2 whitespace-nowrap">{renderPoLinks(row)}</td>}
                     {!colHidden('vendor_name') && <td className="px-2 py-2 text-slate-600 whitespace-nowrap">{row.vendor_name || '—'}</td>}
@@ -339,18 +339,8 @@ export default function ReceiptAdviceList() {
           </div>
         </div>
 
-        {/* Pagination */}
-        {filteredData.length > 0 && (
-          <div className="flex items-center justify-between px-1 py-2 text-[11px] text-slate-500">
-            <span>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredData.length)} of {filteredData.length}</span>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i;
-                return <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded text-[11px] font-medium ${p === page ? 'bg-primary-600 text-white' : 'hover:bg-slate-100 text-slate-600'}`}>{p}</button>;
-              })}
-            </div>
-          </div>
-        )}
+        {/* Pagination (shared component) */}
+        <Pagination page={page} pageSize={PAGE_SIZE} total={filteredData.length} onChange={setPage} />
       </div>
       </ListState>
     </MainLayout>

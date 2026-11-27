@@ -329,7 +329,7 @@ export default function UserDetail() {
                         Button Permissions
                       </th>
                     </tr>
-                    <tr className="bg-slate-50 border-b">
+                    <tr className="bg-primary-50 border-b-2 border-slate-300">
                       <th className="text-left px-3 py-2 font-semibold text-slate-600 sticky left-0 bg-slate-50">Module</th>
                       <th className="text-center px-2 py-2 text-[11px] uppercase text-slate-500">View</th>
                       <th className="text-center px-2 py-2 text-[11px] uppercase text-slate-500">Create</th>

@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { Trash2, Eye, BarChart3, X, Loader2 } from 'lucide-react';
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
+import Pagination from '../../../components/common/Pagination';
 import StatusBadge from '../../../components/common/StatusBadge';
 import ProductsCell from '../../../components/common/ProductsCell';
 import useApiData from '../../../hooks/useApiData.js';
@@ -136,7 +137,6 @@ export default function QuoteResponseList() {
     return result;
   }, [rfqRows, datePeriod, customRange, statusFilter, searchTerm]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
   const pagedData = filteredData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   useEffect(() => { setPage(1); }, [filteredData.length]);
 
@@ -179,7 +179,7 @@ export default function QuoteResponseList() {
     return !isHidden(key);
   };
 
-  const thCls = "text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap";
+  const thCls = "text-left px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-primary-700 whitespace-nowrap";
 
   return (
     <MainLayout>
@@ -294,7 +294,7 @@ export default function QuoteResponseList() {
               <div className="border border-slate-200 rounded-md overflow-x-auto bg-white">
                 <table className="w-full text-[12px]">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
+                    <tr className="bg-primary-50 border-b-2 border-slate-300">
                       <th className={thCls}>RFQ No</th>
                       {isColVisible('pr_numbers') && <th className={thCls}>PR No</th>}
                       <th className={thCls} style={{ width: 160 }}>Products</th>
@@ -324,7 +324,7 @@ export default function QuoteResponseList() {
                         <tr
                           key={row.id}
                           onClick={() => handleRowClick(row)}
-                          className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                          className="odd:bg-white even:bg-primary-50/40 border-b border-slate-100 hover:bg-primary-50/70 cursor-pointer transition-colors"
                         >
                           {/* RFQ No */}
                           <td className="px-2 py-2">
@@ -462,25 +462,8 @@ export default function QuoteResponseList() {
                 </table>
               </div>
 
-              {/* Pagination */}
-              <div className="flex items-center justify-between px-1 py-2 text-[11px] text-slate-500">
-                <span>{(page - 1) * PAGE_SIZE + 1}-{Math.min(page * PAGE_SIZE, filteredData.length)} of {filteredData.length}</span>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                    const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i;
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => setPage(p)}
-                        className={`w-7 h-7 rounded text-[11px] font-medium ${p === page ? 'bg-primary-600 text-white' : 'hover:bg-slate-100 text-slate-600'}`}
-                      >
-                        {p}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </>
+              {/* Pagination (shared component) */}
+        <Pagination page={page} pageSize={PAGE_SIZE} total={filteredData.length} onChange={setPage} /></>
           )}
         </div>
       </ListState>

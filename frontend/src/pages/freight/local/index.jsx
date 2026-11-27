@@ -96,7 +96,6 @@ export default function LocalFreightList() {
     <MainLayout>
       <div className="space-y-3 sm:space-y-4">
         <PageHeader
-          compact
           title="Local Freight"
           subtitle="Standalone freight & charges bills"
           breadcrumbs={[{ label: 'Freight' }, { label: 'Local Freight' }]}

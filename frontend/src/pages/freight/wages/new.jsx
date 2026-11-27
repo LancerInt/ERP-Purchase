@@ -750,7 +750,7 @@ export default function WageEntryCreate() {
               <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-slate-50 border-b">
+                    <tr className="bg-primary-50 border-b-2 border-slate-300">
                       <th className="text-left px-3 py-2 font-medium text-slate-600 w-10">#</th>
                       <th className="text-left px-3 py-2 font-medium text-slate-600">Product</th>
                       <th className="text-left px-3 py-2 font-medium text-slate-600">Batch</th>
@@ -858,7 +858,7 @@ export default function WageEntryCreate() {
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-slate-50 border-b">
+                  <tr className="bg-primary-50 border-b-2 border-slate-300">
                     <th className="text-left px-3 py-2 font-medium text-slate-600 w-10">#</th>
                     <th className="text-left px-3 py-2 font-medium text-slate-600">Type <span className="text-red-500">*</span></th>
                     <th className="text-left px-3 py-2 font-medium text-slate-600">Contractor / Labour Vendor <span className="text-red-500">*</span></th>

@@ -1659,7 +1659,7 @@ export default function UnifiedFreightCreate() {
                   <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-slate-50 border-b">
+                        <tr className="bg-primary-50 border-b-2 border-slate-300">
                           <th className="text-left px-3 py-2 font-medium text-slate-600">#</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-600">Product</th>
                           <th className="text-left px-3 py-2 font-medium text-slate-600">Qty</th>
@@ -1944,7 +1944,7 @@ export default function UnifiedFreightCreate() {
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-sm" style={{ minWidth: '900px' }}>
                     <thead>
-                      <tr className="bg-slate-50 border-b">
+                      <tr className="bg-primary-50 border-b-2 border-slate-300">
                         <th className="text-left px-3 py-2 font-medium text-slate-600 whitespace-nowrap">DC No</th>
                         <th className="text-left px-3 py-2 font-medium text-slate-600 whitespace-nowrap">Product</th>
                         <th className="text-right px-3 py-2 font-medium text-slate-600 whitespace-nowrap">Qty</th>

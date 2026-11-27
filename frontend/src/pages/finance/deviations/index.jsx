@@ -183,7 +183,6 @@ export default function Deviations() {
   return (
     <MainLayout>
       <PageHeader
-        compact
         title="Deviations"
         subtitle="MSME, GSTR, ERP↔Tally and exception deviations in one register"
         breadcrumbs={[{ label: 'Finance', href: '/finance/dashboard' }, { label: 'Deviations' }]}
@@ -267,7 +266,7 @@ export default function Deviations() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                      <tr className="bg-primary-50 border-b-2 border-slate-300 text-[10px] uppercase tracking-wide text-primary-700">
                         <th className="px-3 py-2 text-left font-semibold">Party</th>
                         <th className="px-3 py-2 text-left font-semibold">Reference</th>
                         {showDate && <th className="px-3 py-2 text-left font-semibold">Date</th>}

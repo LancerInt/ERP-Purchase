@@ -23,6 +23,7 @@ import {
 import CustomSelect from "@/components/ui/CustomSelect";
 import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
+import Pagination from '../../../components/common/Pagination';
 import StatusBadge from '../../../components/common/StatusBadge';
 import ProductsCell from '../../../components/common/ProductsCell';
 import MobileListCards from '../components/MobileListCards';
@@ -169,7 +170,6 @@ function EvaluationListTab() {
     return result;
   }, [data, datePeriod, customRange, statusFilter, searchTerm]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
   const pagedData = filteredData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   useEffect(() => { setPage(1); }, [filteredData.length]);
 
@@ -197,7 +197,7 @@ function EvaluationListTab() {
     ));
   };
 
-  const thCls = "text-left px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400 whitespace-nowrap";
+  const thCls = "text-left px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-primary-700 whitespace-nowrap";
 
   return (
     <>
@@ -289,7 +289,7 @@ function EvaluationListTab() {
           <div className="overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
+              <tr className="bg-primary-50 border-b-2 border-slate-300">
                 <th className={thCls}>Evaluation ID</th>
                 {!colHidden('linked_pr_numbers') && <th className={thCls}>PR No</th>}
                 {!colHidden('product_names') && <th className={thCls} style={{ width: 160 }}>Products</th>}
@@ -310,7 +310,7 @@ function EvaluationListTab() {
                 <tr
                   key={row.id}
                   onClick={() => navigate(`/purchase/evaluations/${row.id}`)}
-                  className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="odd:bg-white even:bg-primary-50/40 border-b border-slate-100 hover:bg-primary-50/70 cursor-pointer transition-colors"
                 >
                   <td className="px-2 py-2 font-semibold text-slate-800">{row.evaluation_id || row.id}</td>
                   {!colHidden('linked_pr_numbers') && <td className="px-2 py-2">{renderPrLinks(row)}</td>}
@@ -349,26 +349,8 @@ function EvaluationListTab() {
           </div>
         </div>
 
-        {/* Pagination */}
-        {filteredData.length > 0 && (
-          <div className="flex items-center justify-between px-1 py-2 text-[11px] text-slate-500">
-            <span>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredData.length)} of {filteredData.length}</span>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                const p = totalPages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= totalPages - 2 ? totalPages - 4 + i : page - 2 + i;
-                return (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={`w-7 h-7 rounded text-[11px] font-medium ${p === page ? 'bg-primary-600 text-white' : 'hover:bg-slate-100 text-slate-600'}`}
-                  >
-                    {p}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {/* Pagination (shared component) */}
+        <Pagination page={page} pageSize={PAGE_SIZE} total={filteredData.length} onChange={setPage} />
       </div>
       </ListState>
     </>
