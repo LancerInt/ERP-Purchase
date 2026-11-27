@@ -163,7 +163,12 @@ function getReceiptLineFlag(line) {
   }
   // Only meaningful once BOTH qtys are entered — before then the
   // "0 vs typed" difference is just a stub, not a real mismatch.
-  const mismatchBy = (invoiceQty > 0 && netQty > 0 && invoiceQty !== netQty)
+  // ±5% tolerance for specific categories when invoiced qty > 10.
+  const TOLERANCE_CATS = new Set(['RAW_MATERIAL', 'PACKING_MATERIAL', 'FRUIT', 'MAIZE', 'FINISHED_GOODS']);
+  const cat = (line.category || line.po_line_category || '').toUpperCase();
+  const withinTolerance = TOLERANCE_CATS.has(cat) && invoiceQty > 10
+    && Math.abs(invoiceQty - netQty) / invoiceQty * 100 <= 5;
+  const mismatchBy = (invoiceQty > 0 && netQty > 0 && invoiceQty !== netQty && !withinTolerance)
     ? Math.round((invoiceQty - netQty) * 100) / 100
     : 0;
 
@@ -243,6 +248,7 @@ const partitionByFifo = (poLines, blockedByProduct) => {
 const emptyReceiptLine = {
   product: '',
   po_line: '',
+  category: '',
   quantity_received: '',
   net_quantity: '',
   batch_no: '',
@@ -925,6 +931,7 @@ export default function CreateReceiptAdvice() {
           item_name: pl.item_name || pl.product_name || '',
           po_line: pl.id || '',
           _poNo: selectedPO.po_no || '',
+          category: pl.pr_line_category || pl.category || '',
           // Pre-fill Invoice Qty with the pending qty (ordered − already
           // received). Operator sees the remaining balance already typed
           // in, matching their expectation that the previous receipt was
@@ -1090,6 +1097,7 @@ export default function CreateReceiptAdvice() {
             item_name: pl.item_name || pl.product_name || '',
             po_line: pl.id || '',
             _poNo: selectedPO.po_no || '',
+            category: pl.pr_line_category || pl.category || '',
             // Prefill Invoice Qty with pending qty (ordered − already
             // received) so the operator sees a "known-good" value and
             // can just confirm on the common case; edit if the invoice
@@ -2519,6 +2527,7 @@ export default function CreateReceiptAdvice() {
         product: pl.product_service || pl.machinery || pl.service_catalogue || '',
         item_name: pl.item_name || pl.product_name || '',
         po_line: pl.id || '',
+        category: pl.pr_line_category || pl.category || '',
         quantity_received: '',
         po_quantity: pl.quantity_ordered || 0,
         already_received: pl.received_quantity || 0,

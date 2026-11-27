@@ -1269,16 +1269,13 @@ export default function SendRFQEmail() {
                     <div className="flex items-center gap-3">
                       <span className="text-xs font-semibold text-slate-500 uppercase w-16 flex-shrink-0">To <span className="text-red-500">*</span></span>
                       <p className="text-sm text-slate-800 bg-white px-3 py-1.5 rounded-lg border border-slate-200 flex-1">
-                        {vendorPreviews.length > 1
-                          ? (() => {
+                        {(() => {
                               const activeVid = vendorPreviews[activePreviewIdx]?.vendor_id;
                               const v = autoVendors.find(x => String(x.id) === String(activeVid))
                                 || vendors.find(x => String(x.id) === String(activeVid));
-                              const label = v ? formatVendorLabel(v) : vendorPreviews[activePreviewIdx]?.vendor_name;
-                              return <><strong>{label}</strong> <span className="text-slate-400">— {selectedVendors.length} vendor(s), each gets vendor-specific email</span></>;
-                            })()
-                          : <>{selectedVendors.length} vendor(s) selected — emails sent per vendor</>
-                        }
+                              const em = v?.contact_email || v?.email || '';
+                              return em || <span className="text-slate-400 italic">No email on file</span>;
+                            })()}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">

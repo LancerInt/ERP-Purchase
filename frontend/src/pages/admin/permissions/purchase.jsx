@@ -104,7 +104,7 @@ const APPLICABLE_BUTTON_PERMS = {
   // (Receipt → Vendor Bill), Wage (Receipt → Wage Entry for loading /
   // unloading), Freight (Receipt → Inward Freight). Email / Export /
   // Print round out the row. Convert is preserved for backward compat.
-  'Receipt Advice':     new Set(['can_approve', 'can_reject', 'can_cancel', 'can_convert', 'can_create_bill', 'can_apply_debit', 'can_direct_receipt', 'can_create_wage', 'can_create_freight', 'can_send_email', 'can_export', 'can_print']),
+  'Receipt Advice':     new Set(['can_approve', 'can_reject', 'can_cancel', 'can_convert', 'can_create_bill', 'can_apply_debit', 'can_direct_receipt', 'can_create_wage', 'can_create_freight', 'can_export', 'can_print']),
   // Material Rejection: Approve sends back to vendor; Reject overrides;
   // Cancel; Email / Export / Print.
   'Material Rejection': new Set(['can_approve', 'can_reject', 'can_cancel', 'can_send_email', 'can_export', 'can_print']),
