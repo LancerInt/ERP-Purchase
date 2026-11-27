@@ -8,4 +8,4 @@ if exist env\Scripts\python.exe (
     set PY=python
 )
 set DJANGO_SETTINGS_MODULE=config.settings
-"%PY%" manage.py runserver 127.0.0.1:8200
+"%PY%" manage.py runserver 127.0.0.1:8201
