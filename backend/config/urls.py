@@ -38,8 +38,9 @@ from purchase.local_freight import LocalFreightViewSet
 from purchase.amendment import POAmendmentRequestViewSet
 from purchase.dashboard_views import (
     PurchaseDashboardView, PurchaseDashboardRecordsView, PurchaseAnalyticsView,
-    PurchaseMonthlyBreakdownView,
-    PaidByCategoryView, PurchasePayablesCalendarView,
+    PurchaseMonthlyBreakdownView, PurchaseBranchTransfersView,
+    PaidByCategoryView, PurchasePayablesCalendarView, PurchaseVendorActivityView,
+    PurchaseAccountsSummaryView,
 )
 from purchase.freight_overview_views import FreightOverviewView
 from purchase.category_views import (
@@ -171,8 +172,11 @@ urlpatterns = [
     path('api/purchase/dashboard/records/', PurchaseDashboardRecordsView.as_view(), name='purchase-dashboard-records'),
     path('api/purchase/dashboard/analytics/', PurchaseAnalyticsView.as_view(), name='purchase-dashboard-analytics'),
     path('api/purchase/monthly-breakdown/', PurchaseMonthlyBreakdownView.as_view(), name='purchase-monthly-breakdown'),
+    path('api/purchase/branch-transfers/', PurchaseBranchTransfersView.as_view(), name='purchase-branch-transfers'),
     path('api/purchase/dashboard/paid-by-category/', PaidByCategoryView.as_view(), name='purchase-paid-by-category'),
     path('api/purchase/payables-calendar/', PurchasePayablesCalendarView.as_view(), name='purchase-payables-calendar'),
+    path('api/purchase/vendor-activity/', PurchaseVendorActivityView.as_view(), name='purchase-vendor-activity'),
+    path('api/purchase/accounts-summary/', PurchaseAccountsSummaryView.as_view(), name='purchase-accounts-summary'),
     path('api/purchase/freight-overview/', FreightOverviewView.as_view(), name='freight-overview'),
     path('api/purchase/by-category/', PurchaseByCategoryView.as_view(), name='purchase-by-category'),
     path('api/purchase/by-category/items/', PurchaseByCategoryItemsView.as_view(), name='purchase-by-category-items'),

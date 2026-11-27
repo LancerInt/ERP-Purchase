@@ -24,6 +24,16 @@ from rest_framework.permissions import IsAuthenticated
 Z = Decimal('0')
 
 
+def _branch_line_q():
+    """branch_transfer_q() prefixed for a VendorBillLine queryset. Branch
+    transfers are internal stock moves, not purchases, so every item/vendor
+    analytic here excludes them — the same rule the dashboard applies to bills."""
+    from django.db.models import Q
+    return (Q(bill__vendor_invoice_no__istartswith='DC/')
+            | Q(bill__vendor__is_branch=True)
+            | Q(bill__purchase_category='BRANCH'))
+
+
 def _pd(s):
     try:
         return datetime.date.fromisoformat((s or '')[:10])
@@ -46,8 +56,12 @@ class PurchaseItemRateTrendView(APIView):
         to = _pd(request.query_params.get('to'))
         mode = (request.query_params.get('mode') or '').strip().lower()
 
+        # Branch transfers are internal stock moves, NOT purchases — excluded
+        # (see _branch_line_q), else a branch vendor's bills inflate item
+        # qty/value and show up as a "vendor" in the comparisons.
         qs = (VendorBillLine.objects.filter(is_active=True, product__isnull=False)
               .exclude(bill__status='CANCELLED')
+              .exclude(_branch_line_q())
               .select_related('bill', 'bill__vendor', 'product'))
         if company:
             qs = qs.filter(bill__vendor__company_id=company)
@@ -82,6 +96,7 @@ class PurchaseItemRateTrendView(APIView):
         acc = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: [Z, Z])))
         uom_votes = defaultdict(Counter)
         pid_of = {}
+        msme_of = {}   # vendor name -> is_msme (for the MSME pill in the drill)
         for ln in qs:
             name = (ln.product.product_name if ln.product_id else (ln.description or '')).strip() or '—'
             vend = (ln.bill.vendor.vendor_name if (ln.bill_id and ln.bill.vendor_id) else '—')
@@ -98,6 +113,8 @@ class PurchaseItemRateTrendView(APIView):
                 uom_votes[name][ln.uom.strip().upper()] += 1
             if ln.product_id and name not in pid_of:
                 pid_of[name] = ln.product_id
+            if vend not in msme_of and ln.bill_id and ln.bill.vendor_id:
+                msme_of[vend] = bool(getattr(ln.bill.vendor, 'is_msme', False))
 
         months = sorted(months_seen)
         items = []
@@ -121,6 +138,7 @@ class PurchaseItemRateTrendView(APIView):
                     mr[0] += q; mr[1] += v
                 vendors.append({
                     'vendor': vend,
+                    'is_msme': msme_of.get(vend, False),
                     'total_qty': str(vq),
                     'total_value': str(vv),
                     'avg_rate': round(float(vv / vq), 2) if vq else None,
@@ -291,6 +309,7 @@ class PurchaseItemVendorBillsView(APIView):
 
         qs = (VendorBillLine.objects.filter(is_active=True)
               .exclude(bill__status='CANCELLED')
+              .exclude(_branch_line_q())
               .select_related('bill', 'bill__vendor', 'product'))
         if company:
             qs = qs.filter(bill__vendor__company_id=company)
@@ -366,9 +385,11 @@ class PurchaseVendorTurnoverView(APIView):
         to = _pd(request.query_params.get('to'))
         cat_key = (request.query_params.get('category') or '').strip().upper()
         want_cat = _CAT_NORMALIZE.get(cat_key, cat_key) if cat_key else None
+        msme = (request.query_params.get('msme') or '').strip().lower()  # ''|msme|non
 
         qs = (VendorBillLine.objects.filter(is_active=True)
               .exclude(bill__status='CANCELLED')
+              .exclude(_branch_line_q())
               .select_related('bill', 'bill__vendor', 'product'))
         if company:
             qs = qs.filter(bill__vendor__company_id=company)
@@ -376,6 +397,11 @@ class PurchaseVendorTurnoverView(APIView):
             qs = qs.filter(bill__bill_date__gte=frm)
         if to:
             qs = qs.filter(bill__bill_date__lte=to)
+        # MSME vendor filter (first-class, like the category filter).
+        if msme == 'msme':
+            qs = qs.filter(bill__vendor__is_msme=True)
+        elif msme == 'non':
+            qs = qs.filter(bill__vendor__is_msme=False)
 
         # Cache product -> normalized category so we resolve each product once.
         cat_cache = {}

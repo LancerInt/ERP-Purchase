@@ -1306,6 +1306,7 @@ class PurchaseDashboardView(APIView):
                 'bill_count': b['bill_count'] if b else 0,
                 'billed': _money(billed_net),
                 'paid': _money(paid),
+                'opening': _money(opening),
                 'outstanding': _money(balance),
                 'overdue': _money((b['overdue'] if b else _ZERO) or _ZERO),
                 'overdue_days': ((today - b['oldest_overdue']).days
@@ -1318,7 +1319,7 @@ class PurchaseDashboardView(APIView):
         for nm, amt in (op_names if msme is None else []):
             out.append({
                 'vendor_id': None, 'vendor_name': nm, 'company_name': '', 'bill_count': 0,
-                'billed': _money(_ZERO), 'paid': _money(_ZERO),
+                'billed': _money(_ZERO), 'paid': _money(_ZERO), 'opening': _money(amt),
                 'outstanding': _money(amt), 'overdue': _money(_ZERO), 'overdue_days': 0,
                 'paid_pct': 0.0, '_sort': abs(float(amt)),
             })
@@ -2918,6 +2919,95 @@ class PurchaseMonthlyBreakdownView(APIView):
         })
 
 
+class PurchaseBranchTransfersView(APIView):
+    """GET /api/purchase/branch-transfers/?company=&from=&to=
+
+    Internal branch-transfer bills (the procurement mirror of the Sales
+    "Branch Transfers" page): bills that branch_transfer_q() matches — a
+    "DC/"-prefixed invoice no, a vendor flagged is_branch, or a bill the
+    operator tagged purchase_category='BRANCH'. These are stock movements
+    between the company's own branches, EXCLUDED from Purchases, so this
+    gives them their own view: a per-branch x month summary + the bill list.
+
+    Uses the same branch scope as the Total-Purchase tile / monthly-breakdown
+    (transfers-included base, OPENING/CANCELLED/is_expense/dups removed, then
+    branch_transfer_q()), so the figures reconcile.
+    """
+    permission_classes = [permissions.IsAuthenticated, HasModulePermission]
+    module_name = 'Purchase Dashboard'
+    alternate_modules = ['Purchase Analytics', 'Vendor Insights']
+
+    def get(self, request, *args, **kwargs):
+        frm = request.query_params.get('from')
+        to = request.query_params.get('to')
+        company_id = request.query_params.get('company') or None
+        start, end, label = PurchaseDashboardView._resolve_range('custom', frm, to)
+
+        base = (PurchaseDashboardView._bill_qs(company_id, None, include_transfers=True)
+                .filter(bill_date__gte=start, bill_date__lte=end)
+                .exclude(tally_guid__startswith='OPENING')
+                .exclude(status='CANCELLED')
+                .exclude(is_expense=True))
+        base = base.exclude(id__in=_cached_dup_bill_ids(base))
+        qs = (base.filter(branch_transfer_q())
+              .select_related('vendor')
+              .order_by('-bill_date'))
+
+        months = [{'month': ym, 'label': '{:%b %Y}'.format(m_start)}
+                  for ym, m_start, _m_end in _month_iter(start, end)]
+
+        # Per-branch (vendor) x month taxable (ex-GST) value, + the bill list.
+        branch_acc = {}   # vendor_name -> {'vendor_id', 'by_month': {ym: val}}
+        bills = []
+        total = _ZERO
+        for bill in qs:
+            vname = bill.vendor.vendor_name if bill.vendor_id else '—'
+            ym = bill.bill_date.strftime('%Y-%m') if bill.bill_date else None
+            sub = Decimal(str(bill.subtotal or 0))
+            tot = Decimal(str(bill.total_amount or 0))
+            total += sub
+            b = branch_acc.setdefault(vname, {
+                'branch': vname,
+                'vendor_id': str(bill.vendor_id) if bill.vendor_id else None,
+                'by_month': {},
+            })
+            if ym:
+                b['by_month'][ym] = b['by_month'].get(ym, _ZERO) + sub
+            bills.append({
+                'bill_id': str(bill.id),
+                'bill_no': bill.bill_no or bill.vendor_invoice_no or '',
+                'bill_date': bill.bill_date.isoformat() if bill.bill_date else None,
+                'branch': vname,
+                'taxable': _money(sub),
+                'total': _money(tot),
+            })
+
+        branches = []
+        for b in branch_acc.values():
+            row_total = sum(b['by_month'].values(), _ZERO)
+            by_month = {ym: _money(b['by_month'].get(ym, _ZERO)) for ym in (m['month'] for m in months)}
+            by_month['total'] = _money(row_total)
+            branches.append({'branch': b['branch'], 'vendor_id': b['vendor_id'], 'by_month': by_month})
+        branches.sort(key=lambda r: r['by_month']['total'], reverse=True)
+
+        company_pan = ''
+        if company_id:
+            from core.models import Company
+            company_pan = (Company.objects.filter(id=company_id)
+                           .values_list('pan', flat=True).first()) or ''
+
+        return Response({
+            'period': {'label': label, 'from': start.isoformat(), 'to': end.isoformat()},
+            'company_id': company_id,
+            'total': _money(total),
+            'branch_count': len(branch_acc),
+            'company_pan': company_pan,
+            'months': months,
+            'branches': branches,
+            'bills': bills,
+        })
+
+
 class PurchaseImportReconcileView(APIView):
     """Date-wise import reconciliation for purchases (Purchase Analytics footer).
 
@@ -3339,6 +3429,316 @@ class PaidByCategoryView(APIView):
             'expense': _money(buckets['EXPENSE']),
             'other': _money(buckets['OTHER']),
             'total': _money(total),
+        })
+
+
+class PurchaseVendorActivityView(APIView):
+    """GET /api/purchase/vendor-activity/?company=&from=&to=
+
+    Per-vendor purchase activity — the data behind the workspace Vendors group
+    (Top Vendors / Inactive / New Vendors / Concentration). Mirrors the Sales
+    Customers sections for the purchase side.
+
+    Each vendor carries BOTH scopes:
+      - period_value / period_bills : ex-GST taxable + bill count IN [from,to]
+        (Top Vendors, New Vendors, Concentration).
+      - first_bill_date / last_bill_date / days_inactive / lifetime_value /
+        outstanding : ALL-TIME (so Inactive = no bill in 30/60/90d and New =
+        first bill inside the window both work regardless of the chosen period).
+
+    Scope reuses PurchaseDashboardView._bill_qs + the Total-Purchase exclusions
+    (CANCELLED / OPENING / is_expense / _EXPENSE_CATS / journal / branch
+    transfers / duplicate re-imports) so the figures reconcile with the tiles.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, HasModulePermission]
+    module_name = 'Purchase Dashboard'
+    alternate_modules = ['Purchase Analytics', 'Vendor Insights']
+
+    @staticmethod
+    def _purchase_bills(company_id):
+        """Real-purchase bills for a company (no vendor/date filter) — the same
+        universe _total_purchase sums, so every vendor aggregate reconciles."""
+        return (PurchaseDashboardView._bill_qs(company_id, None)
+                .exclude(tally_guid__startswith='OPENING')
+                .exclude(status='CANCELLED')
+                .exclude(is_expense=True)
+                .exclude(purchase_category__in=_EXPENSE_CATS)
+                .exclude(tally_voucher_type__icontains='journal'))
+
+    def get(self, request, *args, **kwargs):
+        from collections import Counter, defaultdict
+        from django.db.models import Max
+        company_id = request.query_params.get('company') or None
+        frm = request.query_params.get('from')
+        to = request.query_params.get('to')
+        start, end, label = PurchaseDashboardView._resolve_range('custom', frm, to)
+        today = timezone.localdate()
+
+        base = self._purchase_bills(company_id)
+        # Drop duplicate re-imports once, up front (same read-time dedup as the
+        # tiles), so no vendor total double-counts a '-N' collision bill.
+        dups = _cached_dup_bill_ids(base)
+        if dups:
+            base = base.exclude(id__in=dups)
+
+        # ALL-TIME per vendor: first/last bill, lifetime ex-GST value, bill count,
+        # and outstanding (Σ total_amount − Σ amount_paid, since balance_due is a
+        # property not a column).
+        life = (base.values('vendor_id', 'vendor__vendor_name', 'vendor__is_msme')
+                .annotate(first_bill=Min('bill_date'), last_bill=Max('bill_date'),
+                          lifetime_value=Sum('subtotal'), bill_count=Count('id'),
+                          billed=Sum('total_amount'), paid=Sum('amount_paid')))
+
+        # WINDOWED per vendor: ex-GST value + bill count inside [start, end].
+        win = (base.filter(bill_date__gte=start, bill_date__lte=end)
+               .values('vendor_id')
+               .annotate(period_value=Sum('subtotal'), period_bills=Count('id')))
+        win_by = {r['vendor_id']: r for r in win}
+
+        # WINDOWED per vendor: purchase returns (debit notes) & vendor credits
+        # (credit notes), grouped once each — same side/ledger filter the
+        # Total-Purchase tile uses, so a vendor's return rate reconciles.
+        from sales.models import DebitNote
+        _dn_base = DebitNote.objects.filter(is_active=True, side='PURCHASE',
+                                            note_date__gte=start, note_date__lte=end)
+        if company_id:
+            _dn_base = _dn_base.filter(company_id=company_id)
+        _returns = (_dn_base.filter(note_type='DEBIT')
+                    .exclude(Q(tally_group__regex=r'\S') & ~Q(tally_group__icontains='purchase'))
+                    .values('vendor_id').annotate(t=Sum('amount')))
+        returns_by = {r['vendor_id']: (r['t'] or _ZERO) for r in _returns}
+        _credits = (_dn_base.filter(note_type='CREDIT')
+                    .values('vendor_id').annotate(t=Sum('amount')))
+        credits_by = {r['vendor_id']: (r['t'] or _ZERO) for r in _credits}
+
+        # Dominant purchase_category per vendor (simple majority over its bills).
+        cat_counter = defaultdict(Counter)
+        for r in base.exclude(purchase_category='').values('vendor_id', 'purchase_category'):
+            cat_counter[r['vendor_id']][r['purchase_category']] += 1
+
+        vendors = []
+        for r in life:
+            vid = r['vendor_id']
+            w = win_by.get(vid, {})
+            last_bill = r['last_bill']
+            outstanding = (r['billed'] or _ZERO) - (r['paid'] or _ZERO)
+            cat = cat_counter[vid].most_common(1)[0][0] if cat_counter.get(vid) else ''
+            pv = w.get('period_value') or _ZERO
+            ret = returns_by.get(vid, _ZERO)
+            cn = credits_by.get(vid, _ZERO)
+            vendors.append({
+                'vendor_id': str(vid) if vid else None,
+                'vendor_name': r['vendor__vendor_name'] or '(unknown)',
+                'is_msme': bool(r['vendor__is_msme']),
+                'purchase_category': cat,
+                'period_value': _money(w.get('period_value')),
+                'period_bills': w.get('period_bills', 0) or 0,
+                'outstanding': _money(outstanding if outstanding > 0 else _ZERO),
+                'first_bill_date': r['first_bill'].isoformat() if r['first_bill'] else None,
+                'last_bill_date': last_bill.isoformat() if last_bill else None,
+                'lifetime_value': _money(r['lifetime_value']),
+                'days_inactive': (today - last_bill).days if last_bill else None,
+                # Windowed purchase returns / vendor credits + return rate (a
+                # vendor-reliability signal for the Scorecard section).
+                'returns': _money(ret),
+                'credit_notes': _money(cn),
+                'return_rate': round(float(ret) / float(pv) * 100, 1) if pv else 0.0,
+            })
+
+        vendors.sort(key=lambda v: v['period_value'], reverse=True)
+        return Response({
+            'as_of': today.isoformat(),
+            'period': {'label': label, 'from': start.isoformat(), 'to': end.isoformat()},
+            'company_id': company_id,
+            'vendors': vendors,
+        })
+
+
+class PurchaseAccountsSummaryView(APIView):
+    """GET /api/purchase/accounts-summary/?company=&from=&to=
+
+    Company-level accounting summaries behind the workspace Accounts group:
+      - gst     : input GST (Ex-GST / Total GST / Incl GST), CGST/SGST/IGST
+                  breakup, on-bill charges + round-off, DN/CN, monthly GST pivot.
+      - notes   : purchase-side debit notes (returns) & credit notes (vendor
+                  credits) — totals, counts, net adjustment, recent lists.
+      - payment : DPO, payment rate, outstanding/overdue, a month-wise
+                  billed/paid trend, and the slowest-paying vendors.
+
+    Scope reuses PurchaseDashboardView._bill_qs + the Total-Purchase exclusions
+    (CANCELLED / OPENING / is_expense / _EXPENSE_CATS / journal / branch
+    transfers / duplicate re-imports) so every figure reconciles with the tiles.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, HasModulePermission]
+    module_name = 'Purchase Dashboard'
+    alternate_modules = ['Purchase Analytics', 'Vendor Insights']
+
+    def get(self, request, *args, **kwargs):
+        from collections import defaultdict
+        from django.db.models import Max
+        from sales.models import DebitNote
+
+        company_id = request.query_params.get('company') or None
+        frm = request.query_params.get('from')
+        to = request.query_params.get('to')
+        start, end, label = PurchaseDashboardView._resolve_range('custom', frm, to)
+        today = timezone.localdate()
+
+        # Real-purchase bills (same universe as the Total-Purchase tile), windowed.
+        base = (PurchaseDashboardView._bill_qs(company_id, None)
+                .exclude(tally_guid__startswith='OPENING')
+                .exclude(status='CANCELLED')
+                .exclude(is_expense=True)
+                .exclude(purchase_category__in=_EXPENSE_CATS)
+                .exclude(tally_voucher_type__icontains='journal'))
+        dups = _cached_dup_bill_ids(base)
+        if dups:
+            base = base.exclude(id__in=dups)
+        win = base.filter(bill_date__gte=start, bill_date__lte=end)
+
+        # ── GST ──────────────────────────────────────────────────────────────
+        g = win.aggregate(
+            exgst=Sum('subtotal'), total_gst=Sum('tax_amount'), inclgst=Sum('total_amount'),
+            cgst=Sum('cgst_amount'), sgst=Sum('sgst_amount'), igst=Sum('igst_amount'),
+            charges=Sum('other_charges'), round_off=Sum('adjustment'))
+
+        # ── Debit / Credit notes (purchase side) ─────────────────────────────
+        def _notes_qs(note_type):
+            q = DebitNote.objects.filter(is_active=True, side='PURCHASE', note_type=note_type,
+                                         note_date__gte=start, note_date__lte=end)
+            if company_id:
+                q = q.filter(company_id=company_id)
+            if note_type == 'DEBIT':
+                # Only a note on a PURCHASE ledger is a goods return (same rule as
+                # _total_purchase); one on another ledger is a price adjustment.
+                q = q.exclude(Q(tally_group__regex=r'\S') & ~Q(tally_group__icontains='purchase'))
+            return q
+
+        dn_qs = _notes_qs('DEBIT')
+        cn_qs = _notes_qs('CREDIT')
+        dn_agg = dn_qs.aggregate(t=Sum('amount'), n=Count('id'))
+        cn_agg = cn_qs.aggregate(t=Sum('amount'), n=Count('id'))
+        dn_total = dn_agg['t'] or _ZERO
+        cn_total = cn_agg['t'] or _ZERO
+
+        def _recent(qs):
+            rows = (qs.select_related('vendor').order_by('-note_date', '-id')[:25])
+            return [{
+                'no': r.note_no or str(r.id)[:8],
+                'vendor': (r.vendor.vendor_name if r.vendor_id else '—'),
+                'date': r.note_date.isoformat() if r.note_date else None,
+                'amount': _money(r.amount),
+            } for r in rows]
+
+        # ── Monthly GST pivot ────────────────────────────────────────────────
+        monthly_gst = []
+        for ym, m_start, m_end in _month_iter(start, end):
+            m = base.filter(bill_date__gte=m_start, bill_date__lte=m_end).aggregate(
+                cgst=Sum('cgst_amount'), sgst=Sum('sgst_amount'),
+                igst=Sum('igst_amount'), total_gst=Sum('tax_amount'))
+            monthly_gst.append({
+                'month': ym, 'label': '{:%b %Y}'.format(m_start),
+                'cgst': _money(m['cgst']), 'sgst': _money(m['sgst']),
+                'igst': _money(m['igst']), 'total_gst': _money(m['total_gst']),
+            })
+
+        # ── Payment efficiency ───────────────────────────────────────────────
+        # Per-vendor outstanding / overdue from the open bills (balance = total −
+        # paid; overdue when the bill is past its due date and still owes).
+        pay_rows = (base.values('vendor_id', 'vendor__vendor_name')
+                    .annotate(billed=Sum('total_amount'), paid=Sum('amount_paid')))
+        # Overdue balance per vendor: Σ (total − paid) over bills whose due_date
+        # (or bill_date) is before today and still owe something.
+        overdue_bills = base.annotate(
+            _bal=ExpressionWrapper(F('total_amount') - F('amount_paid'),
+                                   output_field=DecimalField(max_digits=18, decimal_places=2)))
+        ov_by = defaultdict(lambda: _ZERO)
+        for r in (overdue_bills.filter(_bal__gt=0)
+                  .values('vendor_id', 'due_date', 'bill_date', '_bal')):
+            due = r['due_date'] or r['bill_date']
+            if due and due < today:
+                ov_by[r['vendor_id']] += r['_bal'] or _ZERO
+
+        slowest = []
+        tot_billed = _ZERO
+        tot_paid = _ZERO
+        tot_out = _ZERO
+        tot_overdue = _ZERO
+        for r in pay_rows:
+            billed = r['billed'] or _ZERO
+            paid = r['paid'] or _ZERO
+            out = billed - paid
+            tot_billed += billed
+            tot_paid += paid
+            if out <= 0:
+                continue
+            overdue = ov_by.get(r['vendor_id'], _ZERO)
+            tot_out += out
+            tot_overdue += overdue
+            pct = float(overdue / out) if out else 0.0
+            rating = 'POOR' if pct > 0.60 else ('FAIR' if pct > 0.30 else 'GOOD')
+            slowest.append({
+                'vendor': r['vendor__vendor_name'] or '(unknown)',
+                'outstanding': _money(out),
+                'overdue': _money(overdue),
+                'rating': rating,
+            })
+        slowest.sort(key=lambda x: x['outstanding'], reverse=True)
+        slowest = slowest[:15]
+
+        # DPO = outstanding / (windowed purchases / 365).
+        purchases_win = g['inclgst'] or _ZERO
+        dpo = 0
+        if purchases_win > 0:
+            dpo = int(round(float(tot_out) / (float(purchases_win) / 365.0)))
+        payment_rate = round(float(tot_paid) / float(tot_billed) * 100, 1) if tot_billed else 0.0
+
+        # Monthly billed (bills' total) vs paid (PaymentMade amount) in scope.
+        from purchase.models import PaymentMade
+        pay_base = PaymentMade.objects.filter(payment_date__gte=start, payment_date__lte=end)
+        if company_id:
+            pay_base = pay_base.filter(vendor__company_id=company_id)
+        monthly_pay = []
+        for ym, m_start, m_end in _month_iter(start, end):
+            billed_m = base.filter(bill_date__gte=m_start, bill_date__lte=m_end).aggregate(
+                t=Sum('total_amount'))['t'] or _ZERO
+            paid_m = pay_base.filter(payment_date__gte=m_start, payment_date__lte=m_end).aggregate(
+                t=Sum('amount'))['t'] or _ZERO
+            pct = round(float(paid_m) / float(billed_m) * 100, 0) if billed_m else None
+            monthly_pay.append({
+                'month': ym, 'label': '{:%b %Y}'.format(m_start),
+                'billed': _money(billed_m), 'paid': _money(paid_m), 'pct': pct,
+            })
+
+        return Response({
+            'as_of': today.isoformat(),
+            'period': {'label': label, 'from': start.isoformat(), 'to': end.isoformat()},
+            'company_id': company_id,
+            'gst': {
+                'exgst': _money(g['exgst']), 'total_gst': _money(g['total_gst']),
+                'inclgst': _money(g['inclgst']),
+                'cgst': _money(g['cgst']), 'sgst': _money(g['sgst']), 'igst': _money(g['igst']),
+                'charges': _money(g['charges']), 'round_off': _money(g['round_off']),
+                'debit_notes': _money(dn_total), 'credit_notes': _money(cn_total),
+                'monthly': monthly_gst,
+            },
+            'notes': {
+                'credit_total': _money(cn_total), 'credit_count': cn_agg['n'] or 0,
+                'debit_total': _money(dn_total), 'debit_count': dn_agg['n'] or 0,
+                'net_adjustment': _money(dn_total - cn_total),
+                'recent_credit': _recent(cn_qs),
+                'recent_debit': _recent(dn_qs),
+            },
+            'payment': {
+                'dpo': dpo,
+                'payment_rate': payment_rate,
+                'outstanding': _money(tot_out),
+                'overdue': _money(tot_overdue),
+                'monthly': monthly_pay,
+                'slowest': slowest,
+            },
         })
 
 
