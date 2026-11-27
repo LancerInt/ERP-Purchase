@@ -13,19 +13,49 @@ export default {
         xs: '480px',
       },
       colors: {
-        // Bluish-violet (indigo) theme — unifies `primary-*` with the indigo
-        // already used across controls, so the whole app reads as one colour.
+        // ── SS Biochem brand theme (teal + cream) ─────────────────────────
+        // App-wide reskin done HERE, not per-file: the app uses Tailwind's
+        // default `indigo` (accent) and `slate` (text/surfaces) classes
+        // throughout, so overriding those two ramps retints the whole app in
+        // one place. `indigo-*` → teal; `slate-*` → a warm cream→ink ramp
+        // (light shades = cream surfaces/borders, dark shades = warm ink text).
+        // Semantic colours (success/danger/warning, emerald/amber/red) are
+        // left alone so figures still read at a glance.
+        indigo: {
+          50:  '#e8f1ee',
+          100: '#d2e3dd',
+          200: '#a9cbc0',
+          300: '#73a99a',
+          400: '#3f897a',
+          500: '#1d6b5c',   // brand teal (accent)
+          600: '#1a6153',
+          700: '#155447',   // deep teal — headings / primary text accents
+          800: '#114539',
+          900: '#0d362d',
+        },
+        slate: {
+          50:  '#faf8f1',   // page / lightest surface (cream)
+          100: '#f3eee1',   // cream panel tint / hover
+          200: '#e4ddca',   // borders on cream
+          300: '#cdc4ac',   // stronger borders
+          400: '#6b6453',   // muted labels (darkened again for contrast on cream)
+          500: '#60594a',   // secondary text / dates
+          600: '#4a4438',   // body text
+          700: '#39342b',   // strong text
+          800: '#292621',   // headings
+          900: '#1b2420',   // warm near-black (ink)
+        },
         primary: {
-          50: '#eef2ff',
-          100: '#e0e7ff',
-          200: '#c7d2fe',
-          300: '#a5b4fc',
-          400: '#818cf8',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
-          800: '#3730a3',
-          900: '#312e81',
+          50:  '#e8f1ee',
+          100: '#d2e3dd',
+          200: '#a9cbc0',
+          300: '#73a99a',
+          400: '#3f897a',
+          500: '#1d6b5c',
+          600: '#1a6153',
+          700: '#155447',
+          800: '#114539',
+          900: '#0d362d',
         },
         secondary: {
           50: '#f5f3ff',

@@ -989,7 +989,11 @@ export default function PurchaseRequestDetailPage() {
       <div className="max-w-6xl space-y-2">
 
         {/* ── Design E: Approval-First Banner ── */}
-        {!isEditing && (isPendingApproval || isSubmitted) && canApproveAccess && (
+        {/* Show the banner to whoever can act on the current stage: the
+            Warehouse Manager (Proceed, at PENDING) OR the Purchase Coordinator
+            (Approve, at PENDING_APPROVAL). Previously gated on canApproveAccess
+            only, which hid the Proceed button from the WM. */}
+        {!isEditing && (isPendingApproval || isSubmitted) && (canApproveAccess || canProceedPR) && (
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 px-3 py-2.5 rounded-lg border border-amber-300 bg-gradient-to-r from-amber-50 to-yellow-50">
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-bold text-amber-900">

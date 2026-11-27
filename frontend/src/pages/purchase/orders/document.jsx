@@ -10,23 +10,24 @@ import usePermissions from '../../../hooks/usePermissions.js';
 import { getApiErrorMessage } from '../../../utils/formHelpers.js';
 import { formatDate, formatCurrency } from '@/utils/formatters';
 import { PAYMENT_TERM_OPTIONS, FREIGHT_TERM_OPTIONS, withCurrent } from '@/constants/purchaseTerms';
+import CompanyLogo from '@/components/common/CompanyLogo';
 
 // Inline-editable field styles. On screen they carry a faint dashed
 // underline so the operator can see what's editable; in print the borders
 // vanish and only the text remains, so the paper looks like a clean PO.
 const editCls =
-  'w-full bg-transparent px-1 py-0.5 border-b border-dashed border-slate-300 ' +
+  'w-full bg-transparent px-1 py-0 border-b border-dashed border-slate-300 ' +
   'focus:outline-none focus:border-primary-500 print:border-0 print:px-0';
 const editAreaCls =
-  'w-full bg-transparent px-1 py-0.5 border border-dashed border-slate-300 rounded ' +
+  'w-full bg-transparent px-1 py-0 border border-dashed border-slate-300 rounded ' +
   'focus:outline-none focus:border-primary-500 print:border-0 print:px-0 resize-none';
 
 // Browsers drop background colours in print unless told otherwise — the
 // accent-filled table header carries this so the paper matches the screen.
 const printExact = { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' };
 
-// Fixed document accent (slate — the PO sheet's monochrome house style).
-const ACCENT = '#334155';
+// Fixed document accent — SS Biochem brand teal (matches the app theme).
+const ACCENT = '#1d6b5c';
 
 // A read-only-in-print, editable-on-screen single-line text field.
 //
@@ -369,10 +370,11 @@ export default function PurchaseOrderDocument() {
       {/* View-only users (no Purchase Order Edit permission) get a disabled
           fieldset so nothing is editable — not just unsaved. */}
       <fieldset disabled={!hasEdit} className="min-w-0 border-0 p-0 m-0">
-      <div className="max-w-[820px] mx-auto bg-white text-slate-900 border border-slate-300 print:border-0 print:max-w-none print:mx-0 p-4 sm:p-5 sm:p-8 print:p-0 text-[13px] leading-snug">
+      <div className="max-w-[820px] mx-auto bg-white text-slate-900 border border-slate-300 print:border-0 print:max-w-none print:mx-0 p-4 sm:p-6 print:p-0 text-[13px] leading-tight">
         {/* Header: company (left) + title (right) */}
-        <div className="flex justify-between gap-4 sm:gap-5 pb-3">
+        <div className="flex justify-between gap-4 sm:gap-5 pb-2">
           <div className="w-3/5">
+            <CompanyLogo name={doc.companyName} height={38} className="mb-1.5" />
             <input
               type="text"
               value={doc.companyName}
@@ -385,10 +387,10 @@ export default function PurchaseOrderDocument() {
               <AddrToggle value={doc.srcHeader} onChange={(s) => setAddrSrc('header', s)} />
             </div>
             <textarea
-              rows={2}
+              rows={1}
               value={doc.companyAddress}
               onChange={(e) => set('companyAddress', e.target.value)}
-              className={`${editAreaCls} mt-1 text-[12px] text-slate-700 print:hidden`}
+              className={`${editAreaCls} mt-1 text-[12px] text-slate-700 print:hidden min-h-[1.6rem]`}
             />
             <PrintText value={doc.companyAddress} className="mt-1 text-[12px] text-slate-700" />
             <div className="mt-1 text-[12px]">
@@ -414,16 +416,16 @@ export default function PurchaseOrderDocument() {
         </div>
 
         {/* Supplier */}
-        <div className="border-t border-slate-300 pt-3">
+        <div className="border-t border-slate-300 mt-2 pt-2">
           <p className="font-semibold">Supplier:</p>
           <Field value={doc.vendorName} onChange={(v) => set('vendorName', v)} className="font-medium" />
           {/* Compact supplier address — constrained width so a long address
               wraps into ~3 tidy lines instead of one full-width sprawl. */}
           <textarea
-            rows={3}
+            rows={1}
             value={doc.vendorAddress}
             onChange={(e) => set('vendorAddress', e.target.value)}
-            className={`${editAreaCls} mt-1 max-w-md text-[12px] text-slate-700 print:hidden`}
+            className={`${editAreaCls} mt-1 max-w-md text-[12px] text-slate-700 print:hidden min-h-[1.6rem]`}
           />
           <PrintText value={doc.vendorAddress} className="mt-1 max-w-md text-[12px] text-slate-700" />
           <div className="text-[12px]">
@@ -433,15 +435,15 @@ export default function PurchaseOrderDocument() {
         </div>
 
         {/* Bill To / Deliver To (left) + PO meta (right) */}
-        <div className="flex justify-between gap-4 sm:gap-5 border-t border-slate-300 mt-3 pt-3">
-          <div className="w-3/5 space-y-3">
+        <div className="flex justify-between gap-4 sm:gap-5 border-t border-slate-300 mt-2 pt-2">
+          <div className="w-3/5 space-y-2">
             <div>
               <p className="font-semibold">Bill To <AddrToggle value={doc.srcBill} onChange={(s) => setAddrSrc('bill', s)} /></p>
               <textarea
-                rows={2}
+                rows={1}
                 value={doc.billingAddress}
                 onChange={(e) => set('billingAddress', e.target.value)}
-                className={`${editAreaCls} text-[12px] text-slate-700 print:hidden`}
+                className={`${editAreaCls} text-[12px] text-slate-700 print:hidden min-h-[1.6rem]`}
               />
               <PrintText value={doc.billingAddress} className="text-[12px] text-slate-700" />
               <div className="text-[12px]">
@@ -452,10 +454,10 @@ export default function PurchaseOrderDocument() {
             <div>
               <p className="font-semibold">Deliver To <AddrToggle value={doc.srcDeliver} onChange={(s) => setAddrSrc('deliver', s)} /></p>
               <textarea
-                rows={2}
+                rows={1}
                 value={doc.deliverAddress}
                 onChange={(e) => set('deliverAddress', e.target.value)}
-                className={`${editAreaCls} text-[12px] text-slate-700 print:hidden`}
+                className={`${editAreaCls} text-[12px] text-slate-700 print:hidden min-h-[1.6rem]`}
               />
               <PrintText value={doc.deliverAddress} className="text-[12px] text-slate-700" />
               <div className="text-[12px]">
