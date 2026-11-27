@@ -8058,7 +8058,18 @@ class PurchaseLifecycleGraphView(APIView):
             },
         }
         nodes.append(pr_data)
-        timeline.append({'date': pr_data['date'], 'label': f'{pr.pr_no} created', 'type': 'pr', 'status': pr.approval_status})
+        _pr_created_by = pr_data['data']['requested_by']
+        timeline.append({'date': pr_data['date'], 'label': f'{pr.pr_no} created', 'type': 'pr',
+                         'status': pr.approval_status, 'actor': _pr_created_by})
+        # Separate approval event on the timeline (who approved + when), so the
+        # flow shows not just "created" but who signed it off.
+        if pr.approved_by and pr.approved_at:
+            timeline.append({
+                'date': pr.approved_at.isoformat(),
+                'label': f'{pr.pr_no} approved',
+                'type': 'pr', 'status': 'APPROVED',
+                'actor': pr_data['data']['approved_by'],
+            })
 
         if pr.approval_status in ('DRAFT', 'PENDING', 'PENDING_APPROVAL'):
             kpis['pending_approvals'] += 1

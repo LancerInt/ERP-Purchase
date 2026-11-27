@@ -90,7 +90,6 @@ export const NAV_SECTIONS = [
     groupIcon: ShoppingCart,
     items: [
       { name: 'Analytics', path: '/purchase/dashboard', module: 'Purchase Analytics', icon: BarChart3 },
-      { name: 'Vendor Insights', path: '/purchase/vendor-insights', module: 'Vendor Insights', icon: Users },
       { name: 'Bills', path: '/purchase/bills', module: 'Vendor Bill', icon: Receipt },
       // Scan Inbox lives under its own IMPORT DATA group (data ingestion).
       // 'Expense Reconcile' removed from the menu (route kept so old links don't 404).
@@ -230,18 +229,11 @@ export const NAV_SECTIONS = [
     tabLabel: 'Inventory',
     groupIcon: Repeat,
     items: [
+      // Standalone: only Stock + Stock Declarations are backed by endpoints here.
+      // Production Stock/Entries, Wages, Movement Requests, Transfers, Shifting,
+      // Job Work, Returns, Adjustments were removed — their backends aren't ported
+      // (they 404'd with raw Django error pages).
       { name: 'Stock', path: '/purchase/stock', module: 'Stock', icon: Box },
-      // Stock Ledger hidden in this standalone — its backend endpoint 404s here.
-      { name: 'Production Stock', path: '/inventory/production-stock', module: 'Production Stock', icon: Box },
-      { name: 'Production Entries', path: '/inventory/production-entries', module: 'Production Entry', icon: GitBranch },
-      { name: 'Additional Wages', path: '/production/additional-wages', module: 'Wage Voucher', icon: CreditCard },
-      { name: 'Wages Ledger', path: '/production/wages-ledger', module: 'Additional Wages', icon: CreditCard },
-      { name: 'Movement Requests', path: '/inventory/stock-movement', module: 'Stock Movement Request', icon: Repeat },
-      { name: 'Transfers', path: '/inventory/transfers', module: 'Stock Transfer', icon: Truck },
-      { name: 'Shifting', path: '/inventory/shifting', module: 'Shifting', icon: Package },
-      { name: 'Job Work', path: '/inventory/job-work', module: 'Job Work Order', icon: Briefcase },
-      { name: 'Returns', path: '/inventory/returns', module: 'Sales Return', icon: FileCheck },
-      { name: 'Adjustments', path: '/inventory/adjustments', module: 'Stock Adjustment', icon: Calculator },
       { name: 'Stock Declarations', path: '/inventory/stock-declarations', icon: ClipboardCheck },
     ],
   },
@@ -454,7 +446,6 @@ export const ROLE_ITEM_WHITELIST = {
       '/purchase/dashboard',        // Analytics (Purchase Analytics)
       '/purchase/bills',            // Bills
       '/purchase/payment-entries',  // Payment Entries
-      '/purchase/vendor-insights',  // Vendor Insights
     ] },
     { section: 'expenses', items: [
       '/expenses/analytics',        // Analytics (Expense Analytics)

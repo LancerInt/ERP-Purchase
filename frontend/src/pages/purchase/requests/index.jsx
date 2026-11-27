@@ -551,8 +551,8 @@ export default function PurchaseRequestList() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-[32px] border border-slate-200 rounded-md bg-white cursor-pointer pl-3 pr-8"
-          style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }}
+          className="h-[30px] text-[12px] font-medium text-slate-700 border border-slate-200 rounded-md bg-white cursor-pointer pl-3 pr-8 leading-none appearance-none bg-no-repeat focus:ring-1 focus:ring-primary-400 focus:border-primary-400"
+          style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2360594a' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")", backgroundPosition: 'right 8px center', backgroundSize: '12px' }}
         >
           <option value="ALL">Status</option>
           <option value="DRAFT">Draft</option>
@@ -658,17 +658,22 @@ export default function PurchaseRequestList() {
                     ) : '—'}
                   </td>
                   <td className="px-2 py-1.5">
+                    {/* Fixed-width action slots so the always-present icons line
+                        up in the same column on every row. The optional Skip-RFQ
+                        button keeps its slot (invisible placeholder) when absent. */}
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                      {canSkipRfq && row.approval_status === 'APPROVED' && !row.allow_rfq_skip && (
-                        <button onClick={() => handleSkipRfq(row)} className="p-1 text-amber-600 hover:bg-amber-50 rounded" title="Skip RFQ">
+                      {canSkipRfq && row.approval_status === 'APPROVED' && !row.allow_rfq_skip ? (
+                        <button onClick={() => handleSkipRfq(row)} className="p-1 text-amber-600 hover:bg-amber-50 rounded shrink-0" title="Skip RFQ">
                           <SkipForward size={14} />
                         </button>
+                      ) : (
+                        <span className="p-1 shrink-0" aria-hidden="true"><span className="block w-[14px] h-[14px]" /></span>
                       )}
                       <ActionButtons moduleName="Purchase Request" editPath={`/purchase/requests/${row.id}`} onDelete={() => handleDelete(row.id)} row={row} />
-                      <button onClick={() => openLineItems(row)} className="p-1 text-teal-600 hover:bg-teal-50 rounded" title="Products">
+                      <button onClick={() => openLineItems(row)} className="p-1 text-teal-600 hover:bg-teal-50 rounded shrink-0" title="Products">
                         <List size={14} />
                       </button>
-                      <button onClick={() => openFlow(row)} className="p-1 text-indigo-600 hover:bg-indigo-50 rounded" title="Flow">
+                      <button onClick={() => openFlow(row)} className="p-1 text-indigo-600 hover:bg-indigo-50 rounded shrink-0" title="Flow">
                         <GitBranch size={14} />
                       </button>
                     </div>
@@ -947,7 +952,10 @@ function FlowModal({ prNo, data, loading, error, selectedNode, onNodeClick, onCl
                               <span className="text-sm font-medium text-slate-800">{ev.label}</span>
                               <FlowStatusBadge status={ev.status} />
                             </div>
-                            <p className="text-xs text-slate-400 mt-0.5">{fmtDate(ev.date)}</p>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              {fmtDate(ev.date)}
+                              {ev.actor ? <span className="text-slate-500"> · by <span className="font-medium text-slate-600">{ev.actor}</span></span> : null}
+                            </p>
                           </div>
                         </div>
                       );

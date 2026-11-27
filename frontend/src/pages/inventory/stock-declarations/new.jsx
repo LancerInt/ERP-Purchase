@@ -115,8 +115,7 @@ export default function NewStockDeclaration() {
   return (
     <MainLayout>
       <PageHeader
-        title="New Stock Declaration"
-        subtitle="Declare opening stock for a product"
+        title="Opening Stock Declaration"
         hideCompanyFilter
         breadcrumbs={[
           { label: 'Inventory', href: '/inventory' },

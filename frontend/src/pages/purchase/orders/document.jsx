@@ -365,177 +365,151 @@ export default function PurchaseOrderDocument() {
           color: inherit; background: transparent;
         }
         fieldset:disabled .doc-edit-only { display: none !important; }
+        /* View-only: make the on-screen sheet read exactly like the print —
+           collapse the editable fields' reserved height/padding so empty slots
+           (blank GSTIN, short addresses) don't leave gaps the print doesn't. */
+        fieldset:disabled textarea {
+          min-height: 0 !important; height: auto !important; padding: 0 !important;
+          resize: none; overflow: hidden;
+        }
+        fieldset:disabled input { padding-top: 0 !important; padding-bottom: 0 !important; }
       `}</style>
       {/* ── The A4 PO document ──────────────────────────────────────── */}
       {/* View-only users (no Purchase Order Edit permission) get a disabled
           fieldset so nothing is editable — not just unsaved. */}
       <fieldset disabled={!hasEdit} className="min-w-0 border-0 p-0 m-0">
       <div className="max-w-[820px] mx-auto bg-white text-slate-900 border border-slate-300 print:border-0 print:max-w-none print:mx-0 p-4 sm:p-6 print:p-0 text-[13px] leading-tight">
-        {/* Header: company (left) + title (right) */}
-        <div className="flex justify-between gap-4 sm:gap-5 pb-2">
-          <div className="w-3/5">
-            <CompanyLogo name={doc.companyName} height={38} className="mb-1.5" />
+        {/* Header: company (left) + title (right) — compact, teal-underlined */}
+        <div className="flex justify-between items-start gap-4 sm:gap-5 pb-2.5 border-b-2" style={{ borderColor: accent }}>
+          <div className="w-3/5 min-w-0">
+            <CompanyLogo name={doc.companyName} height={34} className="mb-1" />
             <input
               type="text"
               value={doc.companyName}
               onChange={(e) => set('companyName', e.target.value)}
-              className={`${editCls} text-lg font-bold print:hidden`}
+              className={`${editCls} text-base font-bold print:hidden`}
             />
-            <PrintText value={doc.companyName} className="text-lg font-bold" />
-            <div className="mt-1 print:hidden">
-              <span className="text-[10px] uppercase tracking-wide text-slate-400">Address</span>
-              <AddrToggle value={doc.srcHeader} onChange={(s) => setAddrSrc('header', s)} />
+            <PrintText value={doc.companyName} className="text-base font-bold" />
+            {/* Compact meta block: address + GSTIN + phone + mail, tight lines */}
+            <div className="mt-0.5 text-[11px] text-slate-600 leading-snug space-y-0.5">
+              <div className="flex items-center gap-1 print:hidden">
+                <AddrToggle value={doc.srcHeader} onChange={(s) => setAddrSrc('header', s)} />
+                <input
+                  type="text"
+                  value={doc.companyAddress}
+                  onChange={(e) => set('companyAddress', e.target.value)}
+                  placeholder="Address"
+                  className={`${editCls} text-[11px] text-slate-600`}
+                />
+              </div>
+              <div className="hidden print:block">{doc.companyAddress}</div>
+              <div><span className="text-slate-500">GSTIN </span><Field value={doc.companyGstin} onChange={(v) => set('companyGstin', v)} className="inline w-44" /></div>
+              <div className="flex gap-3">
+                <span className="inline-flex items-center"><span className="text-slate-500 mr-1">Ph</span><Field value={doc.companyPhone} onChange={(v) => set('companyPhone', v)} className="inline w-32" /></span>
+              </div>
+              <div><span className="text-slate-500">Mail </span><Field value={doc.companyMail} onChange={(v) => set('companyMail', v)} className="inline w-48" /></div>
             </div>
+          </div>
+          <div className="w-2/5 text-right flex-shrink-0">
+            <h1 className="text-xl font-extrabold tracking-tight" style={{ color: accent }}>Purchase Order</h1>
+            <p className="mt-1.5 text-[12px]">
+              <span className="text-slate-500">PO No: </span>
+              <span className="font-bold">{doc.poNo}</span>
+            </p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Date: {formatDate(doc.poDate)}</p>
+          </div>
+        </div>
+
+        {/* ── Parties: Bill To | Supplier, side by side in two bordered boxes ── */}
+        <div className="grid grid-cols-2 border border-slate-300 rounded-md overflow-hidden mt-3 text-[12px]">
+          <div className="p-2.5">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-primary-700 mb-1">
+              Bill To <AddrToggle value={doc.srcBill} onChange={(s) => setAddrSrc('bill', s)} />
+            </p>
             <textarea
               rows={1}
-              value={doc.companyAddress}
-              onChange={(e) => set('companyAddress', e.target.value)}
-              className={`${editAreaCls} mt-1 text-[12px] text-slate-700 print:hidden min-h-[1.6rem]`}
+              value={doc.billingAddress}
+              onChange={(e) => set('billingAddress', e.target.value)}
+              className={`${editAreaCls} text-[12px] text-slate-700 print:hidden min-h-[1.2rem]`}
             />
-            <PrintText value={doc.companyAddress} className="mt-1 text-[12px] text-slate-700" />
-            <div className="mt-1 text-[12px]">
+            <PrintText value={doc.billingAddress} className="text-[12px] text-slate-700" />
+            <div className="text-[11px] mt-0.5">
               <span className="text-slate-500">GSTIN: </span>
-              <Field value={doc.companyGstin} onChange={(v) => set('companyGstin', v)} className="inline w-56" />
-            </div>
-            <div className="text-[12px]">
-              <span className="text-slate-500">Ph: </span>
-              <Field value={doc.companyPhone} onChange={(v) => set('companyPhone', v)} className="inline w-40" />
-            </div>
-            <div className="text-[12px]">
-              <span className="text-slate-500">Mail: </span>
-              <Field value={doc.companyMail} onChange={(v) => set('companyMail', v)} className="inline w-56" />
+              <Field value={doc.billingGstin} onChange={(v) => set('billingGstin', v)} className="inline w-52" />
             </div>
           </div>
-          <div className="w-2/5 text-right">
-            <h1 className="text-2xl font-bold tracking-tight" style={{ color: accent }}>Purchase Order</h1>
-            <p className="mt-2 text-[13px]">
-              <span className="text-slate-500">Po No: </span>
-              <span className="font-semibold">{doc.poNo}</span>
+          <div className="p-2.5 border-l border-slate-300">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-primary-700 mb-1">Supplier</p>
+            <Field value={doc.vendorName} onChange={(v) => set('vendorName', v)} className="font-semibold text-[13px]" />
+            <textarea
+              rows={1}
+              value={doc.vendorAddress}
+              onChange={(e) => set('vendorAddress', e.target.value)}
+              className={`${editAreaCls} mt-0.5 text-[12px] text-slate-700 print:hidden min-h-[1.2rem]`}
+            />
+            <PrintText value={doc.vendorAddress} className="mt-0.5 text-[12px] text-slate-700" />
+            <div className="text-[11px] mt-0.5">
+              <span className="text-slate-500">GST: </span>
+              <Field value={doc.vendorGstin} onChange={(v) => set('vendorGstin', v)} className="inline w-52" />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Strip: Deliver To | Terms (PO date, payment, freight, delivery) ── */}
+        <div className="grid grid-cols-2 border border-slate-300 rounded-md overflow-hidden mt-2 text-[12px]">
+          <div className="p-2.5">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-primary-700 mb-1">
+              Deliver To <AddrToggle value={doc.srcDeliver} onChange={(s) => setAddrSrc('deliver', s)} />
             </p>
-          </div>
-        </div>
-
-        {/* Supplier */}
-        <div className="border-t border-slate-300 mt-2 pt-2">
-          <p className="font-semibold">Supplier:</p>
-          <Field value={doc.vendorName} onChange={(v) => set('vendorName', v)} className="font-medium" />
-          {/* Compact supplier address — constrained width so a long address
-              wraps into ~3 tidy lines instead of one full-width sprawl. */}
-          <textarea
-            rows={1}
-            value={doc.vendorAddress}
-            onChange={(e) => set('vendorAddress', e.target.value)}
-            className={`${editAreaCls} mt-1 max-w-md text-[12px] text-slate-700 print:hidden min-h-[1.6rem]`}
-          />
-          <PrintText value={doc.vendorAddress} className="mt-1 max-w-md text-[12px] text-slate-700" />
-          <div className="text-[12px]">
-            <span className="text-slate-500">GST: </span>
-            <Field value={doc.vendorGstin} onChange={(v) => set('vendorGstin', v)} className="inline w-56" />
-          </div>
-        </div>
-
-        {/* Bill To / Deliver To (left) + PO meta (right) */}
-        <div className="flex justify-between gap-4 sm:gap-5 border-t border-slate-300 mt-2 pt-2">
-          <div className="w-3/5 space-y-2">
-            <div>
-              <p className="font-semibold">Bill To <AddrToggle value={doc.srcBill} onChange={(s) => setAddrSrc('bill', s)} /></p>
-              <textarea
-                rows={1}
-                value={doc.billingAddress}
-                onChange={(e) => set('billingAddress', e.target.value)}
-                className={`${editAreaCls} text-[12px] text-slate-700 print:hidden min-h-[1.6rem]`}
-              />
-              <PrintText value={doc.billingAddress} className="text-[12px] text-slate-700" />
-              <div className="text-[12px]">
-                <span className="text-slate-500">GSTIN: </span>
-                <Field value={doc.billingGstin} onChange={(v) => set('billingGstin', v)} className="inline w-56" />
-              </div>
-            </div>
-            <div>
-              <p className="font-semibold">Deliver To <AddrToggle value={doc.srcDeliver} onChange={(s) => setAddrSrc('deliver', s)} /></p>
-              <textarea
-                rows={1}
-                value={doc.deliverAddress}
-                onChange={(e) => set('deliverAddress', e.target.value)}
-                className={`${editAreaCls} text-[12px] text-slate-700 print:hidden min-h-[1.6rem]`}
-              />
-              <PrintText value={doc.deliverAddress} className="text-[12px] text-slate-700" />
-              <div className="text-[12px]">
-                <span className="text-slate-500">GSTIN: </span>
-                <Field value={doc.deliverGstin} onChange={(v) => set('deliverGstin', v)} className="inline w-56" />
-              </div>
+            <textarea
+              rows={1}
+              value={doc.deliverAddress}
+              onChange={(e) => set('deliverAddress', e.target.value)}
+              className={`${editAreaCls} text-[12px] text-slate-700 print:hidden min-h-[1.2rem]`}
+            />
+            <PrintText value={doc.deliverAddress} className="text-[12px] text-slate-700" />
+            <div className="text-[11px] mt-0.5">
+              <span className="text-slate-500">GSTIN: </span>
+              <Field value={doc.deliverGstin} onChange={(v) => set('deliverGstin', v)} className="inline w-52" />
             </div>
           </div>
-          <div className="w-2/5">
-            <table className="w-full text-[12px]">
-              <tbody>
-                <tr>
-                  <td className="text-slate-500 py-0.5 align-top w-28">PO Date</td>
-                  <td className="py-0.5">: {formatDate(doc.poDate)}</td>
-                </tr>
-                <tr>
-                  <td className="text-slate-500 py-0.5 align-top">Freight Terms</td>
-                  <td className="py-0.5">
-                    <div className="flex items-center gap-1">
-                      <span>:</span>
-                      <div className="flex-1 print:hidden">
-                        <CustomSelect
-                          value={doc.freightTerms}
-                          onChange={(e) => set('freightTerms', e.target.value)}
-                          disabled={!hasEdit}
-                          className={editCls}
-                        >
-                          <option value="">—</option>
-                          {withCurrent(FREIGHT_TERM_OPTIONS, doc.freightTerms).map((o) => (
-                            <option key={o} value={o}>{o}</option>
-                          ))}
-                        </CustomSelect>
-                      </div>
-                      <span className="hidden print:inline">{doc.freightTerms || '—'}</span>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="text-slate-500 py-0.5 align-top">Delivery Schedule</td>
-                  <td className="py-0.5">
-                    <div className="flex items-center gap-1">
-                      <span>:</span>
-                      <div className="flex-1 print:hidden">
-                        <CustomDatePicker
-                          value={doc.dueDate || ''}
-                          onChange={(e) => set('dueDate', e.target.value)}
-                          disabled={!hasEdit}
-                          className={editCls}
-                        />
-                      </div>
-                      <span className="hidden print:inline">{doc.dueDate ? formatDate(doc.dueDate) : '—'}</span>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="text-slate-500 py-0.5 align-top">Payment Terms</td>
-                  <td className="py-0.5">
-                    <div className="flex items-center gap-1">
-                      <span>:</span>
-                      <div className="flex-1 print:hidden">
-                        <CustomSelect
-                          value={doc.paymentTerms}
-                          onChange={(e) => set('paymentTerms', e.target.value)}
-                          disabled={!hasEdit}
-                          className={editCls}
-                        >
-                          <option value="">—</option>
-                          {withCurrent(PAYMENT_TERM_OPTIONS, doc.paymentTerms).map((o) => (
-                            <option key={o} value={o}>{o}</option>
-                          ))}
-                        </CustomSelect>
-                      </div>
-                      <span className="hidden print:inline">{doc.paymentTerms || '—'}</span>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="p-2.5 border-l border-slate-300">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-primary-700 mb-1">Terms</p>
+            {/* Demo layout: label left, value right (no colon). Editable widgets
+                sit on the right for edit mode; print shows the plain value. */}
+            <div className="text-[11px] space-y-0.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-500">PO Date</span>
+                <span className="font-medium">{formatDate(doc.poDate)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-500 shrink-0">Payment</span>
+                <div className="min-w-0 flex-1 text-right print:hidden">
+                  <CustomSelect value={doc.paymentTerms} onChange={(e) => set('paymentTerms', e.target.value)} disabled={!hasEdit} className={`${editCls} text-right`}>
+                    <option value="">—</option>
+                    {withCurrent(PAYMENT_TERM_OPTIONS, doc.paymentTerms).map((o) => (<option key={o} value={o}>{o}</option>))}
+                  </CustomSelect>
+                </div>
+                <span className="hidden print:inline font-medium">{doc.paymentTerms || '—'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-500 shrink-0">Freight</span>
+                <div className="min-w-0 flex-1 text-right print:hidden">
+                  <CustomSelect value={doc.freightTerms} onChange={(e) => set('freightTerms', e.target.value)} disabled={!hasEdit} className={`${editCls} text-right`}>
+                    <option value="">—</option>
+                    {withCurrent(FREIGHT_TERM_OPTIONS, doc.freightTerms).map((o) => (<option key={o} value={o}>{o}</option>))}
+                  </CustomSelect>
+                </div>
+                <span className="hidden print:inline font-medium">{doc.freightTerms || '—'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-500 shrink-0">Delivery Schedule</span>
+                <div className="min-w-0 flex-1 text-right print:hidden">
+                  <CustomDatePicker value={doc.dueDate || ''} onChange={(e) => set('dueDate', e.target.value)} disabled={!hasEdit} className={`${editCls} text-right`} />
+                </div>
+                <span className="hidden print:inline font-medium">{doc.dueDate ? formatDate(doc.dueDate) : '—'}</span>
+              </div>
+            </div>
           </div>
         </div>
 
