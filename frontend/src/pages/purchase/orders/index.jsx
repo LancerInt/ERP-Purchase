@@ -133,7 +133,7 @@ export default function PurchaseOrderList() {
     ));
   };
 
-  const thCls = "text-left px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-primary-700 whitespace-nowrap";
+  const thCls = "text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-primary-700 whitespace-nowrap";
 
   return (
     <MainLayout>
@@ -285,17 +285,17 @@ export default function PurchaseOrderList() {
                     onClick={() => navigate(`/purchase/orders/${row.id}`)}
                     className="odd:bg-white even:bg-primary-50/40 border-b border-slate-200 hover:bg-primary-50/70 cursor-pointer transition-colors"
                   >
-                    <td className="px-2 py-2 font-semibold text-slate-800 whitespace-nowrap">{row.po_no}</td>
-                    {!colHidden('linked_pr_numbers') && <td className="px-2 py-2">{renderPrLinks(row)}</td>}
-                    {!colHidden('product_names') && <td className="px-2 py-2 truncate" style={{ maxWidth: 160 }}><ProductsCell names={row.product_names} /></td>}
-                    {!colHidden('vendor_name') && <td className="px-2 py-2 text-slate-700 truncate">{row.vendor_name || '—'}</td>}
-                    {!colHidden('company_name') && <td className="px-2 py-2 text-slate-600 truncate">{row.company_name || '—'}</td>}
-                    {!colHidden('warehouse_name') && <td className="px-2 py-2 text-slate-600 truncate">{row.warehouse_name || '—'}</td>}
-                    {!colHidden('po_date') && <td className="px-2 py-2 text-slate-600 whitespace-nowrap">{row.po_date ? formatDate(row.po_date) : '—'}</td>}
-                    {!colHidden('total_order_value') && <td className="px-2 py-2 text-slate-800 font-semibold tabular-nums whitespace-nowrap">{row.total_order_value ? formatCurrency(row.total_order_value) : '₹0'}</td>}
-                    {!colHidden('fulfillment_status') && <td className="px-2 py-2"><StatusBadge status={row.fulfillment_status || row.status} /></td>}
+                    <td className="px-2 py-1.5 font-semibold text-slate-800 whitespace-nowrap">{row.po_no}</td>
+                    {!colHidden('linked_pr_numbers') && <td className="px-2 py-1.5">{renderPrLinks(row)}</td>}
+                    {!colHidden('product_names') && <td className="px-2 py-1.5 truncate" style={{ maxWidth: 160 }}><ProductsCell names={row.product_names} /></td>}
+                    {!colHidden('vendor_name') && <td className="px-2 py-1.5 text-slate-700 truncate">{row.vendor_name || '—'}</td>}
+                    {!colHidden('company_name') && <td className="px-2 py-1.5 text-slate-600 truncate">{row.company_name || '—'}</td>}
+                    {!colHidden('warehouse_name') && <td className="px-2 py-1.5 text-slate-600 truncate">{row.warehouse_name || '—'}</td>}
+                    {!colHidden('po_date') && <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{row.po_date ? formatDate(row.po_date) : '—'}</td>}
+                    {!colHidden('total_order_value') && <td className="px-2 py-1.5 text-slate-800 font-semibold tabular-nums whitespace-nowrap">{row.total_order_value ? formatCurrency(row.total_order_value) : '₹0'}</td>}
+                    {!colHidden('fulfillment_status') && <td className="px-2 py-1.5"><StatusBadge status={row.fulfillment_status || row.status} /></td>}
                     {!colHidden('email_sent') && (
-                      <td className="px-2 py-2">
+                      <td className="px-2 py-1.5">
                         {row.email_sent === 'whatsapp' ? (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-100 text-green-700 border border-green-200 rounded text-[10px] font-medium">
                             <MessageCircle size={11} /> WhatsApp
@@ -311,14 +311,14 @@ export default function PurchaseOrderList() {
                         )}
                       </td>
                     )}
-                    <td className="px-2 py-2" onClick={e => e.stopPropagation()}>
+                    <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
                       {canCreate('Receipt Advice') && inProgress && !row.is_fully_received && (row.email_sent || startedReceiving) ? (
                         <button onClick={() => navigate(`/purchase/receipts/new?po_id=${row.id}`)} className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-600 text-white text-[11px] font-medium rounded-md hover:bg-indigo-700 transition">
                           <PackageCheck size={12} /> Receipt
                         </button>
                       ) : null}
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="px-2 py-1.5">
                       <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                         {canEdit('Purchase Order') && (
                           <button onClick={() => navigate(`/purchase/orders/${row.id}`)} className="p-1 text-blue-600 hover:bg-blue-50 rounded transition" title="Edit">

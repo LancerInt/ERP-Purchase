@@ -228,7 +228,7 @@ export default function ReceiptAdviceList() {
     return <button onClick={(e) => { e.stopPropagation(); navigate(`/freight/wages/new?receipt_id=${row.id}`); }} className="p-1 bg-purple-50 text-purple-600 rounded hover:bg-purple-100 transition" title="Create Wages"><Users size={14} /></button>;
   };
 
-  const thCls = "text-left px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-primary-700 whitespace-nowrap";
+  const thCls = "text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-primary-700 whitespace-nowrap";
 
   return (
     <MainLayout>
@@ -308,15 +308,15 @@ export default function ReceiptAdviceList() {
                 const isApproved = row.approval_status === 'APPROVED';
                 return (
                   <tr key={row.id} onClick={() => navigate(`/purchase/receipts/${row.id}`)} className="odd:bg-white even:bg-primary-50/40 border-b border-slate-100 hover:bg-primary-50/70 cursor-pointer transition-colors">
-                    <td className="px-2 py-2 font-semibold text-slate-800 whitespace-nowrap">{row.receipt_advice_no}</td>
-                    {!colHidden('linked_po_numbers') && <td className="px-2 py-2 whitespace-nowrap">{renderPoLinks(row)}</td>}
-                    {!colHidden('vendor_name') && <td className="px-2 py-2 text-slate-600 whitespace-nowrap">{row.vendor_name || '—'}</td>}
-                    {!colHidden('product_names') && <td className="px-2 py-2 whitespace-nowrap" style={{ maxWidth: 220 }}><ProductsCell names={row.product_names} /></td>}
-                    {!colHidden('warehouse_name') && <td className="px-2 py-2 text-slate-600 whitespace-nowrap">{row.warehouse_name || '—'}</td>}
-                    {!colHidden('receipt_date') && <td className="px-2 py-2 text-slate-500 whitespace-nowrap">{row.receipt_date ? formatDate(row.receipt_date) : '—'}</td>}
-                    {!colHidden('linked_pr_numbers') && <td className="px-2 py-2 whitespace-nowrap">{renderPrLinks(row)}</td>}
-                    {!colHidden('total_received') && <td className="px-2 py-2 text-slate-700 font-medium whitespace-nowrap">{row.total_received || 0}</td>}
-                    {!colHidden('receipt_status') && <td className="px-2 py-2 whitespace-nowrap"><StatusBadge status={row.receipt_status || 'Pending'} /></td>}
+                    <td className="px-2 py-1.5 font-semibold text-slate-800 whitespace-nowrap">{row.receipt_advice_no}</td>
+                    {!colHidden('linked_po_numbers') && <td className="px-2 py-1.5 whitespace-nowrap">{renderPoLinks(row)}</td>}
+                    {!colHidden('vendor_name') && <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{row.vendor_name || '—'}</td>}
+                    {!colHidden('product_names') && <td className="px-2 py-1.5 whitespace-nowrap" style={{ maxWidth: 220 }}><ProductsCell names={row.product_names} /></td>}
+                    {!colHidden('warehouse_name') && <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{row.warehouse_name || '—'}</td>}
+                    {!colHidden('receipt_date') && <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap">{row.receipt_date ? formatDate(row.receipt_date) : '—'}</td>}
+                    {!colHidden('linked_pr_numbers') && <td className="px-2 py-1.5 whitespace-nowrap">{renderPrLinks(row)}</td>}
+                    {!colHidden('total_received') && <td className="px-2 py-1.5 text-slate-700 font-medium whitespace-nowrap">{row.total_received || 0}</td>}
+                    {!colHidden('receipt_status') && <td className="px-2 py-1.5 whitespace-nowrap"><StatusBadge status={row.receipt_status || 'Pending'} /></td>}
                     <td className="px-2 py-1.5" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1 whitespace-nowrap">
                         {renderFreightBtn(row)}

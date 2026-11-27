@@ -259,9 +259,9 @@ export default function RFQList() {
                   onClick={() => navigate(`/purchase/rfq/${row.id}`)}
                   className="odd:bg-white even:bg-primary-50/40 border-b border-slate-100 hover:bg-primary-50/70 cursor-pointer transition-colors"
                 >
-                  <td className="px-2 py-2 font-semibold text-slate-800 whitespace-nowrap">{row.rfq_no}</td>
+                  <td className="px-2 py-1.5 font-semibold text-slate-800 whitespace-nowrap">{row.rfq_no}</td>
                   {colVisible('linked_pr_numbers') && (
-                    <td className="px-2 py-2 text-slate-600">
+                    <td className="px-2 py-1.5 text-slate-600">
                       {(() => {
                         const prs = row.linked_pr_numbers;
                         if (!Array.isArray(prs) || prs.length === 0) return '-';
@@ -274,14 +274,14 @@ export default function RFQList() {
                       })()}
                     </td>
                   )}
-                  <td className="px-2 py-2 text-slate-600 truncate" style={{ maxWidth: 180 }}>
+                  <td className="px-2 py-1.5 text-slate-600 truncate" style={{ maxWidth: 180 }}>
                     <ProductsCell names={row.product_names} />
                   </td>
-                  <td className="px-2 py-2 text-slate-600">{row.created_by_name || '—'}</td>
-                  <td className="px-2 py-2 text-slate-500 whitespace-nowrap">{row.creation_date ? formatDate(row.creation_date) : '-'}</td>
-                  {colVisible('rfq_mode') && <td className="px-2 py-2 text-slate-600">{row.rfq_mode || '-'}</td>}
-                  {colVisible('rfq_status') && <td className="px-2 py-2"><StatusBadge status={row.rfq_status} /></td>}
-                  {colVisible('quote_count_expected') && <td className="px-2 py-2 text-slate-600">{row.quote_count_expected || '-'}</td>}
+                  <td className="px-2 py-1.5 text-slate-600">{row.created_by_name || '—'}</td>
+                  <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap">{row.creation_date ? formatDate(row.creation_date) : '-'}</td>
+                  {colVisible('rfq_mode') && <td className="px-2 py-1.5 text-slate-600">{row.rfq_mode || '-'}</td>}
+                  {colVisible('rfq_status') && <td className="px-2 py-1.5"><StatusBadge status={row.rfq_status} /></td>}
+                  {colVisible('quote_count_expected') && <td className="px-2 py-1.5 text-slate-600">{row.quote_count_expected || '-'}</td>}
                   <td className="px-2 py-1.5">
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                       {canEdit('RFQ') && (

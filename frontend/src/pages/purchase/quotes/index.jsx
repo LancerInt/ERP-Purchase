@@ -179,7 +179,7 @@ export default function QuoteResponseList() {
     return !isHidden(key);
   };
 
-  const thCls = "text-left px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-primary-700 whitespace-nowrap";
+  const thCls = "text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-primary-700 whitespace-nowrap";
 
   return (
     <MainLayout>
@@ -327,7 +327,7 @@ export default function QuoteResponseList() {
                           className="odd:bg-white even:bg-primary-50/40 border-b border-slate-100 hover:bg-primary-50/70 cursor-pointer transition-colors"
                         >
                           {/* RFQ No */}
-                          <td className="px-2 py-2">
+                          <td className="px-2 py-1.5">
                             {row.rfq_id ? (
                               <button
                                 onClick={(e) => { e.stopPropagation(); navigate(`/purchase/rfq/${row.rfq_id}`); }}
@@ -342,7 +342,7 @@ export default function QuoteResponseList() {
 
                           {/* PR No */}
                           {isColVisible('pr_numbers') && (
-                            <td className="px-2 py-2 text-slate-600">
+                            <td className="px-2 py-1.5 text-slate-600">
                               {Array.isArray(row.pr_numbers) && row.pr_numbers.length > 0
                                 ? row.pr_numbers.map((prNo, i) => (
                                     <span key={i}>
@@ -362,34 +362,34 @@ export default function QuoteResponseList() {
                           )}
 
                           {/* Products */}
-                          <td className="px-2 py-2 text-slate-600 truncate" style={{ maxWidth: 160 }}>
+                          <td className="px-2 py-1.5 text-slate-600 truncate" style={{ maxWidth: 160 }}>
                             <ProductsCell names={row.product_names} />
                           </td>
 
                           {/* RFQ Date */}
                           {isColVisible('quote_date') && (
-                            <td className="px-2 py-2 text-slate-500 whitespace-nowrap">{row.quote_date ? formatDate(row.quote_date) : '-'}</td>
+                            <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap">{row.quote_date ? formatDate(row.quote_date) : '-'}</td>
                           )}
 
                           {/* Valid Till */}
                           {isColVisible('price_valid_till') && (
-                            <td className="px-2 py-2 text-slate-500 whitespace-nowrap">{row.price_valid_till ? formatDate(row.price_valid_till) : '-'}</td>
+                            <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap">{row.price_valid_till ? formatDate(row.price_valid_till) : '-'}</td>
                           )}
 
                           {/* Currency */}
                           {isColVisible('currency') && (
-                            <td className="px-2 py-2 text-slate-600">{row.currency || '-'}</td>
+                            <td className="px-2 py-1.5 text-slate-600">{row.currency || '-'}</td>
                           )}
 
                           {/* Quotes Received */}
-                          <td className="px-2 py-2">
+                          <td className="px-2 py-1.5">
                             <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 bg-slate-50 text-slate-600 text-[11px] font-semibold rounded-full border border-slate-200">
                               {row.invited_count || 0}
                             </span>
                           </td>
 
                           {/* Quotes Recorded */}
-                          <td className="px-2 py-2">
+                          <td className="px-2 py-1.5">
                             <span className={`inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 text-[11px] font-semibold rounded-full border ${
                               complete ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-blue-50 text-blue-700 border-blue-200'
                             }`}>
@@ -399,7 +399,7 @@ export default function QuoteResponseList() {
 
                           {/* Chosen Vendor */}
                           {isColVisible('chosen_vendor_name') && (
-                            <td className="px-2 py-2">
+                            <td className="px-2 py-1.5">
                               {row.chosen_vendor_name
                                 ? <span className="text-emerald-700 font-medium">{row.chosen_vendor_name}</span>
                                 : <span className="text-slate-400">-</span>}
@@ -407,10 +407,10 @@ export default function QuoteResponseList() {
                           )}
 
                           {/* Lowest Quote */}
-                          <td className="px-2 py-2 text-slate-700">{row.lowest_total ? formatCurrency(row.lowest_total) : '-'}</td>
+                          <td className="px-2 py-1.5 text-slate-700">{row.lowest_total ? formatCurrency(row.lowest_total) : '-'}</td>
 
                           {/* Status */}
-                          <td className="px-2 py-2">
+                          <td className="px-2 py-1.5">
                             {row.evaluation_status === 'Evaluated' ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-semibold rounded-full border border-emerald-200">
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6 9 17l-5-5"/></svg>

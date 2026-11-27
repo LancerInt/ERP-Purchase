@@ -100,8 +100,8 @@ export default function DataTable({
   // headers, slightly tighter rows so lists read as one consistent design.
   // Row density standardised to match the hand-rolled list tables (py-2, 13px),
   // so every table across the app has the same compact single-line row height.
-  const cellPad = dense ? 'px-2 py-2 fine:px-1.5' : 'px-4 py-2 fine:px-3';
-  const cellText = dense ? 'text-[13px]' : 'text-[13px]';
+  const cellPad = dense ? 'px-2 py-1.5 fine:px-1.5' : 'px-4 py-1.5 fine:px-3';
+  const cellText = 'text-[12px]';
 
   const [searchTermState, setSearchTermState] = useState('');
   const [currentPageState, setCurrentPageState] = useState(page);

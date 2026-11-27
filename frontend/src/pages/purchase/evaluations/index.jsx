@@ -197,7 +197,7 @@ function EvaluationListTab() {
     ));
   };
 
-  const thCls = "text-left px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-primary-700 whitespace-nowrap";
+  const thCls = "text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-primary-700 whitespace-nowrap";
 
   return (
     <>
@@ -312,11 +312,11 @@ function EvaluationListTab() {
                   onClick={() => navigate(`/purchase/evaluations/${row.id}`)}
                   className="odd:bg-white even:bg-primary-50/40 border-b border-slate-100 hover:bg-primary-50/70 cursor-pointer transition-colors"
                 >
-                  <td className="px-2 py-2 font-semibold text-slate-800 whitespace-nowrap">{row.evaluation_id || row.id}</td>
-                  {!colHidden('linked_pr_numbers') && <td className="px-2 py-2">{renderPrLinks(row)}</td>}
-                  {!colHidden('product_names') && <td className="px-2 py-2 truncate" style={{ maxWidth: 160 }}><ProductsCell names={row.product_names} /></td>}
+                  <td className="px-2 py-1.5 font-semibold text-slate-800 whitespace-nowrap">{row.evaluation_id || row.id}</td>
+                  {!colHidden('linked_pr_numbers') && <td className="px-2 py-1.5">{renderPrLinks(row)}</td>}
+                  {!colHidden('product_names') && <td className="px-2 py-1.5 truncate" style={{ maxWidth: 160 }}><ProductsCell names={row.product_names} /></td>}
                   {!colHidden('rfq') && (
-                    <td className="px-2 py-2">
+                    <td className="px-2 py-1.5">
                       {row.rfq ? (
                         <button onClick={(e) => { e.stopPropagation(); navigate(`/purchase/rfq/${row.rfq}`); }} className="text-primary-600 hover:text-primary-800 hover:underline font-medium">
                           {row.rfq_no || (typeof row.rfq === 'string' && row.rfq.length > 20 ? row.rfq.substring(0, 8) + '...' : row.rfq || '-')}
@@ -324,10 +324,10 @@ function EvaluationListTab() {
                       ) : '-'}
                     </td>
                   )}
-                  {!colHidden('evaluation_date') && <td className="px-2 py-2 text-slate-500 whitespace-nowrap">{row.evaluation_date ? formatDate(row.evaluation_date) : '—'}</td>}
-                  {!colHidden('evaluated_by_name') && <td className="px-2 py-2 text-slate-600 truncate">{row.evaluated_by_name || '—'}</td>}
-                  {!colHidden('recommended_vendor_name') && <td className="px-2 py-2 text-slate-600 truncate">{row.recommended_vendor_name || '—'}</td>}
-                  {!colHidden('approval_status') && <td className="px-2 py-2"><StatusBadge status={row.approval_status_display || row.approval_status} /></td>}
+                  {!colHidden('evaluation_date') && <td className="px-2 py-1.5 text-slate-500 whitespace-nowrap">{row.evaluation_date ? formatDate(row.evaluation_date) : '—'}</td>}
+                  {!colHidden('evaluated_by_name') && <td className="px-2 py-1.5 text-slate-600 truncate">{row.evaluated_by_name || '—'}</td>}
+                  {!colHidden('recommended_vendor_name') && <td className="px-2 py-1.5 text-slate-600 truncate">{row.recommended_vendor_name || '—'}</td>}
+                  {!colHidden('approval_status') && <td className="px-2 py-1.5"><StatusBadge status={row.approval_status_display || row.approval_status} /></td>}
                   <td className="px-2 py-1.5">
                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                       {canEdit('Quote Evaluation') && (
