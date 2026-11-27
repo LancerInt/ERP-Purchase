@@ -4,7 +4,7 @@ import MainLayout from '../../../components/layout/MainLayout';
 import PageHeader from '../../../components/common/PageHeader';
 import StatusBadge from '../../../components/common/StatusBadge';
 import ProductsCell from '../../../components/common/ProductsCell';
-import { Eye, Pencil, PackageCheck, Trash2, MailCheck, Mail, X, Loader2 } from 'lucide-react';
+import { Eye, Pencil, PackageCheck, Trash2, MailCheck, Mail, MessageCircle, X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../../utils/api.js';
 import useApiData from '../../../hooks/useApiData.js';
@@ -116,7 +116,7 @@ export default function PurchaseOrderList() {
       'PO Date': r.po_date ? formatDate(r.po_date) : '',
       'Amount': r.total_order_value || 0,
       'Status': r.fulfillment_status || r.status,
-      'Mail': r.email_sent ? 'Sent' : 'Not sent',
+      'Mail': r.email_sent === 'whatsapp' ? 'WhatsApp Sent' : r.email_sent ? 'Email Sent' : 'Not sent',
     }));
     exportToExcel(rows, null, 'purchase-orders');
   }, [filteredData]);
@@ -296,7 +296,11 @@ export default function PurchaseOrderList() {
                     {!colHidden('fulfillment_status') && <td className="px-3 py-3"><StatusBadge status={row.fulfillment_status || row.status} /></td>}
                     {!colHidden('email_sent') && (
                       <td className="px-3 py-3">
-                        {row.email_sent ? (
+                        {row.email_sent === 'whatsapp' ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-green-100 text-green-700 border border-green-200 rounded text-[10px] font-medium">
+                            <MessageCircle size={11} /> WhatsApp
+                          </span>
+                        ) : row.email_sent ? (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-medium">
                             <MailCheck size={11} /> Sent
                           </span>

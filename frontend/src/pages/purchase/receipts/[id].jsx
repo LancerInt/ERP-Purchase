@@ -22,7 +22,7 @@ import { getApiErrorMessage } from '@/utils/formHelpers';
 // Roles allowed to approve a Receipt Advice.
 const RECEIPT_APPROVE_ROLES = new Set(['admin', 'administrator', 'purchase manager']);
 
-const TOLERANCE_CATEGORIES = new Set(['RAW_MATERIAL', 'PACKING_MATERIAL', 'FRUIT', 'MAIZE']);
+const TOLERANCE_CATEGORIES = new Set(['RAW_MATERIAL', 'PACKING_MATERIAL', 'FRUIT', 'MAIZE', 'FINISHED_GOODS']);
 const TOLERANCE_MIN_QTY = 10;
 const TOLERANCE_PCT = 5;
 

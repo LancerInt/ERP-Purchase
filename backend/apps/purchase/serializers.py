@@ -2012,17 +2012,17 @@ class PurchaseOrderSerializer(FieldPermissionMixin, serializers.ModelSerializer)
         return [pr.pr_no for pr in obj.linked_prs.all()]
 
     def get_email_sent(self, obj):
-        """Has a PO email been sent for THIS specific PO?
+        """Has a PO email/WhatsApp been sent for THIS specific PO?
+
+        Returns a string channel indicator instead of a bare boolean so the
+        list page can show *how* the PO was sent:
+          - 'email'    — sent via email
+          - 'whatsapp' — logged as WhatsApp send
+          - False      — not sent
 
         The PO send_email view stamps `[{po_no}]` into the EmailLog subject
         (see PurchaseOrderViewSet.send_email), so a subject/body match on the
         PO number is the reliable, PO-specific signal.
-
-        We deliberately do NOT fall back to a "any recent non-RFQ email to
-        this vendor" heuristic. That cross-contaminated sibling POs for the
-        same vendor and falsely flagged a brand-new PO — e.g. one just created
-        via Skip RFQ, for which nothing was sent — as "Mail Sent", which also
-        hid its Send Mail button so the user couldn't send it either.
         """
         if not obj.vendor or not obj.po_no:
             return False
@@ -2031,10 +2031,6 @@ class PurchaseOrderSerializer(FieldPermissionMixin, serializers.ModelSerializer)
             from django.db.models import Q
             store = self._store('_po_email_sent')
             if not store:
-                # The icontains match cannot be expressed as an IN, so the sent
-                # mail for the page's vendors is fetched ONCE and matched in
-                # Python. Same test, same case-insensitivity, same OR across
-                # subject and body - just not re-asked per row.
                 ids = _page_pks(self)
                 rows = None
                 if ids:
@@ -2044,30 +2040,38 @@ class PurchaseOrderSerializer(FieldPermissionMixin, serializers.ModelSerializer)
                     if vend:
                         rows = list(EmailLog.objects.filter(
                             vendor_id__in=vend, email_sent=True,
-                        ).values_list('vendor_id', 'subject', 'body_preview'))
+                        ).values_list('vendor_id', 'subject', 'body_preview', 'status'))
                 if rows is None:
-                    return EmailLog.objects.filter(
+                    log = EmailLog.objects.filter(
                         vendor=obj.vendor, email_sent=True,
                     ).filter(
                         Q(subject__icontains=obj.po_no)
                         | Q(body_preview__icontains=obj.po_no)
-                    ).exists()
+                    ).values_list('status', flat=True).first()
+                    if log is None:
+                        return False
+                    return 'whatsapp' if 'whatsapp' in (log or '').lower() else 'email'
                 for p in pos:
                     no = (p.po_no or '').lower()
-                    hit = bool(no) and any(
-                        v == p.vendor_id and (no in (sub_ or '').lower()
-                                              or no in (body or '').lower())
-                        for v, sub_, body in rows
-                    )
-                    store[p.pk] = hit
+                    channel = False
+                    if no:
+                        for v, sub_, body, st in rows:
+                            if v == p.vendor_id and (no in (sub_ or '').lower()
+                                                     or no in (body or '').lower()):
+                                channel = 'whatsapp' if 'whatsapp' in (st or '').lower() else 'email'
+                                break
+                    store[p.pk] = channel
                 store.setdefault('__built__', True)
             if obj.pk in store:
                 return store[obj.pk]
-            return EmailLog.objects.filter(
+            log = EmailLog.objects.filter(
                 vendor=obj.vendor, email_sent=True,
             ).filter(
                 Q(subject__icontains=obj.po_no) | Q(body_preview__icontains=obj.po_no)
-            ).exists()
+            ).values_list('status', flat=True).first()
+            if log is None:
+                return False
+            return 'whatsapp' if 'whatsapp' in (log or '').lower() else 'email'
         except Exception:
             return False
 

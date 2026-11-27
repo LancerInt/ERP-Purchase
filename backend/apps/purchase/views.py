@@ -3364,10 +3364,12 @@ class PurchaseOrderViewSet(WarehouseScopedQuerysetMixin, viewsets.ModelViewSet):
         )
 
         # Store the screenshot as proof against the PO.
+        ext = (getattr(screenshot, 'name', '') or '').rsplit('.', 1)
+        ext = f'.{ext[1]}' if len(ext) > 1 else '.png'
         PurchaseAttachment.objects.create(
             module='PO', record_id=po.id, category='GENERAL',
             file=screenshot,
-            file_name=getattr(screenshot, 'name', 'whatsapp.png'),
+            file_name=f'PO sent proof - {po.po_no}{ext}',
             uploaded_by=request.user,
         )
 

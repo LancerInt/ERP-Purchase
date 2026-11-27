@@ -643,7 +643,8 @@ export default function PurchaseWorkspace() {
   const sectionTitle = SECTION_TITLES[activeSection] || activeSection;
 
   const goBack = useCallback(() => {
-    if (window.history.state?.idx > 0) navigate(-1); else navigate('/purchase/overview');
+    if (window.history.state?.idx > 0) { navigate(-1); return; }
+    navigate('/purchase/requests');
   }, [navigate]);
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') goBack(); };
