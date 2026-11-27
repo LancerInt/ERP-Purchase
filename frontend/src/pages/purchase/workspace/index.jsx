@@ -101,6 +101,7 @@ const NAV_GROUPS = [
     { id: 'v_price',  label: 'Price Watch',     icon: TrendingUp },
   ]},
   { title: 'Accounts', items: [
+    { id: 'ac_ledger', label: 'Ledger',            icon: FileText },
     { id: 'ac_pay',   label: 'Payment Efficiency', icon: Clock },
     { id: 'ac_cndn',  label: 'Credit/Debit Notes', icon: RotateCcw },
     { id: 'ac_gst',   label: 'GST Summary',        icon: DollarSign },
@@ -111,17 +112,20 @@ const SECTION_TITLES = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_TITLES[it.id] = it.label; }));
 const SECTION_ICON = {};
 NAV_GROUPS.forEach(g => g.items.forEach(it => { SECTION_ICON[it.id] = it.icon; }));
-const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'pa_drill', 'pa_vturn', 'pa_branch', 'ac_tds', 'pay_week', 'pay_aged', 'pay_up', 'v_top', 'v_inact', 'v_score', 'v_single', 'v_msme', 'v_price', 'ac_pay', 'ac_cndn', 'ac_gst']);
+const WIRED = new Set(['top_vend', 'pa_trend', 'pa_item', 'pa_drill', 'pa_vturn', 'pa_branch', 'ac_tds', 'pay_week', 'pay_aged', 'pay_up', 'v_top', 'v_inact', 'v_score', 'v_single', 'v_msme', 'v_price', 'ac_pay', 'ac_cndn', 'ac_gst', 'ac_ledger']);
 
 // Purchase categories for the Item Drill-down filter: chip label -> category code.
 // Categories match the normalized values product_category() returns:
 // RM (incl. Maize/Bought-note), PM (Packing), FRUIT. Keys equal those values so
 // the drill-down's `it.category === drillCat` filter matches directly, and the
 // vendor-turnover endpoint (which also normalizes) gets the same key.
+// The ONLY four purchase categories: RM, PM (Packing), Maize, Fruit.
+// Everything else (Expenses, Machinery, Freight, Lab, …) is NOT a purchase.
 const DRILL_CATS = [
   { key: '', label: 'All' },
   { key: 'RM', label: 'RM' },
   { key: 'PM', label: 'Packing' },
+  { key: 'MAIZE', label: 'Maize' },
   { key: 'FRUIT', label: 'Fruit' },
 ];
 // MSME filter options — a first-class header dropdown on vendor-facing views.
@@ -130,11 +134,13 @@ const MSME_OPTS = [
   { key: 'msme', label: 'MSME only' },
   { key: 'non', label: 'Non-MSME' },
 ];
-// Normalize a bill's raw purchase_category to the DRILL_CATS keys, same mapping
-// product_category() / the vendor-turnover endpoint use (PACKING→PM, MAIZE→RM,
-// BOUGHT_NOTE→RM; RM/PM/FRUIT pass through).
-const CAT_NORMALIZE = { RM: 'RM', PACKING: 'PM', MAIZE: 'RM', BOUGHT_NOTE: 'RM', PM: 'PM', FRUIT: 'FRUIT' };
+// Normalize a bill's raw purchase_category to one of the FOUR purchase
+// categories: RM, PM, MAIZE, FRUIT. Maize is now its OWN category (not folded
+// into RM); BOUGHT_NOTE (raw fruit/seed bought from growers) → FRUIT.
+const CAT_NORMALIZE = { RM: 'RM', PACKING: 'PM', PM: 'PM', MAIZE: 'MAIZE', FRUIT: 'FRUIT', BOUGHT_NOTE: 'FRUIT' };
 const normCat = (raw) => { const k = String(raw || '').toUpperCase(); return CAT_NORMALIZE[k] || k; };
+// The four categories that ARE purchases (used to gate purchase-only views).
+const PURCHASE_CATS = new Set(['RM', 'PM', 'MAIZE', 'FRUIT']);
 
 // Color-coded category pill: RM (raw material) = amber, PM (packing) = sky,
 // FRUIT = emerald, anything else = slate. One glance tells the kind apart.
@@ -144,6 +150,7 @@ const normCat = (raw) => { const k = String(raw || '').toUpperCase(); return CAT
 const CAT_PILL = {
   RM:    'bg-indigo-600 text-white ring-indigo-600',
   PM:    'bg-indigo-50 text-indigo-700 ring-indigo-200',
+  MAIZE: 'bg-amber-50 text-amber-800 ring-amber-200',
   FRUIT: 'bg-slate-100 text-slate-700 ring-slate-300',
 };
 function CatPill({ cat }) {
@@ -151,6 +158,46 @@ function CatPill({ cat }) {
   if (!c) return <span className="text-slate-400">—</span>;
   const cls = CAT_PILL[c] || 'bg-slate-100 text-slate-600 ring-slate-200';
   return <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ring-1 ${cls}`}>{c}</span>;
+}
+
+// Ledger voucher-type pill: Purchase (credit, red-ish), Payment (debit, green),
+// Debit/Credit Note (neutral indigo tint).
+const VCH_PILL = {
+  Purchase: 'bg-rose-50 text-rose-700',
+  Payment: 'bg-emerald-50 text-emerald-700',
+};
+function VchPill({ type }) {
+  const cls = VCH_PILL[type] || 'bg-indigo-50 text-indigo-700';
+  return <span className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded ${cls}`}>{type}</span>;
+}
+
+// Sortable table header (click to toggle asc/desc), styled like TH. `sort` is
+// {key, dir}; `onSort(key)` toggles. Shows a ▲/▼ on the active column.
+function STH({ children, right, sortKey, sort, onSort }) {
+  const active = sort?.key === sortKey;
+  return (
+    <th onClick={() => onSort(sortKey)}
+      className={`${right ? 'text-right' : 'text-left'} sticky top-0 z-10 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-slate-100 border-b-2 border-slate-300 border-l border-slate-200 [&:first-child]:border-l-0 cursor-pointer select-none hover:bg-slate-200/70`}>
+      <span className={`inline-flex items-center gap-1 ${right ? 'flex-row-reverse' : ''}`}>
+        {children}
+        <span className={`text-[8px] ${active ? 'text-indigo-600' : 'text-slate-300'}`}>{active ? (sort.dir === 'asc' ? '▲' : '▼') : '▲'}</span>
+      </span>
+    </th>
+  );
+}
+// Generic sorter: numbers numerically, dates by ISO, else string.
+function sortRows(rows, key, dir, getters) {
+  if (!key) return rows;
+  const get = getters[key] || ((r) => r[key]);
+  const sign = dir === 'desc' ? -1 : 1;
+  return [...rows].sort((a, b) => {
+    const va = get(a), vb = get(b);
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * sign;
+    return String(va).localeCompare(String(vb), undefined, { numeric: true }) * sign;
+  });
 }
 
 // ── Small presentational helpers (slate/indigo) ──────────────────────
@@ -165,14 +212,18 @@ function Card({ label, value, sub, color, borderColor }) {
 }
 // A faint vertical divider on every cell except the first, so columns read as
 // separate across every analytics table. `first` drops the left border.
-function TH({ children, right, first }) {
-  return <th className={`${right ? 'text-right' : 'text-left'} sticky top-0 z-10 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-slate-100 border-b-2 border-slate-300 ${first ? '' : 'border-l border-slate-200'}`}>{children}</th>;
+// Table header cell. Standard alignment: text/labels/dates left, numbers right
+// (pass `right`). The first column's left divider is dropped automatically via
+// CSS `:first-child`, so header and body dividers always line up — no per-cell
+// `first` prop needed (the prop is accepted but a no-op, kept for back-compat).
+function TH({ children, right }) {
+  return <th className={`${right ? 'text-right' : 'text-left'} sticky top-0 z-10 px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-slate-100 border-b-2 border-slate-300 border-l border-slate-200 [&:first-child]:border-l-0`}>{children}</th>;
 }
-function TD({ children, right, bold, color, clickable, onClick, first }) {
+function TD({ children, right, bold, color, clickable, onClick }) {
   // Numeric (right-aligned) cells read as values, so they default to semibold;
   // an explicit `bold` goes stronger. Keeps every analytics table's figures legible.
   const weight = bold ? 'font-bold' : (right ? 'font-semibold' : '');
-  return <td onClick={onClick} className={`px-2 py-1.5 border-b border-slate-100 ${first ? '' : 'border-l border-slate-100'} text-[11px] ${right ? 'text-right tabular-nums text-slate-800' : ''} ${weight} ${color || ''} ${clickable ? 'text-indigo-600 cursor-pointer hover:underline' : ''}`}>{children}</td>;
+  return <td onClick={onClick} className={`px-2 py-1.5 border-b border-slate-100 border-l border-slate-100 [&:first-child]:border-l-0 text-[11px] ${right ? 'text-right tabular-nums text-slate-800' : ''} ${weight} ${color || ''} ${clickable ? 'text-indigo-600 cursor-pointer hover:underline' : ''}`}>{children}</td>;
 }
 function ComingSoon({ sectionId }) {
   const Icon = SECTION_ICON[sectionId] || Sparkles;
@@ -577,6 +628,12 @@ export default function PurchaseWorkspace() {
   const [trend, setTrend] = useState([]);       // mom_trend
   const [items, setItems] = useState([]);       // item-rate-trend items
   const [tds, setTds] = useState(null);         // tds-summary
+  const [ledger, setLedger] = useState(null);   // purchase ledger (vendors + flat)
+  const [ledgerView, setLedgerView] = useState('bill'); // 'bill' | 'vendor'
+  const [ledgerOpen, setLedgerOpen] = useState(null);   // expanded vendor id (vendor-wise)
+  const [ledgerCat, setLedgerCat] = useState('');       // '' | RM | PM | FRUIT
+  const [ledgerMsme, setLedgerMsme] = useState('');     // '' | msme | non
+  const [ledgerSort, setLedgerSort] = useState({ key: null, dir: 'asc' }); // column sort
   const [breakdown, setBreakdown] = useState(null); // monthly-breakdown pivot
   const [showExact, setShowExact] = useState(false); // "detailed figures" toggle
   const [drillPivot, setDrillPivot] = useState(null); // item-rate-trend mode=pivot (vendor x month)
@@ -586,6 +643,7 @@ export default function PurchaseWorkspace() {
   const [payCal, setPayCal] = useState(null);       // payables-calendar (live as-of-today snapshot)
   const [payMsme, setPayMsme] = useState('');       // '' | msme | non (Payables sections)
   const [payCat, setPayCat] = useState('');         // '' | RM | PM | FRUIT (Payables sections)
+  const [payUpWindow, setPayUpWindow] = useState(0); // Upcoming due-window filter: 0=all, else max days (15/30/45/60/75/90)
   const [vendorAct, setVendorAct] = useState(null); // vendor-activity (Vendors group)
   const [vendMsme, setVendMsme] = useState('');     // '' | msme | non (Vendors sections)
   const [vendCat, setVendCat] = useState('');       // '' | RM | PM | FRUIT (Vendors sections)
@@ -612,6 +670,14 @@ export default function PurchaseWorkspace() {
   const applyPreset = (p) => { setDateFrom(p.from); setDateTo(p.to); setActivePeriod(p.key); setShowDatePicker(false); };
 
   // Expand a vendor row in the Item Drill-down -> that vendor's bills for the item.
+  // Open a ledger voucher: a Purchase → the bill popup; others → no-op (payments
+  // and notes don't have a standalone page here).
+  const openVch = (r) => {
+    if (r.vch_type === 'Purchase' && r.vch_id) navigate(`/purchase/bills?quick=${r.vch_id}`);
+  };
+  // Toggle ledger column sort (same key → flip dir; new key → asc).
+  const toggleLedgerSort = (key) => setLedgerSort(s => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }));
+
   const toggleDrillVendor = (vendor) => {
     if (drillOpenVendor === vendor) { setDrillOpenVendor(null); return; }
     setDrillOpenVendor(vendor);
@@ -697,6 +763,20 @@ export default function PurchaseWorkspace() {
     }).finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [company, dateFrom, dateTo]);
+
+  // ── Ledger — its own fetch (loads when the Ledger section is open) ──
+  useEffect(() => {
+    if (activeSection !== 'ac_ledger') return;
+    let alive = true;
+    setLedger(null); setLedgerOpen(null);
+    const cp = company ? `company=${company}&` : '';
+    const catP = ledgerCat ? `&category=${encodeURIComponent(ledgerCat)}` : '';
+    const msmeP = ledgerMsme ? `&msme=${ledgerMsme}` : '';
+    apiClient.get(`/api/purchase/ledger/?${cp}from=${dateFrom}&to=${dateTo}${catP}${msmeP}`)
+      .then(r => { if (alive) setLedger(r.data); })
+      .catch(() => { if (alive) setLedger({ vendors: [], flat: [], totals: {} }); });
+    return () => { alive = false; };
+  }, [activeSection, company, dateFrom, dateTo, ledgerCat, ledgerMsme]);
 
   // ── Vendor Turnover — its own fetch (also keyed on the category filter) ──
   useEffect(() => {
@@ -978,17 +1058,29 @@ export default function PurchaseWorkspace() {
   const payUp = useMemo(() => {
     const rows = payBills.filter(b => !b.overdue).sort((a, b) => a.daysLate - b.daysLate); // daysLate <= 0, nearest 0 first
     const dueIn = (b) => -b.daysLate; // days until due
-    const next30 = rows.filter(b => dueIn(b) <= 30);
-    const next60 = rows.filter(b => dueIn(b) > 30 && dueIn(b) <= 60);
-    const later = rows.filter(b => dueIn(b) > 60);
+    // Six 15-day buckets (15/30/45/60/75/90) + a 90+ overflow. Each bucket is
+    // the amount falling in that window; a bill counts in exactly one bucket.
+    const bands = [15, 30, 45, 60, 75, 90];
+    const bucketTotals = bands.map((hi, i) => {
+      const lo = i === 0 ? -Infinity : bands[i - 1];
+      return rows.filter(b => dueIn(b) > lo && dueIn(b) <= hi).reduce((s, b) => s + b.amt, 0);
+    });
+    const beyondTotal = rows.filter(b => dueIn(b) > 90).reduce((s, b) => s + b.amt, 0);
     return {
       rows,
-      next30Total: next30.reduce((s, b) => s + b.amt, 0),
-      next60Total: next60.reduce((s, b) => s + b.amt, 0),
-      laterTotal: later.reduce((s, b) => s + b.amt, 0),
+      bands,
+      bucketTotals,              // [≤15, 16-30, 31-45, 46-60, 61-75, 76-90]
+      beyondTotal,               // 90+
       vendors: new Set(rows.map(b => b.vendor_name)).size,
     };
   }, [payBills]);
+
+  // Rows shown in the Upcoming table, filtered by the due-window dropdown
+  // (0 = all upcoming; otherwise only bills due within that many days).
+  const payUpRows = useMemo(() => {
+    if (!payUpWindow) return payUp.rows;
+    return payUp.rows.filter(b => (-b.daysLate) <= payUpWindow);
+  }, [payUp.rows, payUpWindow]);
 
   // Export datasets for the payables tables.
   const expPayWeek = useMemo(() => ({
@@ -1007,9 +1099,9 @@ export default function PurchaseWorkspace() {
   const expPayUp = useMemo(() => ({
     cols: [{ field: 'vendor', header: 'Vendor' }, { field: 'invoice', header: 'Invoice' }, { field: 'due', header: 'Due Date' },
       { field: 'dueIn', header: 'Due In' }, { field: 'category', header: 'Category' }, { field: 'outstanding', header: 'Outstanding' }],
-    data: payUp.rows.map(b => ({ vendor: b.vendor_name, invoice: b.bill_no || b.vendor_invoice_no || '',
+    data: payUp.rows.filter(b => !payUpWindow || (-b.daysLate) <= payUpWindow).map(b => ({ vendor: b.vendor_name, invoice: b.bill_no || b.vendor_invoice_no || '',
       due: fmtDate(b.due_date), dueIn: `in ${-b.daysLate}d`, category: normCat(b.purchase_category), outstanding: fmtRup(b.amt) })),
-  }), [payUp]);
+  }), [payUp, payUpWindow]);
 
   // ── Vendors group derivations (from the vendor-activity endpoint) ──
   // The filtered vendor list (Category + MSME header filters) feeds all 4
@@ -1596,6 +1688,18 @@ export default function PurchaseWorkspace() {
                 )}
               </>
             )}
+            {activeSection === 'ac_ledger' && (
+              <>
+                <select value={ledgerCat} onChange={e => setLedgerCat(e.target.value)}
+                  className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[150px]">
+                  {DRILL_CATS.map(c => <option key={c.key || 'all'} value={c.key}>{c.key ? c.label : 'All Categories'}</option>)}
+                </select>
+                <select value={ledgerMsme} onChange={e => setLedgerMsme(e.target.value)}
+                  className="border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-slate-700 bg-white focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 min-w-[130px]">
+                  {MSME_OPTS.map(o => <option key={o.key || 'all'} value={o.key}>{o.label}</option>)}
+                </select>
+              </>
+            )}
             <div className="relative flex items-center gap-1.5">
               {fyButtons.map(p => (
                 <button key={p.key} type="button" onClick={() => applyPreset(p)}
@@ -1679,7 +1783,7 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>Vendor</TH><TH>Invoice</TH><TH>Due Date</TH><TH right>Days</TH><TH>Status</TH><TH right>Outstanding</TH></tr></thead>
+                      <thead><tr><TH first>Vendor</TH><TH>Invoice</TH><TH>Due Date</TH><TH right>Days</TH><TH>Status</TH><TH right>Outstanding</TH></tr></thead>
                       <tbody>
                         {payWeek.rows.map((b, i) => (
                           <tr key={i} className="hover:bg-slate-50">
@@ -1725,7 +1829,7 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>Vendor</TH><TH>Invoice</TH><TH>Due Date</TH><TH right>Days Late</TH><TH>Band</TH><TH right>Outstanding</TH></tr></thead>
+                      <thead><tr><TH first>Vendor</TH><TH>Invoice</TH><TH>Due Date</TH><TH right>Days Late</TH><TH>Band</TH><TH right>Outstanding</TH></tr></thead>
                       <tbody>
                         {payAged.rows.map((b, i) => (
                           <tr key={i} className="hover:bg-slate-50">
@@ -1751,21 +1855,43 @@ export default function PurchaseWorkspace() {
                 <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading…</span></div>
               ) : (
                 <div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                    <Card label="Due Next 30 Days" value={fmtINR(payUp.next30Total)} color="text-amber-600" borderColor="border-amber-400" />
-                    <Card label="Due Next 60 Days" value={fmtINR(payUp.next60Total)} color="text-indigo-700" borderColor="border-indigo-400" />
-                    <Card label="Due Later" value={fmtINR(payUp.laterTotal)} color="text-slate-700" />
-                    <Card label="Vendors" value={payUp.vendors} sub="upcoming" />
+                  {/* Six 15-day due buckets (within 15 / 30 / 45 / 60 / 75 / 90 days). */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-4">
+                    {payUp.bands.map((hi, i) => {
+                      const tone = ['text-red-600', 'text-amber-600', 'text-amber-600', 'text-indigo-700', 'text-indigo-700', 'text-slate-700'][i];
+                      const border = ['border-red-400', 'border-amber-400', 'border-amber-400', 'border-indigo-400', 'border-indigo-400', 'border-slate-300'][i];
+                      return (
+                        <Card key={hi} label={`Within ${hi} Days`} value={fmtINR(payUp.bucketTotals[i])} color={tone} borderColor={border} />
+                      );
+                    })}
                   </div>
                   <div className="flex items-center justify-between gap-3 mb-1.5">
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">Upcoming payables</div>
-                    <TableExport cols={expPayUp.cols} data={expPayUp.data} filename={`payables-upcoming-${slug(companyName)}`} title="Payables — Upcoming" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                      Upcoming payables
+                      <span className="ml-2 font-medium normal-case tracking-normal text-slate-400">
+                        {payUp.vendors} vendor{payUp.vendors === 1 ? '' : 's'}
+                        {payUp.beyondTotal > 0 && <> · beyond 90 days {fmtINR(payUp.beyondTotal)}</>}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* Due-window filter — limit the table to bills due within N days. */}
+                      <select
+                        value={payUpWindow}
+                        onChange={(e) => setPayUpWindow(Number(e.target.value))}
+                        className="h-[30px] text-[12px] font-medium text-slate-700 border border-slate-300 rounded-md bg-white cursor-pointer pl-3 pr-8 leading-none appearance-none bg-no-repeat focus:ring-1 focus:ring-primary-400 focus:border-primary-400"
+                        style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2360594a' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")", backgroundPosition: 'right 8px center', backgroundSize: '12px' }}
+                      >
+                        <option value={0}>All upcoming</option>
+                        {payUp.bands.map(d => <option key={d} value={d}>Within {d} days</option>)}
+                      </select>
+                      <TableExport cols={expPayUp.cols} data={expPayUp.data} filename={`payables-upcoming-${slug(companyName)}`} title="Payables — Upcoming" metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
+                    </div>
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>Vendor</TH><TH>Invoice</TH><TH>Due Date</TH><TH right>Due In</TH><TH>Category</TH><TH right>Outstanding</TH></tr></thead>
+                      <thead><tr><TH first>Vendor</TH><TH>Invoice</TH><TH>Due Date</TH><TH right>Due In</TH><TH>Category</TH><TH right>Outstanding</TH></tr></thead>
                       <tbody>
-                        {payUp.rows.map((b, i) => (
+                        {payUpRows.map((b, i) => (
                           <tr key={i} className="hover:bg-slate-50">
                             <TD bold>{b.vendor_name}{b.vendor_is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}</TD>
                             <TD clickable onClick={() => navigate(`/purchase/bills?quick=${b.bill_id}`)}>{b.bill_no || b.vendor_invoice_no || '—'}</TD>
@@ -1775,7 +1901,7 @@ export default function PurchaseWorkspace() {
                             <TD right bold color="text-slate-800">{fmtRup(b.amt)}</TD>
                           </tr>
                         ))}
-                        {payUp.rows.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-sm">No upcoming payables.</td></tr>}
+                        {payUpRows.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate-400 text-sm">No upcoming payables{payUpWindow ? ` within ${payUpWindow} days` : ''}.</td></tr>}
                       </tbody>
                     </table>
                   </div>
@@ -1838,7 +1964,7 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>Vendor</TH><TH>Category</TH><TH>Last Bill</TH><TH right>Days Inactive</TH><TH right>Lifetime Value</TH><TH right>Outstanding</TH><TH>Risk</TH></tr></thead>
+                      <thead><tr><TH first>Vendor</TH><TH>Category</TH><TH>Last Bill</TH><TH right>Days Inactive</TH><TH right>Lifetime Value</TH><TH right>Outstanding</TH><TH>Risk</TH></tr></thead>
                       <tbody>
                         {vInact.rows.map((v, i) => (
                           <tr key={i} className="hover:bg-slate-50">
@@ -1877,7 +2003,7 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>Vendor</TH><TH>Category</TH><TH right>Purchase Value</TH><TH right>Bills</TH><TH right>Return Rate</TH><TH right>Outstanding</TH><TH>Score</TH></tr></thead>
+                      <thead><tr><TH first>Vendor</TH><TH>Category</TH><TH right>Purchase Value</TH><TH right>Bills</TH><TH right>Return Rate</TH><TH right>Outstanding</TH><TH>Score</TH></tr></thead>
                       <tbody>
                         {vScore.rows.map((v, i) => (
                           <tr key={i} className="hover:bg-slate-50">
@@ -1915,7 +2041,7 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>Item</TH><TH>Category</TH><TH>Sole Vendor</TH><TH right>Qty</TH><TH right>Value</TH></tr></thead>
+                      <thead><tr><TH first>Item</TH><TH>Category</TH><TH>Sole Vendor</TH><TH right>Qty</TH><TH right>Value</TH></tr></thead>
                       <tbody>
                         {vSingle.items.map((i, k) => (
                           <tr key={k} className="hover:bg-slate-50">
@@ -1952,7 +2078,7 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>Vendor</TH><TH>Bill</TH><TH>Bill Date</TH><TH right>Days Since Bill</TH><TH right>Balance</TH><TH>Status</TH></tr></thead>
+                      <thead><tr><TH first>Vendor</TH><TH>Bill</TH><TH>Bill Date</TH><TH right>Days Since Bill</TH><TH right>Balance</TH><TH>Status</TH></tr></thead>
                       <tbody>
                         {vMsme.bills.map((b, i) => (
                           <tr key={i} className="hover:bg-slate-50">
@@ -1990,7 +2116,7 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>Item</TH><TH>Category</TH><TH right>Current Avg</TH><TH right>Change %</TH><TH right>Spread %</TH><TH>Cheapest Vendor</TH><TH right>Overpay</TH></tr></thead>
+                      <thead><tr><TH first>Item</TH><TH>Category</TH><TH right>Current Avg</TH><TH right>Change %</TH><TH right>Spread %</TH><TH>Cheapest Vendor</TH><TH right>Overpay</TH></tr></thead>
                       <tbody>
                         {vPrice.items.map((i, k) => (
                           <tr key={k} className="hover:bg-slate-50">
@@ -2029,7 +2155,7 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>Vendor</TH><TH>Category</TH><TH>First Bill</TH><TH right>Bills</TH><TH right>Value</TH><TH>Status</TH></tr></thead>
+                      <thead><tr><TH first>Vendor</TH><TH>Category</TH><TH>First Bill</TH><TH right>Bills</TH><TH right>Value</TH><TH>Status</TH></tr></thead>
                       <tbody>
                         {vNew.rows.map((v, i) => (
                           <tr key={i} className="hover:bg-slate-50">
@@ -2083,7 +2209,7 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>Tier</TH><TH right>Vendors</TH><TH right>Value</TH><TH right>% of total</TH><TH right>Cumulative %</TH><TH right>Avg / Vendor</TH></tr></thead>
+                      <thead><tr><TH first>Tier</TH><TH right>Vendors</TH><TH right>Value</TH><TH right>% of total</TH><TH right>Cumulative %</TH><TH right>Avg / Vendor</TH></tr></thead>
                       <tbody>
                         {vConc.tiers.map((t, i) => (
                           <tr key={i} className="hover:bg-slate-50">
@@ -2198,7 +2324,7 @@ export default function PurchaseWorkspace() {
                         {top.map((it, i) => (
                           <div key={it.item} className="flex items-center gap-3">
                             <div className="w-[170px] shrink-0 text-right text-[11px] font-semibold text-slate-700 truncate">
-                              <span className="text-slate-400 mr-1 tabular-nums">{i + 1}</span>{it.item}
+                              {it.item}
                             </div>
                             <div className="flex-1 min-w-0 h-5 bg-slate-100 rounded overflow-hidden">
                               <div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded flex items-center px-2 text-[9px] font-bold text-white whitespace-nowrap"
@@ -2220,7 +2346,7 @@ export default function PurchaseWorkspace() {
                   <TableExport cols={expItems.cols} data={expItems.data} filename={`item-analytics-${slug(companyName)}`} title="Item Analytics — Product Summary" metaLines={exportMeta} landscape kpis={reportKpis} companyName={companyName} initials={initials} chartSpec={{ labelField: 'product', valueField: 'value' }} />
                 </div>
                 <table className="w-full">
-                  <thead><tr><TH>Product</TH><TH>UOM</TH><TH right>Qty</TH><TH right>Avg price</TH><TH right>Min</TH><TH right>Max</TH><TH right>Value</TH></tr></thead>
+                  <thead><tr><TH first>Product</TH><TH>UOM</TH><TH right>Qty</TH><TH right>Avg price</TH><TH right>Min</TH><TH right>Max</TH><TH right>Value</TH></tr></thead>
                   <tbody>
                     {itemRows.map((r, i) => {
                       const open = itemOpen === r.item;
@@ -2374,7 +2500,7 @@ export default function PurchaseWorkspace() {
                         </div>
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh] mb-4">
                           <table className="w-full">
-                            <thead><tr><TH>Vendor</TH><TH>UOM</TH><TH right>Qty</TH><TH right>Avg Price</TH><TH right>Total Value</TH><TH right>% Share</TH></tr></thead>
+                            <thead><tr><TH first>Vendor</TH><TH>UOM</TH><TH right>Qty</TH><TH right>Avg Price</TH><TH right>Total Value</TH><TH right>% Share</TH></tr></thead>
                             <tbody>
                               {drillVendors.map((v, i) => {
                                 const open = drillOpenVendor === v.vendor;
@@ -2402,7 +2528,7 @@ export default function PurchaseWorkspace() {
                                             <div className="bg-white rounded-md border border-slate-200 overflow-auto max-h-[50vh]">
                                               <table className="w-full min-w-[640px]">
                                                 <thead><tr>
-                                                  <TH>Month</TH><TH>Invoice #</TH><TH>Date</TH><TH right>Qty</TH><TH>UOM</TH><TH right>Rate/{drillSelected.uom || 'unit'}</TH><TH right>Taxable value</TH><TH>Status</TH>
+                                                  <TH first>Month</TH><TH>Invoice #</TH><TH>Date</TH><TH right>Qty</TH><TH>UOM</TH><TH right>Rate/{drillSelected.uom || 'unit'}</TH><TH right>Taxable value</TH><TH>Status</TH>
                                                 </tr></thead>
                                                 <tbody>
                                                   {drill.rows.map((r, ri) => (
@@ -2449,7 +2575,7 @@ export default function PurchaseWorkspace() {
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh] mb-4">
                           <table className="min-w-[520px] w-full">
                             <thead><tr>
-                              <TH>Month</TH><TH right>Qty</TH><TH right>Avg Price</TH>
+                              <TH first>Month</TH><TH right>Qty</TH><TH right>Avg Price</TH>
                               {drillHasMinMax && <TH right>Min Price</TH>}
                               {drillHasMinMax && <TH right>Max Price</TH>}
                             </tr></thead>
@@ -2581,7 +2707,7 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>Vendor</TH><TH right>Outstanding</TH><TH right>Overdue</TH><TH>Rating</TH></tr></thead>
+                      <thead><tr><TH first>Vendor</TH><TH right>Outstanding</TH><TH right>Overdue</TH><TH>Rating</TH></tr></thead>
                       <tbody>
                         {(accPay.slowest || []).map((r, i) => (
                           <tr key={i} className="hover:bg-slate-50">
@@ -2595,6 +2721,157 @@ export default function PurchaseWorkspace() {
                       </tbody>
                     </table>
                   </div>
+                </div>
+              )
+            )}
+
+            {/* ===== Ledger (bill-wise / vendor-wise, Tally style) ===== */}
+            {!loading && activeSection === 'ac_ledger' && (
+              ledger == null ? (
+                <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 size={22} className="animate-spin text-indigo-500 mr-2" /> <span className="text-sm">Loading ledger…</span></div>
+              ) : (
+                <div>
+                  <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      {/* Bill-wise / Vendor-wise toggle */}
+                      <div className="inline-flex bg-white border border-slate-300 rounded-lg p-0.5 gap-0.5">
+                        <button type="button" onClick={() => setLedgerView('bill')}
+                          className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${ledgerView === 'bill' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-indigo-600'}`}>Bill-wise</button>
+                        <button type="button" onClick={() => setLedgerView('vendor')}
+                          className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${ledgerView === 'vendor' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-indigo-600'}`}>Vendor-wise</button>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        {ledger.totals?.vendor_count || 0} vendors · {ledger.totals?.voucher_count || 0} vouchers
+                      </span>
+                    </div>
+                    <TableExport
+                      cols={ledgerView === 'bill'
+                        ? [{ field: 'date', header: 'Date' }, { field: 'particulars', header: 'Particulars' }, { field: 'vendor', header: 'Vendor' }, { field: 'vch_type', header: 'Vch Type' }, { field: 'vch_no', header: 'Vch No' }, { field: 'debit', header: 'Debit' }, { field: 'credit', header: 'Credit' }, { field: 'balance', header: 'Balance' }]
+                        : [{ field: 'vendor', header: 'Vendor' }, { field: 'category', header: 'Category' }, { field: 'debit', header: 'Debit' }, { field: 'credit', header: 'Credit' }, { field: 'closing', header: 'Closing Balance' }]}
+                      data={ledgerView === 'bill'
+                        ? (ledger.flat || []).map(r => ({ date: r.date ? fmtDate(r.date) : '', particulars: r.particulars + (r.sub ? ` — ${r.sub}` : ''), vendor: r.vendor, vch_type: r.vch_type, vch_no: r.vch_no, debit: r.debit ? fmtRup(r.debit) : '', credit: r.credit ? fmtRup(r.credit) : '', balance: `${fmtRup(r.balance)} ${r.balance_type}` }))
+                        : (ledger.vendors || []).map(v => ({ vendor: v.vendor, category: v.category, debit: fmtRup(v.debit_total), credit: fmtRup(v.credit_total), closing: `${fmtRup(v.closing)} ${v.closing_type}` }))}
+                      filename={`ledger-${ledgerView}-${slug(companyName)}`}
+                      title={`Ledger — ${ledgerView === 'bill' ? 'Bill-wise' : 'Vendor-wise'}`}
+                      metaLines={exportMeta} kpis={reportKpis} companyName={companyName} initials={initials} />
+                  </div>
+
+                  {/* BILL-WISE: flat running list across all vendors */}
+                  {ledgerView === 'bill' && (
+                    <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[72vh]">
+                      <table className="w-full">
+                        <thead><tr>
+                          <STH sortKey="date" sort={ledgerSort} onSort={toggleLedgerSort}>Date</STH>
+                          <STH sortKey="particulars" sort={ledgerSort} onSort={toggleLedgerSort}>Particulars</STH>
+                          <STH sortKey="vendor" sort={ledgerSort} onSort={toggleLedgerSort}>Vendor</STH>
+                          <STH sortKey="vch_type" sort={ledgerSort} onSort={toggleLedgerSort}>Vch Type</STH>
+                          <STH sortKey="vch_no" sort={ledgerSort} onSort={toggleLedgerSort}>Vch No</STH>
+                          <STH right sortKey="debit" sort={ledgerSort} onSort={toggleLedgerSort}>Debit</STH>
+                          <STH right sortKey="credit" sort={ledgerSort} onSort={toggleLedgerSort}>Credit</STH>
+                          <STH right sortKey="balance" sort={ledgerSort} onSort={toggleLedgerSort}>Balance</STH>
+                        </tr></thead>
+                        <tbody>
+                          {sortRows(ledger.flat || [], ledgerSort.key, ledgerSort.dir, {
+                            debit: r => Number(r.debit) || 0, credit: r => Number(r.credit) || 0,
+                            balance: r => Number(r.balance) || 0, date: r => r.date || '',
+                          }).map((r, i) => (
+                            <tr key={i} className="hover:bg-slate-50">
+                              <TD color="text-slate-800">{fmtDate(r.date)}</TD>
+                              <TD>{r.particulars}{r.sub && <span className="block text-[9px] text-slate-400">{r.sub}</span>}</TD>
+                              <TD bold>{r.vendor}</TD>
+                              <TD><VchPill type={r.vch_type} /></TD>
+                              <TD clickable onClick={() => openVch(r)}>{r.vch_no || '—'}</TD>
+                              <TD right color="text-red-600">{r.debit ? fmtRup(r.debit) : ''}</TD>
+                              <TD right color="text-emerald-700">{r.credit ? fmtRup(r.credit) : ''}</TD>
+                              <TD right bold color="text-slate-800">{fmtRup(r.balance)} <span className="text-[9px] text-slate-400 font-bold">{r.balance_type}</span></TD>
+                            </tr>
+                          ))}
+                          {(ledger.flat || []).length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate-400 text-sm">No ledger entries in this period.</td></tr>}
+                          {(ledger.flat || []).length > 0 && (
+                            <tr className="bg-slate-50 font-bold sticky bottom-0">
+                              <TD> </TD><TD>Total · {ledger.totals?.voucher_count} vouchers</TD><TD> </TD><TD> </TD><TD> </TD>
+                              <TD right color="text-red-600">{fmtRup(ledger.totals?.debit)}</TD>
+                              <TD right color="text-emerald-700">{fmtRup(ledger.totals?.credit)}</TD>
+                              <TD right bold>{fmtRup(ledger.totals?.closing)} <span className="text-[9px] text-slate-400 font-bold">{ledger.totals?.closing_type}</span></TD>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* VENDOR-WISE: one row per vendor, expand to its bill-wise ledger */}
+                  {ledgerView === 'vendor' && (
+                    <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[72vh]">
+                      <table className="w-full">
+                        <thead><tr>
+                          <STH sortKey="vendor" sort={ledgerSort} onSort={toggleLedgerSort}>Vendor</STH>
+                          <STH sortKey="category" sort={ledgerSort} onSort={toggleLedgerSort}>Category</STH>
+                          <STH right sortKey="debit_total" sort={ledgerSort} onSort={toggleLedgerSort}>Debit</STH>
+                          <STH right sortKey="credit_total" sort={ledgerSort} onSort={toggleLedgerSort}>Credit</STH>
+                          <STH right sortKey="closing" sort={ledgerSort} onSort={toggleLedgerSort}>Closing Balance</STH>
+                        </tr></thead>
+                        <tbody>
+                          {sortRows(ledger.vendors || [], ledgerSort.key, ledgerSort.dir, {
+                            debit_total: v => Number(v.debit_total) || 0, credit_total: v => Number(v.credit_total) || 0,
+                            closing: v => Number(v.closing) || 0,
+                          }).map((v) => {
+                            const open = ledgerOpen === v.vendor_id;
+                            return (
+                              <React.Fragment key={v.vendor_id}>
+                                <tr onClick={() => setLedgerOpen(open ? null : v.vendor_id)} className={`cursor-pointer hover:bg-slate-50 ${open ? 'bg-indigo-50/60' : ''}`}>
+                                  <TD bold>
+                                    <ChevronDown size={12} className={`inline-block mr-1 text-slate-400 transition-transform ${open ? '' : '-rotate-90'}`} />
+                                    {v.vendor}{v.is_msme && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-indigo-50 text-indigo-700 align-middle">MSME</span>}
+                                  </TD>
+                                  <TD><CatPill cat={v.category} /></TD>
+                                  <TD right color="text-red-600">{v.debit_total ? fmtRup(v.debit_total) : '—'}</TD>
+                                  <TD right color="text-emerald-700">{v.credit_total ? fmtRup(v.credit_total) : '—'}</TD>
+                                  <TD right bold>{fmtRup(v.closing)} <span className="text-[9px] text-slate-400 font-bold">{v.closing_type}</span></TD>
+                                </tr>
+                                {open && (
+                                  <tr><td colSpan={5} className="bg-slate-50/60 p-0">
+                                    <div className="p-2 pl-8">
+                                      <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-1">Bill-wise ledger · {v.vendor}</div>
+                                      <div className="bg-white rounded-md border border-slate-200 overflow-auto">
+                                        <table className="w-full">
+                                          <thead><tr><TH>Date</TH><TH>Particulars</TH><TH>Vch Type</TH><TH>Vch No</TH><TH right>Debit</TH><TH right>Credit</TH><TH right>Balance</TH></tr></thead>
+                                          <tbody>
+                                            <tr className="bg-slate-50"><TD> </TD><TD bold>Opening Balance</TD><TD> </TD><TD> </TD><TD right> </TD><TD right> </TD><TD right bold>{fmtRup(v.opening)} <span className="text-[9px] text-slate-400 font-bold">{v.opening_type}</span></TD></tr>
+                                            {v.ledger.map((r, i) => (
+                                              <tr key={i} className="hover:bg-slate-50">
+                                                <TD color="text-slate-800">{fmtDate(r.date)}</TD>
+                                                <TD>{r.particulars}{r.sub && <span className="block text-[9px] text-slate-400">{r.sub}</span>}</TD>
+                                                <TD><VchPill type={r.vch_type} /></TD>
+                                                <TD clickable onClick={() => openVch(r)}>{r.vch_no || '—'}</TD>
+                                                <TD right color="text-red-600">{r.debit ? fmtRup(r.debit) : ''}</TD>
+                                                <TD right color="text-emerald-700">{r.credit ? fmtRup(r.credit) : ''}</TD>
+                                                <TD right bold>{fmtRup(r.balance)} <span className="text-[9px] text-slate-400 font-bold">{r.balance_type}</span></TD>
+                                              </tr>
+                                            ))}
+                                            <tr className="bg-slate-50 font-bold"><TD> </TD><TD>Closing Balance</TD><TD> </TD><TD> </TD><TD right color="text-red-600">{fmtRup(v.debit_total)}</TD><TD right color="text-emerald-700">{fmtRup(v.credit_total)}</TD><TD right bold>{fmtRup(v.closing)} <span className="text-[9px] text-slate-400 font-bold">{v.closing_type}</span></TD></tr>
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  </td></tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                          {(ledger.vendors || []).length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate-400 text-sm">No vendor ledgers in this period.</td></tr>}
+                          {(ledger.vendors || []).length > 0 && (
+                            <tr className="bg-slate-50 font-bold sticky bottom-0">
+                              <TD>Total · {ledger.totals?.vendor_count} vendors</TD><TD> </TD>
+                              <TD right color="text-red-600">{fmtRup(ledger.totals?.debit)}</TD>
+                              <TD right color="text-emerald-700">{fmtRup(ledger.totals?.credit)}</TD>
+                              <TD right bold>{fmtRup(ledger.totals?.closing)} <span className="text-[9px] text-slate-400 font-bold">{ledger.totals?.closing_type}</span></TD>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )
             )}
@@ -2620,7 +2897,7 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh] mb-5">
                     <table className="w-full">
-                      <thead><tr><TH>No</TH><TH>Vendor</TH><TH>Date</TH><TH right>Amount</TH></tr></thead>
+                      <thead><tr><TH first>No</TH><TH>Vendor</TH><TH>Date</TH><TH right>Amount</TH></tr></thead>
                       <tbody>
                         {(accNotes.recent_debit || []).map((r, i) => (
                           <tr key={i} className="hover:bg-slate-50">
@@ -2640,7 +2917,7 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>No</TH><TH>Vendor</TH><TH>Date</TH><TH right>Amount</TH></tr></thead>
+                      <thead><tr><TH first>No</TH><TH>Vendor</TH><TH>Date</TH><TH right>Amount</TH></tr></thead>
                       <tbody>
                         {(accNotes.recent_credit || []).map((r, i) => (
                           <tr key={i} className="hover:bg-slate-50">
@@ -2692,7 +2969,7 @@ export default function PurchaseWorkspace() {
                   </div>
                   <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                     <table className="w-full">
-                      <thead><tr><TH>Month</TH><TH right>CGST</TH><TH right>SGST</TH><TH right>IGST</TH><TH right>Total GST</TH></tr></thead>
+                      <thead><tr><TH first>Month</TH><TH right>CGST</TH><TH right>SGST</TH><TH right>IGST</TH><TH right>Total GST</TH></tr></thead>
                       <tbody>
                         {(accGst.monthly || []).map((m, i) => (
                           <tr key={i} className="hover:bg-slate-50">
@@ -2725,7 +3002,7 @@ export default function PurchaseWorkspace() {
                 </div>
                 <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                   <table className="w-full">
-                    <thead><tr><TH>Vendor</TH><TH>Section</TH><TH right>Rate</TH><TH right>FY base</TH><TH right>ERP TDS</TH><TH right>Tally TDS</TH><TH right>Diff</TH></tr></thead>
+                    <thead><tr><TH first>Vendor</TH><TH>Section</TH><TH right>Rate</TH><TH right>FY base</TH><TH right>ERP TDS</TH><TH right>Tally TDS</TH><TH right>Diff</TH></tr></thead>
                     <tbody>
                       {tdsRows.map((r, i) => (
                         <tr key={i} className="hover:bg-slate-50">
@@ -2920,7 +3197,7 @@ export default function PurchaseWorkspace() {
                         </div>
                         <div className="bg-white rounded-lg border border-slate-300 shadow-sm overflow-auto max-h-[70vh]">
                           <table className="min-w-[640px] w-full">
-                            <thead><tr><TH>Invoice #</TH><TH>Date</TH><TH>Branch</TH><TH right>Taxable</TH><TH right>Total (incl GST)</TH></tr></thead>
+                            <thead><tr><TH first>Invoice #</TH><TH>Date</TH><TH>Branch</TH><TH right>Taxable</TH><TH right>Total (incl GST)</TH></tr></thead>
                             <tbody>
                               {branchBills.map((r, i) => {
                                 const open = branchOpen === r.bill_id;

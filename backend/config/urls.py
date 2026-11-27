@@ -40,7 +40,7 @@ from purchase.dashboard_views import (
     PurchaseDashboardView, PurchaseDashboardRecordsView, PurchaseAnalyticsView,
     PurchaseMonthlyBreakdownView, PurchaseBranchTransfersView,
     PaidByCategoryView, PurchasePayablesCalendarView, PurchaseVendorActivityView,
-    PurchaseAccountsSummaryView,
+    PurchaseAccountsSummaryView, PurchaseLedgerView,
 )
 from purchase.freight_overview_views import FreightOverviewView
 from purchase.category_views import (
@@ -175,6 +175,7 @@ urlpatterns = [
     path('api/purchase/branch-transfers/', PurchaseBranchTransfersView.as_view(), name='purchase-branch-transfers'),
     path('api/purchase/dashboard/paid-by-category/', PaidByCategoryView.as_view(), name='purchase-paid-by-category'),
     path('api/purchase/payables-calendar/', PurchasePayablesCalendarView.as_view(), name='purchase-payables-calendar'),
+    path('api/purchase/ledger/', PurchaseLedgerView.as_view(), name='purchase-ledger'),
     path('api/purchase/vendor-activity/', PurchaseVendorActivityView.as_view(), name='purchase-vendor-activity'),
     path('api/purchase/accounts-summary/', PurchaseAccountsSummaryView.as_view(), name='purchase-accounts-summary'),
     path('api/purchase/freight-overview/', FreightOverviewView.as_view(), name='freight-overview'),

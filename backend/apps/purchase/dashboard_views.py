@@ -58,6 +58,7 @@ from .models import (
     VendorBill,
     VendorBillLine,
     PaymentMade,
+    VendorOpeningBalance,
 )
 from .branch_transfer import branch_transfer_q
 
@@ -74,6 +75,11 @@ _DATE_MAX = date(9999, 12, 31)   # sort sentinel: undated bills go last (oldest-
 # category is one of these OR it was flagged is_expense OR it's a journal voucher.
 # Mirrors the Bills page's isExpenseLike so the Bills tile count matches the list.
 _EXPENSE_CATS = ('FREIGHT', 'EXPENSES', 'MACHINERY', 'LAB_EXPENSE')
+# The ONLY categories that count as a PURCHASE: RM, PM (PACKING), Maize, Fruit.
+# BOUGHT_NOTE (raw fruit/seed from growers) rolls into Fruit. Anything else
+# (expenses, machinery, freight, lab, branch) is NOT a purchase. Used as an
+# explicit allow-list so a new/unknown category never silently counts.
+_PURCHASE_CATS = ('RM', 'PACKING', 'PM', 'MAIZE', 'FRUIT', 'BOUGHT_NOTE')
 # A bill is expense-like (not a real RM+Packing purchase) when flagged
 # is_expense, OR in an expense category, OR booked as a journal voucher. Shared
 # by the Bills tile and the Outstanding views so they count the same universe.
@@ -3764,3 +3770,222 @@ class PurchasePayablesCalendarView(APIView):
         rows = PurchaseDashboardView._payables_calendar(company_id, vendor_id, msme=msme)
         total = _money(sum((Decimal(str(r['balance'])) for r in rows), _ZERO))
         return Response({'bills': rows, 'count': len(rows), 'total': total})
+
+
+class PurchaseLedgerView(APIView):
+    """Tally-style vendor ledger. Returns every voucher (opening balance, bills,
+    payments, debit/credit notes) per vendor with a running balance, plus a flat
+    chronological list across all vendors for the bill-wise view.
+
+    Tally sign convention (Cr = we owe the vendor):
+      - Bill (purchase)        → CREDIT  (+)  we owe more
+      - Payment made           → DEBIT   (-)  reduces what we owe
+      - Debit Note (return)    → DEBIT   (-)  reduces what we owe
+      - Credit Note            → CREDIT  (+)  increases what we owe
+      - Opening balance        → the starting Cr/Dr balance
+    """
+    permission_classes = [permissions.IsAuthenticated, HasModulePermission]
+    module_name = 'Purchase Dashboard'
+    alternate_modules = ['Purchase Analytics', 'Vendor Insights', 'Reports']
+
+    def get(self, request):
+        from sales.models import DebitNote
+        company_id = request.query_params.get('company') or None
+        vendor_id = request.query_params.get('vendor') or None
+        frm = request.query_params.get('from')
+        to = request.query_params.get('to')
+        cat = (request.query_params.get('category') or '').upper()
+        _m = (request.query_params.get('msme') or '').lower()
+        msme = True if _m == 'msme' else (False if _m == 'non' else None)
+        start, end, label = PurchaseDashboardView._resolve_range('custom', frm, to)
+
+        def _vendor_ok(v):
+            if msme is True and not getattr(v, 'is_msme', False):
+                return False
+            if msme is False and getattr(v, 'is_msme', False):
+                return False
+            return True
+
+        # ── gather vouchers keyed by vendor id ──
+        # vmeta: vendor_id -> {name, category, is_msme, opening}
+        vmeta = {}
+        events = []   # each: {vid, date, particulars, sub, vch_type, vch_no, vch_id, debit, credit}
+
+        # vendor_type is a JSONField (list of role codes), so category for the
+        # ledger comes from the vendor's bills (purchase_category: RM/PM/FRUIT),
+        # filled in the bill loop below.
+        def _meta(v, category=''):
+            if not v:
+                return None
+            vid = str(v.id)
+            if vid not in vmeta:
+                vmeta[vid] = {
+                    'vendor_id': vid,
+                    'vendor': v.vendor_name,
+                    'category': category or '',
+                    'is_msme': bool(getattr(v, 'is_msme', False)),
+                    'opening': _ZERO,
+                }
+            elif category and not vmeta[vid]['category']:
+                vmeta[vid]['category'] = category
+            return vmeta[vid]
+
+        # Opening balances (as-of date <= period start)
+        ob_qs = VendorOpeningBalance.objects.select_related('vendor').filter(vendor__isnull=False)
+        if company_id:
+            ob_qs = ob_qs.filter(company_id=company_id)
+        for ob in ob_qs:
+            v = ob.vendor
+            if not v or not _vendor_ok(v):
+                continue
+            m = _meta(v)
+            if m:
+                m['opening'] += (ob.amount or _ZERO)   # +ve = Cr (we owe)
+
+        # Bills → CREDIT. Same document set as Total Purchase / the Bills page, so
+        # the ledger ties to them: PURCHASES ONLY — expenses are a separate
+        # category and stay out (is_expense already dropped by _bill_qs; also drop
+        # expense-category bills and journal vouchers), plus cancelled + openings.
+        bills = (PurchaseDashboardView._bill_qs(company_id, vendor_id, msme=msme)
+                 .select_related('vendor')
+                 .filter(bill_date__gte=start, bill_date__lte=end)
+                 .filter(purchase_category__in=_PURCHASE_CATS)   # only the 4 purchase cats
+                 .exclude(status='CANCELLED')
+                 .exclude(tally_guid__startswith='OPENING')
+                 .exclude(tally_voucher_type__icontains='journal'))
+        if cat:
+            # Map the dropdown key to the stored raw categories it covers:
+            # PM → PACKING; FRUIT → FRUIT + BOUGHT_NOTE; RM/MAIZE pass through.
+            _cat_map = {'PM': ['PACKING', 'PM'], 'FRUIT': ['FRUIT', 'BOUGHT_NOTE'],
+                        'RM': ['RM'], 'MAIZE': ['MAIZE']}
+            bills = bills.filter(purchase_category__in=_cat_map.get(cat, [cat]))
+        for b in bills:
+            v = b.vendor
+            if not v or not _vendor_ok(v):
+                continue
+            # Normalise raw category to one of the 4 shown: PACKING→PM,
+            # BOUGHT_NOTE→FRUIT; RM/MAIZE/FRUIT pass through.
+            _rawc = (b.purchase_category or '').upper()
+            _norm = {'PACKING': 'PM', 'BOUGHT_NOTE': 'FRUIT'}.get(_rawc, _rawc)
+            _meta(v, _norm)
+            events.append({
+                'vid': str(v.id), 'date': b.bill_date, 'particulars': 'Purchase',
+                'sub': (b.vendor_invoice_no or ''), 'vch_type': 'Purchase',
+                'vch_no': b.bill_no or b.vendor_invoice_no or '', 'vch_id': str(b.id),
+                'debit': _ZERO, 'credit': (b.total_amount or _ZERO),
+            })
+
+        # Payments → DEBIT (skip inter-account transfers)
+        pays = PaymentMade.objects.select_related('vendor').filter(
+            is_active=True, payment_date__gte=start, payment_date__lte=end,
+        ).exclude(is_transfer=True).filter(vendor__isnull=False)
+        if company_id:
+            pays = pays.filter(vendor__company_id=company_id)
+        if vendor_id:
+            pays = pays.filter(vendor_id=vendor_id)
+        for p in pays:
+            v = p.vendor
+            if not v or not _vendor_ok(v):
+                continue
+            # Under a category filter, only include vendors seen on a matching bill.
+            if cat and str(v.id) not in vmeta:
+                continue
+            _meta(v)
+            bank = p.bank_name or (p.reference_no and f'Ref {p.reference_no}') or ''
+            events.append({
+                'vid': str(v.id), 'date': p.payment_date, 'particulars': 'Payment',
+                'sub': bank, 'vch_type': 'Payment',
+                'vch_no': p.payment_no or '', 'vch_id': str(p.id),
+                'debit': (p.amount or _ZERO), 'credit': _ZERO,
+            })
+
+        # Debit / Credit notes (purchase side)
+        notes = DebitNote.objects.select_related('vendor').filter(
+            is_active=True, side='PURCHASE', note_date__gte=start, note_date__lte=end,
+            vendor__isnull=False)
+        if company_id:
+            notes = notes.filter(company_id=company_id)
+        if vendor_id:
+            notes = notes.filter(vendor_id=vendor_id)
+        for n in notes:
+            v = n.vendor
+            if not v or not _vendor_ok(v):
+                continue
+            if cat and str(v.id) not in vmeta:
+                continue
+            _meta(v)
+            is_debit = (n.note_type == 'DEBIT')
+            events.append({
+                'vid': str(v.id), 'date': n.note_date,
+                'particulars': 'Debit Note' if is_debit else 'Credit Note',
+                'sub': (n.note_no or ''),
+                'vch_type': 'Debit Note' if is_debit else 'Credit Note',
+                'vch_no': n.note_no or '', 'vch_id': str(n.id),
+                'debit': (n.amount or _ZERO) if is_debit else _ZERO,
+                'credit': _ZERO if is_debit else (n.amount or _ZERO),
+            })
+
+        # ── build per-vendor ledgers with running balances ──
+        def _row(e, bal):
+            return {
+                'date': e['date'].isoformat() if e['date'] else None,
+                'particulars': e['particulars'], 'sub': e['sub'],
+                'vch_type': e['vch_type'], 'vch_no': e['vch_no'], 'vch_id': e['vch_id'],
+                'debit': _money(e['debit']), 'credit': _money(e['credit']),
+                'balance': _money(bal),
+                'balance_type': 'Cr' if bal >= 0 else 'Dr',
+            }
+
+        vendors = []
+        flat = []   # bill-wise: all events across vendors, each with its vendor name
+        # sort events per vendor by date (then a stable voucher order)
+        _order = {'Purchase': 0, 'Credit Note': 1, 'Debit Note': 2, 'Payment': 3}
+        for vid, m in vmeta.items():
+            ve = [e for e in events if e['vid'] == vid]
+            ve.sort(key=lambda e: (e['date'] or start, _order.get(e['vch_type'], 9)))
+            bal = m['opening']
+            ledger = []
+            dr_tot = _ZERO
+            cr_tot = _ZERO
+            for e in ve:
+                bal = bal + (e['credit'] or _ZERO) - (e['debit'] or _ZERO)
+                dr_tot += (e['debit'] or _ZERO)
+                cr_tot += (e['credit'] or _ZERO)
+                ledger.append(_row(e, bal))
+            vendors.append({
+                'vendor_id': vid, 'vendor': m['vendor'], 'category': m['category'],
+                'is_msme': m['is_msme'],
+                'opening': _money(m['opening']),
+                'opening_type': 'Cr' if m['opening'] >= 0 else 'Dr',
+                'debit_total': _money(dr_tot), 'credit_total': _money(cr_tot),
+                'closing': _money(bal), 'closing_type': 'Cr' if bal >= 0 else 'Dr',
+                'ledger': ledger,
+            })
+
+        # Flat bill-wise list: all events, chronological, with a global running
+        # balance across every vendor (mirrors a Day-Book-style all-party ledger).
+        events.sort(key=lambda e: (e['date'] or start, _order.get(e['vch_type'], 9)))
+        running = sum((m['opening'] for m in vmeta.values()), _ZERO)
+        for e in events:
+            running = running + (e['credit'] or _ZERO) - (e['debit'] or _ZERO)
+            r = _row(e, running)
+            r['vendor'] = vmeta[e['vid']]['vendor']
+            r['vendor_id'] = e['vid']
+            flat.append(r)
+
+        vendors.sort(key=lambda x: -abs(float(x['closing'])))
+        grand_dr = _money(sum((Decimal(str(v['debit_total'])) for v in vendors), _ZERO))
+        grand_cr = _money(sum((Decimal(str(v['credit_total'])) for v in vendors), _ZERO))
+        grand_close = _money(sum((Decimal(str(v['closing'])) for v in vendors), _ZERO))
+
+        return Response({
+            'period': {'label': label, 'from': start.isoformat(), 'to': end.isoformat()},
+            'vendors': vendors,
+            'flat': flat,
+            'totals': {
+                'debit': grand_dr, 'credit': grand_cr,
+                'closing': grand_close,
+                'closing_type': 'Cr' if float(grand_close) >= 0 else 'Dr',
+                'vendor_count': len(vendors), 'voucher_count': len(flat),
+            },
+        })
