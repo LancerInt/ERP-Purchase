@@ -98,10 +98,10 @@ export default function DataTable({
   // py-2.5 (not py-3) matches the Purchase Analytics "Vendor details" table,
   // the reference density adopted app-wide — same text-sm font + 11px uppercase
   // headers, slightly tighter rows so lists read as one consistent design.
-  const cellPad = dense ? 'px-2 py-2 fine:px-1.5' : 'px-4 py-2.5 fine:px-3 fine:py-2';
-  // A dense table also drops the body/footer font a notch, so more rows read at
-  // a glance without changing any of the ~115 non-dense lists.
-  const cellText = dense ? 'text-[13px]' : 'text-sm';
+  // Row density standardised to match the hand-rolled list tables (py-2, 13px),
+  // so every table across the app has the same compact single-line row height.
+  const cellPad = dense ? 'px-2 py-2 fine:px-1.5' : 'px-4 py-2 fine:px-3';
+  const cellText = dense ? 'text-[13px]' : 'text-[13px]';
 
   const [searchTermState, setSearchTermState] = useState('');
   const [currentPageState, setCurrentPageState] = useState(page);
@@ -449,9 +449,9 @@ export default function DataTable({
           {/* Header — teal-soft tint (SS Biochem standard table look) */}
           <thead className="bg-primary-50 border-b-2 border-slate-300">
             <tr>
-              {expandableContent && <th className="px-2 py-3 fine:py-2 w-8"></th>}
+              {expandableContent && <th className="px-2 py-2 w-8"></th>}
               {showBulkSelect && (
-                <th className="px-4 sm:px-5 py-3 fine:px-4 fine:py-2 w-12">
+                <th className="px-4 sm:px-5 py-2 fine:px-4 w-12">
                   <input
                     type="checkbox"
                     checked={
@@ -529,7 +529,7 @@ export default function DataTable({
                       } ${isExpanded ? 'bg-primary-50/50' : ''}`}
                     >
                       {expandableContent && (
-                        <td className="px-2 py-3 fine:py-2 w-8">
+                        <td className="px-2 py-2 w-8">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -551,7 +551,7 @@ export default function DataTable({
                         </td>
                       )}
                       {showBulkSelect && (
-                        <td className="px-4 py-3 fine:px-3 fine:py-2 w-12">
+                        <td className="px-4 py-2 fine:px-3 w-12">
                           <input type="checkbox" checked={selectedRows.includes(row.id)}
                             onChange={(e) => handleSelectRow(row.id, e.target.checked)}
                             onClick={(e) => e.stopPropagation()} className="rounded" />
@@ -583,8 +583,8 @@ export default function DataTable({
           {paginatedData.length > 0 && normalizedColumns.some((c) => c.footer) && (
             <tfoot className="bg-slate-50 border-t-2 border-slate-300">
               <tr>
-                {expandableContent && <td className="px-2 py-3 fine:py-2 w-8" />}
-                {showBulkSelect && <td className="px-4 py-3 fine:px-3 fine:py-2 w-12" />}
+                {expandableContent && <td className="px-2 py-2 w-8" />}
+                {showBulkSelect && <td className="px-4 py-2 fine:px-3 w-12" />}
                 {normalizedColumns.map((col) => (
                   <td key={`foot-${col.field}`}
                     className={`${cellPad} ${cellText} font-bold text-slate-800 whitespace-nowrap tabular-nums`}>
