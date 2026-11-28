@@ -4,9 +4,6 @@ import toast from 'react-hot-toast';
 import CustomSelect from '@/components/ui/CustomSelect';
 import apiClient from '../../utils/api.js';
 
-// Dictation languages: BCP-47 code for the browser's Web Speech API + the
-// language name passed to the translator. Speak in any of these; the spoken
-// words are transcribed locally and translated to professional English.
 const LANGUAGES = [
   { code: 'en-IN', label: 'English', name: 'English' },
   { code: 'hi-IN', label: 'हिन्दी', name: 'Hindi' },
@@ -20,26 +17,9 @@ const LANGUAGES = [
   { code: 'pa-IN', label: 'ਪੰਜਾਬੀ', name: 'Punjabi' },
 ];
 
-/**
- * Multi-language voice dictation control: a language picker + mic.
- *
- * Speak in the chosen language — the browser (Web Speech API) transcribes it,
- * the backend (Gemini) translates the transcript to professional English, and
- * the result is handed back via onText(). The raw audio is also recorded and
- * handed back via onAudio() so the original recording can be attached.
- *
- * Transcription runs CLIENT-side (only the short text is sent for translation),
- * which keeps it usable on weak mobile links. Web Speech needs Chrome/Edge
- * (incl. Android Chrome); on browsers without it, the mic is disabled.
- *
- * Props:
- *   onText(englishText)  append the dictated text to the field
- *   onAudio(file)        the recorded audio File (optional — to attach)
- *   disabled             optional
- */
 export default function VoiceDictation({ onText, onAudio, disabled = false, compact = false }) {
   const [lang, setLang] = useState('en-IN');
-  const [state, setState] = useState('idle'); // 'idle' | 'recording' | 'processing'
+  const [state, setState] = useState('idle');
   const recognitionRef = useRef(null);
   const recorderRef = useRef(null);
   const streamRef = useRef(null);
@@ -69,8 +49,6 @@ export default function VoiceDictation({ onText, onAudio, disabled = false, comp
     transcriptRef.current = '';
     chunksRef.current = [];
 
-    // Transcription is the primary goal — start it FIRST so audio recording
-    // (best-effort, below) can never starve it of the mic on mobile.
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -98,7 +76,6 @@ export default function VoiceDictation({ onText, onAudio, disabled = false, comp
       return;
     }
 
-    // Record the audio too (best-effort — transcription already works without it).
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -136,7 +113,7 @@ export default function VoiceDictation({ onText, onAudio, disabled = false, comp
         toast('Added your words (auto-translation unavailable).', { icon: 'ℹ️' });
       }
     } catch {
-      onText?.(raw); // graceful: keep the raw transcript
+      onText?.(raw);
       toast('Added your words (auto-translation unavailable).', { icon: 'ℹ️' });
     } finally {
       setState('idle');

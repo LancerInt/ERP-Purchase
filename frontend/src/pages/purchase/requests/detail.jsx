@@ -201,7 +201,7 @@ export default function PurchaseRequestDetailPage() {
   // PLUS the RBAC check — never just one. Approve uses the same list but as
   // a permissive fallback (OR) so the button stays visible when the cache is
   // stale. The backend still enforces every check.
-  const PR_PRIVILEGED_ROLES = new Set(['admin', 'administrator', 'purchase coordinator', 'purchase manager']);
+  const PR_PRIVILEGED_ROLES = new Set(['admin', 'administrator', 'purchase coordinator', 'purchase manager', 'warehouse manager']);
   const _roleName = (role?.role_name || role?.name || '').trim().toLowerCase();
   const isPrivilegedPRUser = isAdminUser || isSuperuser || PR_PRIVILEGED_ROLES.has(_roleName);
   const canApproveAccess = canApproveModule('Purchase Request') || isPrivilegedPRUser;

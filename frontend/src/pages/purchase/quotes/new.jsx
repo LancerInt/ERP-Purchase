@@ -2089,56 +2089,35 @@ export default function CreateQuoteResponse() {
       )}
 
       {/* ====== FILE UPLOAD SECTION (only in autofill mode) ====== */}
-      {fillMode === 'autofill' && <div className="bg-white rounded-[6px] border border-slate-200 px-3 py-2 mb-2">
-        <p className={`${sectionTitle} mb-1.5`}>Extract Quote Data</p>
+      {fillMode === 'autofill' && <div className="mb-2">
+        <div className="flex items-center gap-2 mb-1">
+          <p className={`${sectionTitle}`}>Extract Quote Data</p>
 
-        {/* Drop zone */}
-        {!uploadedFile && (
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`relative flex items-center justify-center gap-3 rounded-[6px] border-2 border-dashed px-4 py-3 cursor-pointer transition-colors ${
-              isDragOver
-                ? 'border-primary-400 bg-primary-50'
-                : 'border-slate-300 bg-slate-50 hover:border-primary-300 hover:bg-primary-50/50'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <div className="text-center">
-              <p className="text-[11px] font-semibold text-slate-700">Drag & drop or click to upload</p>
-              <p className="text-[10px] text-slate-500">PDF, JPG, PNG, DOCX, XLSX</p>
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ACCEPTED_EXTENSIONS}
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-
-            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {/* Compact upload button */}
+          {!uploadedFile && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPTED_EXTENSIONS}
+                onChange={handleFileUpload}
+                className="hidden"
+              />
               <button
                 type="button"
-                className="inline-flex items-center gap-1 rounded-[6px] border border-slate-300 bg-white px-3 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  fileInputRef.current?.click();
-                }}
+                className="inline-flex items-center gap-1.5 rounded-[6px] border border-primary-300 bg-primary-50 px-3 py-1 text-[11px] font-medium text-primary-700 hover:bg-primary-100 transition"
+                onClick={() => fileInputRef.current?.click()}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
-                Browse
+                Upload Document
               </button>
+              <span className="text-[10px] text-slate-400">PDF, JPG, PNG, DOCX, XLSX</span>
               <ScanCaptureButton onCapture={(file) => processFile(file)} />
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
 
         {/* Uploaded file info */}
         {uploadedFile && (
@@ -2851,7 +2830,7 @@ export default function CreateQuoteResponse() {
             );
           })()}
 
-          <FileAttachments module="QUOTE" recordId={id || null} onPendingChange={(files) => { pendingAttachmentsRef.current = files; setPendingAttachments(files); }} />
+          <FileAttachments module="QUOTE" recordId={id || null} compact hideUpload={fillMode === 'autofill'} onPendingChange={(files) => { pendingAttachmentsRef.current = files; setPendingAttachments(files); }} />
           {/* A quote must carry its source document. Auto-fill (AI) uses the
               uploaded file as the source; a manually-filled quote must have a
               document uploaded above. Save stays disabled until one exists. */}

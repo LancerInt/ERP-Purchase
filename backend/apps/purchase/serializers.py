@@ -853,16 +853,30 @@ class RFQHeaderSerializer(FieldPermissionMixin, serializers.ModelSerializer):
     # sender endpoint so the preview shows the per-company purchase mailbox
     # (e.g. UAI's) that the send will actually use.
     company_code = serializers.SerializerMethodField()
+    company = serializers.SerializerMethodField()
+    company_name = serializers.SerializerMethodField()
 
-    def get_company_code(self, obj):
+    def _resolve_company(self, obj):
         for pr in obj.linked_prs.all():
             if pr.company_id:
-                return pr.company.company_code or ''
+                return pr.company
         for pr in obj.linked_prs.all():
             wh = getattr(pr, 'warehouse', None)
             if wh is not None and getattr(wh, 'company_id', None):
-                return wh.company.company_code or ''
-        return ''
+                return wh.company
+        return None
+
+    def get_company_code(self, obj):
+        c = self._resolve_company(obj)
+        return (c.company_code or '') if c else ''
+
+    def get_company(self, obj):
+        c = self._resolve_company(obj)
+        return c.id if c else None
+
+    def get_company_name(self, obj):
+        c = self._resolve_company(obj)
+        return (c.legal_name or '') if c else ''
 
     def get_product_names(self, obj):
         # Skip-routed lines already have a direct PO — they are NOT part of
@@ -881,7 +895,7 @@ class RFQHeaderSerializer(FieldPermissionMixin, serializers.ModelSerializer):
             'quote_count_expected', 'quote_count', 'skip_rfq_flag',
             'skip_rfq_justification', 'purchase_manager_approval',
             'purchase_manager_approval_name', 'linked_prs', 'linked_pr_numbers', 'eta_updates',
-            'email_sent', 'vendors', 'is_evaluated', 'product_names', 'company_code', 'created_at', 'updated_at'
+            'email_sent', 'vendors', 'is_evaluated', 'product_names', 'company_code', 'company', 'company_name', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'rfq_no', 'creation_date', 'created_at', 'updated_at']
         extra_kwargs = {
@@ -1096,6 +1110,28 @@ class QuoteResponseSerializer(FieldPermissionMixin, serializers.ModelSerializer)
     # EXPECT to receive (the denominator for "all quotes recorded?").
     rfq_invited_count = serializers.SerializerMethodField()
     product_names = serializers.SerializerMethodField()
+    company = serializers.SerializerMethodField()
+    company_name = serializers.SerializerMethodField()
+
+    def _resolve_company_from_rfq(self, obj):
+        if not obj.rfq_id:
+            return None
+        for pr in obj.rfq.linked_prs.all():
+            if pr.company_id:
+                return pr.company
+        for pr in obj.rfq.linked_prs.all():
+            wh = getattr(pr, 'warehouse', None)
+            if wh is not None and getattr(wh, 'company_id', None):
+                return wh.company
+        return None
+
+    def get_company(self, obj):
+        c = self._resolve_company_from_rfq(obj)
+        return c.id if c else None
+
+    def get_company_name(self, obj):
+        c = self._resolve_company_from_rfq(obj)
+        return (c.legal_name or '') if c else ''
 
     def get_product_names(self, obj):
         return _names_from_lines(obj.quote_lines.all())
@@ -1107,7 +1143,8 @@ class QuoteResponseSerializer(FieldPermissionMixin, serializers.ModelSerializer)
             'vendor_name_text', 'quote_date',
             'price_valid_till', 'currency', 'freight_terms', 'payment_terms', 'custom_payment_terms',
             'delivery_terms', 'lead_time_days', 'remarks', 'evaluation_score',
-            'chosen_flag', 'quote_lines', 'total_cost', 'rfq_invited_count', 'product_names', 'created_at', 'updated_at'
+            'chosen_flag', 'quote_lines', 'total_cost', 'rfq_invited_count', 'product_names',
+            'company', 'company_name', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'quote_id', 'quote_date', 'created_at', 'updated_at']
         extra_kwargs = {
@@ -1230,6 +1267,28 @@ class QuoteEvaluationSerializer(FieldPermissionMixin, serializers.ModelSerialize
     linked_pr_ids = serializers.SerializerMethodField()
     # Products under evaluation, from the RFQ's linked PRs (list-view column).
     product_names = serializers.SerializerMethodField()
+    company = serializers.SerializerMethodField()
+    company_name = serializers.SerializerMethodField()
+
+    def _resolve_company_from_rfq(self, obj):
+        if not obj.rfq_id:
+            return None
+        for pr in obj.rfq.linked_prs.all():
+            if pr.company_id:
+                return pr.company
+        for pr in obj.rfq.linked_prs.all():
+            wh = getattr(pr, 'warehouse', None)
+            if wh is not None and getattr(wh, 'company_id', None):
+                return wh.company
+        return None
+
+    def get_company(self, obj):
+        c = self._resolve_company_from_rfq(obj)
+        return c.id if c else None
+
+    def get_company_name(self, obj):
+        c = self._resolve_company_from_rfq(obj)
+        return (c.legal_name or '') if c else ''
 
     def get_product_names(self, obj):
         if not obj.rfq_id:
@@ -1248,7 +1307,7 @@ class QuoteEvaluationSerializer(FieldPermissionMixin, serializers.ModelSerialize
             'evaluated_by_name', 'best_quote_flag', 'recommended_vendor',
             'recommended_vendor_name', 'justification_notes', 'approval_status',
             'approval_status_display', 'comparison_entries', 'approval_trails',
-            'product_names', 'created_at', 'updated_at'
+            'product_names', 'company', 'company_name', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'evaluation_id', 'evaluation_date', 'created_at', 'updated_at']
         extra_kwargs = {

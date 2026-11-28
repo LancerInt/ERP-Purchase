@@ -10,6 +10,7 @@ import apiClient from '../../../utils/api.js';
 import useApiData from '../../../hooks/useApiData.js';
 import usePermissions from '../../../hooks/usePermissions.js';
 import useFieldPermissions from '../../../hooks/useFieldPermissions.js';
+import { useGlobalCompany } from '../../../hooks/useGlobalCompany.js';
 import MobileListCards from '../components/MobileListCards';
 import ListState from '@/components/common/ListState.jsx';
 import { confirm } from '@/components/common/confirm';
@@ -21,6 +22,7 @@ export default function PurchaseOrderList() {
   const { data, isLoading, error, refetch } = useApiData('/api/purchase/orders/?slim=1');
   const { canCreate, canEdit, canDelete, canExport } = usePermissions();
   const { isHidden } = useFieldPermissions('Purchase Order');
+  const { company: globalCompany } = useGlobalCompany();
   const [searchTerm, setSearchTerm] = useState('');
   const [datePeriod, setDatePeriod] = useState('All');
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
@@ -60,6 +62,7 @@ export default function PurchaseOrderList() {
 
   const filteredData = useMemo(() => {
     let result = [...(data || [])];
+    if (globalCompany) result = result.filter(r => String(r.company || '') === String(globalCompany));
     if (datePeriod !== 'All') {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -100,7 +103,7 @@ export default function PurchaseOrderList() {
       return String(b.po_no || '').localeCompare(String(a.po_no || ''));
     });
     return result;
-  }, [data, datePeriod, customRange, statusFilter, searchTerm]);
+  }, [data, globalCompany, datePeriod, customRange, statusFilter, searchTerm]);
 
   const totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
   const pagedData = filteredData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);

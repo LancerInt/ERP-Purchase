@@ -2554,6 +2554,7 @@ export default function CreateReceiptAdvice() {
           { label: 'Receipts', href: '/purchase/receipts' },
           { label: 'Create Receipt Advice' },
         ]}
+        hideCompanyFilter
       />
       <div className="bg-white rounded-lg border border-slate-200 px-3 py-2.5">
         <form onSubmit={handleSubmit}>

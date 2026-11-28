@@ -233,6 +233,7 @@ export default function ReceiptAdviceList() {
   return (
     <MainLayout>
       <PageHeader compact title="Receipt Advice" subtitle="Manage goods receipt against purchase orders" breadcrumbs={[{ label: 'Sourcing' }, { label: 'Receipts' }]}
+        hideCompanyFilter
         actions={{ ...(canCreateReceipt ? { createLink: '/purchase/receipts/new', createLabel: 'New Receipt' } : {}) }} />
 
       {/* Toolbar */}
