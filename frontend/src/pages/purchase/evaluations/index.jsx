@@ -33,6 +33,7 @@ import { formatCurrency, formatDate, formatNumber } from '../../../utils/formatt
 import useApiData from '../../../hooks/useApiData.js';
 import usePermissions from '../../../hooks/usePermissions.js';
 import useFieldPermissions from '../../../hooks/useFieldPermissions.js';
+import { useGlobalCompany } from '../../../hooks/useGlobalCompany.js';
 import { confirm } from '@/components/common/confirm';
 import exportToExcel from '../../../utils/exportExcel.js';
 
@@ -47,6 +48,7 @@ export default function QuoteEvaluationPage() {
         title="Quote Evaluations"
         subtitle={activeTab === 'list' ? 'View and manage all evaluations' : 'Compare vendor quotes and select the best offer'}
         breadcrumbs={[{ label: 'Sourcing' }, { label: 'Evaluations' }]}
+        hideCompanyFilter={activeTab !== 'list'}
         actions={{
           ...(canCreate('Quote Evaluation')
             ? { createLink: '/purchase/evaluations/new', createLabel: 'New Evaluation' }
@@ -94,6 +96,7 @@ function EvaluationListTab() {
   const navigate = useNavigate();
   const { canEdit, canDelete, canExport } = usePermissions();
   const { isHidden } = useFieldPermissions('Quote Evaluation');
+  const { company: globalCompany } = useGlobalCompany();
   const { data, isLoading, error, refetch } = useApiData('/api/purchase/evaluations/');
   const [searchTerm, setSearchTerm] = useState('');
   const [datePeriod, setDatePeriod] = useState('All');
@@ -129,6 +132,7 @@ function EvaluationListTab() {
 
   const filteredData = useMemo(() => {
     let result = [...(data || [])];
+    if (globalCompany) result = result.filter(r => String(r.company || '') === String(globalCompany));
     if (datePeriod !== 'All') {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -168,7 +172,7 @@ function EvaluationListTab() {
       return db - da;
     });
     return result;
-  }, [data, datePeriod, customRange, statusFilter, searchTerm]);
+  }, [data, globalCompany, datePeriod, customRange, statusFilter, searchTerm]);
 
   const pagedData = filteredData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   useEffect(() => { setPage(1); }, [filteredData.length]);
@@ -362,6 +366,7 @@ function EvaluationDashboardTab() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { canCreate } = usePermissions();
+  const { company: globalCompany } = useGlobalCompany();
 
   const [prRaw, setPrRaw] = useState([]);
   const [prLoading, setPrLoading] = useState(false);
@@ -381,6 +386,7 @@ function EvaluationDashboardTab() {
   const prIdFromUrl = searchParams.get('pr_id');
   const rfqIdFromUrl = searchParams.get('rfq_id');
   const prOptions = prRaw
+    .filter(p => globalCompany ? String(p.company || '') === String(globalCompany) : true)
     .filter(p => !p.fully_converted && (
       (p.approval_status === 'APPROVED' && p.linked_rfq) || p.id === prIdFromUrl
     ))
@@ -388,7 +394,7 @@ function EvaluationDashboardTab() {
       value: p.id,
       label: `${p.pr_no} | ${p.warehouse_name || ''} | ${p.approval_status}${p.linked_rfq_no ? ' | RFQ: ' + p.linked_rfq_no : ''}`,
     }));
-  const rfqOptions = rfqRaw.map(r => ({
+  const rfqOptions = rfqRaw.filter(r => globalCompany ? String(r.company || '') === String(globalCompany) : true).map(r => ({
     value: r.id,
     label: `${r.rfq_no} | ${r.rfq_status || ''}`,
   }));

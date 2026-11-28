@@ -10,6 +10,7 @@ import ProductsCell from '../../../components/common/ProductsCell';
 import useApiData from '../../../hooks/useApiData.js';
 import usePermissions from '../../../hooks/usePermissions.js';
 import useFieldPermissions from '../../../hooks/useFieldPermissions.js';
+import { useGlobalCompany } from '../../../hooks/useGlobalCompany.js';
 import apiClient from '../../../utils/api.js';
 import MobileListCards from '../components/MobileListCards';
 import { confirm } from '@/components/common/confirm';
@@ -19,6 +20,7 @@ import exportToExcel from '../../../utils/exportExcel.js';
 
 export default function QuoteResponseList() {
   const navigate = useNavigate();
+  const { company: globalCompany } = useGlobalCompany();
   const { data, isLoading, error, refetch } = useApiData('/api/purchase/quotes/');
   const [searchTerm, setSearchTerm] = useState('');
   const { canCreate, canDelete, canEvaluate, canExport } = usePermissions();
@@ -70,6 +72,7 @@ export default function QuoteResponseList() {
           invited_count: 0,
           lowest_total: null,
           evaluation_status: 'Pending',
+          company: q.company || null,
         });
       }
       const g = groups.get(key);
@@ -98,7 +101,7 @@ export default function QuoteResponseList() {
 
   const filteredData = useMemo(() => {
     let result = rfqRows;
-
+    if (globalCompany) result = result.filter(r => String(r.company || '') === String(globalCompany));
     if (datePeriod !== 'All') {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -135,7 +138,7 @@ export default function QuoteResponseList() {
       );
     }
     return result;
-  }, [rfqRows, datePeriod, customRange, statusFilter, searchTerm]);
+  }, [rfqRows, globalCompany, datePeriod, customRange, statusFilter, searchTerm]);
 
   const pagedData = filteredData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   useEffect(() => { setPage(1); }, [filteredData.length]);

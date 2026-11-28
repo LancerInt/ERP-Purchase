@@ -40,49 +40,45 @@ export default function AdditionalCharges({ charges = [], remarks = '', onChange
   const addToTotal = sumAddToTotal(charges);
 
   return (
-    <div className={`bg-white rounded-lg border border-slate-200 p-3.5 sm:p-5 ${className}`}>
-      <div className="flex items-center justify-between mb-3 pb-2 border-b">
-        <h3 className="text-base font-semibold text-slate-800">Additional Charges</h3>
-        <button type="button" onClick={addRow} className="flex items-center gap-1 px-3 py-1.5 text-sm text-primary-600 border border-primary-300 rounded-lg hover:bg-primary-50">
-          <Plus size={16} /> Add Charge
+    <div className={`bg-white rounded-lg border border-slate-200 p-2.5 sm:p-3 ${className}`}>
+      <div className="flex items-center justify-between mb-2 pb-1 border-b">
+        <h3 className="text-xs font-semibold text-slate-800">Additional Charges</h3>
+        <button type="button" onClick={addRow} className="flex items-center gap-1 px-2 py-1 text-xs text-primary-600 border border-primary-300 rounded hover:bg-primary-50">
+          <Plus size={13} /> Add Charge
         </button>
       </div>
 
       {charges.length === 0 ? (
-        <p className="text-xs text-slate-400">No additional charges. Click “Add Charge” to record shipping, courier or other charges.</p>
+        <p className="text-[10px] text-slate-400">No additional charges. Click "Add Charge" to record shipping, courier or other charges.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {charges.map((c, idx) => (
-            <div key={idx} className="flex flex-wrap items-center gap-2">
-              <CustomSelect value={c.type} onChange={(e) => setRow(idx, 'type', e.target.value)} className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm min-w-[160px]">
+            <div key={idx} className="flex flex-wrap items-center gap-1.5">
+              <CustomSelect value={c.type} onChange={(e) => setRow(idx, 'type', e.target.value)} className="border border-slate-300 rounded px-2 py-1 text-xs min-w-[140px]">
                 {CHARGE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </CustomSelect>
               {c.type === 'OTHER' && (
-                <input type="text" value={c.label} onChange={(e) => setRow(idx, 'label', e.target.value)} placeholder="Charge name" className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm flex-1 min-w-[120px]" />
+                <input type="text" value={c.label} onChange={(e) => setRow(idx, 'label', e.target.value)} placeholder="Charge name" className="border border-slate-300 rounded px-2 py-1 text-xs flex-1 min-w-[100px]" />
               )}
               <div className="relative">
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm">{currencySymbol}</span>
-                <input type="number" min="0" step="any" value={c.amount} onChange={(e) => setRow(idx, 'amount', e.target.value)} placeholder="0.00" className="border border-slate-300 rounded-lg pl-6 pr-2 py-1.5 text-sm w-32 text-right" />
+                <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">{currencySymbol}</span>
+                <input type="number" min="0" step="any" value={c.amount} onChange={(e) => setRow(idx, 'amount', e.target.value)} placeholder="0.00" className="border border-slate-300 rounded pl-5 pr-2 py-1 text-xs w-28 text-right" />
               </div>
-              <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
-                <input type="checkbox" checked={!!c.add_to_total} onChange={(e) => setRow(idx, 'add_to_total', e.target.checked)} className="rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
+              <label className="flex items-center gap-1 text-[10px] text-slate-600 cursor-pointer select-none">
+                <input type="checkbox" checked={!!c.add_to_total} onChange={(e) => setRow(idx, 'add_to_total', e.target.checked)} className="rounded border-slate-300 text-primary-600 focus:ring-primary-500 w-3.5 h-3.5" />
                 Add to total
               </label>
-              <button type="button" onClick={() => removeRow(idx)} className="p-1 text-red-500 hover:bg-red-50 rounded" title="Remove"><Trash2 size={15} /></button>
+              {idx === 0 && chargesHaveValue(charges) && (
+                <input type="text" value={remarks} onChange={(e) => update(charges, e.target.value)}
+                  placeholder="Charges remarks (required)"
+                  className="border border-slate-300 rounded px-2 py-1 text-xs w-[40%] focus:ring-1 focus:ring-primary-500 focus:border-primary-500" />
+              )}
+              <button type="button" onClick={() => removeRow(idx)} className="p-0.5 text-red-500 hover:bg-red-50 rounded" title="Remove"><Trash2 size={13} /></button>
             </div>
           ))}
           {addToTotal > 0 && (
-            <p className="text-xs text-slate-500">{currencySymbol}{addToTotal.toFixed(2)} will be added to the total. Unchecked charges are kept for the record only.</p>
+            <p className="text-[10px] text-slate-500">{currencySymbol}{addToTotal.toFixed(2)} will be added to the total. Unchecked charges are kept for the record only.</p>
           )}
-        </div>
-      )}
-
-      {chargesHaveValue(charges) && (
-        <div className="mt-3">
-          <label className="block text-sm font-medium text-slate-700 mb-1">Charges Remarks <span className="text-red-500">*</span></label>
-          <textarea value={remarks} onChange={(e) => update(charges, e.target.value)} rows={2}
-            placeholder="Reason / details for the additional charges (required)"
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
         </div>
       )}
     </div>

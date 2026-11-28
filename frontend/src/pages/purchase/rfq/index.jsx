@@ -11,6 +11,7 @@ import apiClient from '../../../utils/api.js';
 import useApiData from '../../../hooks/useApiData.js';
 import usePermissions from '../../../hooks/usePermissions.js';
 import useFieldPermissions from '../../../hooks/useFieldPermissions.js';
+import { useGlobalCompany } from '../../../hooks/useGlobalCompany.js';
 import MobileListCards from '../components/MobileListCards';
 import ListState from '@/components/common/ListState.jsx';
 import { confirm } from '@/components/common/confirm';
@@ -33,6 +34,7 @@ export default function RFQList() {
   const { canSendEmail, canCreate, canEdit, canDelete, canExport, canQuoteResponse } = usePermissions();
   const { isHidden } = useFieldPermissions('RFQ');
   const canRecordQuoteResponse = canQuoteResponse('RFQ');
+  const { company: globalCompany } = useGlobalCompany();
   const { data, isLoading, error, refetch } = useApiData('/api/purchase/rfq/');
   const [searchTerm, setSearchTerm] = useState('');
   const [datePeriod, setDatePeriod] = useState('All');
@@ -68,7 +70,7 @@ export default function RFQList() {
 
   const filteredData = useMemo(() => {
     let result = data || [];
-
+    if (globalCompany) result = result.filter(r => String(r.company || '') === String(globalCompany));
     if (datePeriod !== 'All') {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -105,7 +107,7 @@ export default function RFQList() {
       );
     }
     return result;
-  }, [data, datePeriod, customRange, statusFilter, searchTerm]);
+  }, [data, globalCompany, datePeriod, customRange, statusFilter, searchTerm]);
 
   const pagedData = filteredData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   useEffect(() => { setPage(1); }, [filteredData.length]);

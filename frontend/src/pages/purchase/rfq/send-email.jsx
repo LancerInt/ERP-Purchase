@@ -15,6 +15,7 @@ import { formatDate, formatDateTime } from '@/utils/formatters';
 import { VENDOR_TYPE_OPTIONS } from '../../../constants/vendorTypes.js';
 import { VENDOR_GST_TREATMENT_OPTIONS, isRegisteredTreatment } from '../../../constants/gstTreatment.js';
 import { panFromGstin, isValidGstin } from '../../../utils/gst.js';
+import { MessageCircle, Paperclip, X, Loader2 } from 'lucide-react';
 
 function QuickCreateVendorModal({ open, onClose, onCreated, companyId }) {
   const { options: companies } = useLookup('/api/companies/');
@@ -259,6 +260,10 @@ export default function SendRFQEmail() {
   const [templates, setTemplates] = useState([]);
   const [emailLogs, setEmailLogs] = useState([]);
 
+  // WhatsApp states
+  const [waProof, setWaProof] = useState(null);
+  const [waLogging, setWaLogging] = useState(false);
+
   // Smart vendor routing states
   const [autoVendors, setAutoVendors] = useState([]);
   const [autoVendorIds, setAutoVendorIds] = useState(new Set());
@@ -499,6 +504,41 @@ export default function SendRFQEmail() {
       // silent
     }
   }, [id]);
+
+  const handleWhatsApp = () => {
+    if (!rfq) return;
+    const activeVid = vendorPreviews[activePreviewIdx]?.vendor_id;
+    const v = autoVendors.find(x => String(x.id) === String(activeVid))
+      || vendors.find(x => String(x.id) === String(activeVid));
+    const vendorName = v?.vendor_name || v?.legal_name || 'Vendor';
+    const phone = String(v?.contact_phone || v?.phone || '').replace(/\D/g, '');
+    const waPhone = phone ? (phone.length === 10 ? `91${phone}` : phone) : '';
+    const msg = buildWhatsAppText(vendorName);
+    const url = `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank', 'noopener');
+    if (!waPhone) toast('No vendor phone on file — pick the contact in WhatsApp.', { icon: 'ℹ️' });
+  };
+
+  const handleLogWhatsApp = async () => {
+    if (!waProof) { toast.error('Attach a WhatsApp screenshot first.'); return; }
+    const activeVid = vendorPreviews[activePreviewIdx]?.vendor_id;
+    if (!activeVid) { toast.error('No vendor selected.'); return; }
+    setWaLogging(true);
+    try {
+      const fd = new FormData();
+      fd.append('screenshot', waProof);
+      fd.append('vendor_id', activeVid);
+      const res = await apiClient.post(`/api/purchase/rfq/${id}/log-whatsapp/`, fd,
+        { headers: { 'Content-Type': 'multipart/form-data' } });
+      toast.success(res.data.message || 'WhatsApp send logged.');
+      setWaProof(null);
+      refreshLogs();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err));
+    } finally {
+      setWaLogging(false);
+    }
+  };
 
   // Toggle vendor selection
   const toggleVendor = (vendorId) => {
@@ -1056,6 +1096,49 @@ export default function SendRFQEmail() {
                   : 'Please select at least one vendor.'}
               </p>
             )}
+
+            {/* WhatsApp share */}
+            <div className="flex items-center gap-2 pt-1">
+              <div className="flex-1 border-t border-slate-200" />
+              <span className="text-[11px] text-slate-400 uppercase tracking-wide">or share</span>
+              <div className="flex-1 border-t border-slate-200" />
+            </div>
+            <button
+              type="button"
+              onClick={handleWhatsApp}
+              disabled={!rfq || !vendorPreviews.length}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-white bg-[#25D366] hover:bg-[#1ebe5a] disabled:opacity-50 transition"
+            >
+              <MessageCircle size={16} /> WhatsApp
+            </button>
+            <p className="text-[11px] text-slate-400 text-center">
+              Opens WhatsApp with the RFQ details for the currently previewed vendor.
+            </p>
+
+            {/* Proof of a WhatsApp send */}
+            <div className="rounded-lg border border-dashed border-[#25D366]/50 bg-[#25D366]/5 p-2.5 space-y-2">
+              <p className="text-[11px] font-semibold text-slate-600">Sent on WhatsApp? Log it with proof</p>
+              <div className="flex items-center gap-2">
+                <label className="flex-1 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium border border-slate-300 bg-white text-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 min-w-0">
+                  <Paperclip size={13} className="shrink-0" />
+                  <span className="truncate">{waProof ? waProof.name : 'Attach WhatsApp screenshot'}</span>
+                  <input type="file" accept="image/*" className="hidden"
+                    onChange={(e) => { setWaProof(e.target.files?.[0] || null); e.target.value = ''; }} />
+                </label>
+                {waProof && (
+                  <button type="button" onClick={() => setWaProof(null)} className="text-slate-400 hover:text-red-500" title="Remove"><X size={14} /></button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleLogWhatsApp}
+                disabled={!waProof || waLogging}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-[#25D366] hover:bg-[#1ebe5a] disabled:opacity-50 transition"
+              >
+                {waLogging ? <Loader2 size={14} className="animate-spin" /> : <MessageCircle size={14} />}
+                Log WhatsApp send
+              </button>
+            </div>
           </div>
 
           {/* RFQ Summary */}
@@ -1411,7 +1494,7 @@ export default function SendRFQEmail() {
       {/* Email History */}
       <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-slate-800">Email History</h3>
+          <h3 className="text-sm font-semibold text-slate-800">Send History</h3>
           <button
             type="button"
             onClick={refreshLogs}
@@ -1443,12 +1526,17 @@ export default function SendRFQEmail() {
                   const vendorName = vendor
                     ? formatVendorLabel(vendor)
                     : (log.vendor_name || log.recipient || `Vendor ${log.vendor_id || log.vendor || '-'}`);
+                  const isWhatsApp = /whatsapp/i.test(log.status || '') || /whatsapp/i.test(log.subject || '');
                   const logStatus = log.status || (log.email_sent ? 'Email Sent' : (log.success ? 'Email Sent' : 'Failed'));
                   return (
                     <tr key={log.id || idx} className="hover:bg-primary-50/40 transition-colors">
                       <td className="py-2 px-3 font-medium text-slate-800">{vendorName}</td>
                       <td className="py-2 px-3">
-                        <StatusBadge status={logStatus} />
+                        {isWhatsApp ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded border border-[#25D366]/40 bg-[#25D366]/10 text-[#128C3E]"><MessageCircle size={11} /> WhatsApp</span>
+                        ) : (
+                          <StatusBadge status={logStatus} />
+                        )}
                       </td>
                       <td className="py-2 px-3 text-slate-600">
                         {log.sent_at || log.created_at

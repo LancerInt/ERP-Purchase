@@ -493,15 +493,16 @@ export default function CreateVendorBill() {
     }
   };
 
-  const inputClass = "w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500";
+  const inputClass = "w-full border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-primary-500 focus:border-primary-500";
   const lockedInputClass = `${inputClass} bg-slate-100 cursor-not-allowed`;
-  const labelClass = "block text-xs font-semibold text-slate-700 mb-0.5";
+  const labelClass = "block text-[11px] font-semibold text-slate-600 mb-0.5";
 
   return (
     <MainLayout>
       <PageHeader
         title={formData.is_expense ? 'New Expense' : 'Create Vendor Bill'}
         subtitle={formData.is_expense ? 'Booked to the Expense Register (excluded from purchase totals)' : undefined}
+        hideCompanyFilter
         breadcrumbs={formData.is_expense ? [
           { label: 'Purchase', path: '/purchase' },
           { label: 'Expenses', path: '/purchase/expenses' },
@@ -512,13 +513,13 @@ export default function CreateVendorBill() {
           { label: 'New Bill' },
         ]}
       />
-      <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4">
+      <div className="bg-white rounded-lg border border-slate-200 p-2.5 sm:p-3">
         <form onSubmit={handleSubmit}>
-          <EditGate canEdit={editable} className="space-y-3">
+          <EditGate canEdit={editable} className="space-y-2.5">
           {/* Bill Details */}
           <div>
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Bill Details</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-3 gap-y-2">
+            <h3 className="text-xs font-semibold text-slate-800 mb-1.5 pb-1 border-b">Bill Details</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-x-2.5 gap-y-1.5">
               {!isHidden('receipt_advice') && (
               <div>
                 <label className={labelClass}>Receipt Advice <span className="text-red-500">*</span></label>
@@ -593,37 +594,37 @@ export default function CreateVendorBill() {
             }
             if (!message) return null;
             return (
-              <div className="bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r-lg">
-                <p className="text-sm font-semibold text-amber-800">{message}</p>
+              <div className="bg-amber-50 border-l-3 border-amber-400 px-2.5 py-1.5 rounded-r-lg">
+                <p className="text-xs font-semibold text-amber-800">{message}</p>
               </div>
             );
           })()}
 
           {/* Line Items */}
           <div>
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Line Items</h3>
+            <h3 className="text-xs font-semibold text-slate-800 mb-1.5 pb-1 border-b">Line Items</h3>
             <div className="overflow-x-auto ios-scroll">
-              <table className="w-full text-sm">
+              <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-gradient-to-r from-primary-50/70 to-sky-50/40 border-b">
-                    <th className="text-left px-2 py-2 font-medium text-slate-600 w-8">#</th>
-                    <th className="text-left px-2 py-2 font-medium text-slate-600 min-w-[180px]">Product</th>
-                    <th className="text-left px-2 py-2 font-medium text-slate-600 min-w-[120px]">Description</th>
-                    <th className="text-left px-2 py-2 font-medium text-slate-600 w-20">Qty</th>
-                    <th className="text-right px-2 py-2 font-medium text-slate-600 w-20">Diff in Qty</th>
-                    <th className="text-left px-2 py-2 font-medium text-slate-600 w-16">UOM</th>
-                    <th className="text-left px-2 py-2 font-medium text-slate-600 w-24">Rate</th>
-                    <th className="text-left px-2 py-2 font-medium text-slate-600 w-20">Disc %</th>
-                    <th className="text-left px-2 py-2 font-medium text-slate-600 w-20">Tax %</th>
-                    <th className="text-left px-2 py-2 font-medium text-slate-600 w-28">Amount</th>
-                    <th className="w-10"></th>
+                    <th className="text-left px-1.5 py-1.5 font-medium text-slate-600 w-7">#</th>
+                    <th className="text-left px-1.5 py-1.5 font-medium text-slate-600 min-w-[160px]">Product</th>
+                    <th className="text-left px-1.5 py-1.5 font-medium text-slate-600 min-w-[100px]">Description</th>
+                    <th className="text-left px-1.5 py-1.5 font-medium text-slate-600 w-16">Qty</th>
+                    <th className="text-right px-1.5 py-1.5 font-medium text-slate-600 w-16">Diff in Qty</th>
+                    <th className="text-left px-1.5 py-1.5 font-medium text-slate-600 w-14">UOM</th>
+                    <th className="text-left px-1.5 py-1.5 font-medium text-slate-600 w-20">Rate</th>
+                    <th className="text-left px-1.5 py-1.5 font-medium text-slate-600 w-16">Disc %</th>
+                    <th className="text-left px-1.5 py-1.5 font-medium text-slate-600 w-16">Tax %</th>
+                    <th className="text-left px-1.5 py-1.5 font-medium text-slate-600 w-24">Amount</th>
+                    <th className="w-8"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {lines.map((line, idx) => (
                     <tr key={idx} className="border-b">
-                      <td className="px-2 py-2 text-slate-500">{idx + 1}</td>
-                      <td className="px-2 py-1">
+                      <td className="px-1.5 py-1 text-slate-500">{idx + 1}</td>
+                      <td className="px-1.5 py-0.5">
                         {/* Lines auto-filled from a Receipt are
                             read-only (locked to the receipt's item) so
                             the user can't accidentally swap a Machinery
@@ -632,8 +633,8 @@ export default function CreateVendorBill() {
                             with Products / Machinery / Services
                             grouped by type. */}
                         {line.max_quantity ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm text-slate-800">{line.item_name || line.description || '-'}</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-slate-800">{line.item_name || line.description || '-'}</span>
                             {line.item_type && line.item_type !== 'PRODUCT' && (
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                                 line.item_type === 'MACHINERY' ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'
@@ -683,23 +684,23 @@ export default function CreateVendorBill() {
                           </CustomSelect>
                         )}
                       </td>
-                      <td className="px-2 py-1"><input type="text" value={line.description} onChange={e => handleLineChange(idx, 'description', e.target.value)} className={inputClass} /></td>
-                      <td className="px-2 py-1"><input type="number" step="0.01" min="0.01" value={line.quantity} readOnly={!!line.max_quantity} onChange={e => handleLineChange(idx, 'quantity', e.target.value)} className={line.max_quantity ? `${inputClass} bg-slate-50 cursor-not-allowed` : inputClass} title={line.max_quantity ? `Locked to receipt quantity: ${line.max_quantity}` : ''} /></td>
-                      <td className="px-2 py-1 text-right">
+                      <td className="px-1.5 py-0.5"><input type="text" value={line.description} onChange={e => handleLineChange(idx, 'description', e.target.value)} className={inputClass} /></td>
+                      <td className="px-1.5 py-0.5"><input type="number" step="0.01" min="0.01" value={line.quantity} readOnly={!!line.max_quantity} onChange={e => handleLineChange(idx, 'quantity', e.target.value)} className={line.max_quantity ? `${inputClass} bg-slate-50 cursor-not-allowed` : inputClass} title={line.max_quantity ? `Locked to receipt quantity: ${line.max_quantity}` : ''} /></td>
+                      <td className="px-1.5 py-0.5 text-right">
                         {line.diff_quantity != null ? (
                           <span className={`font-medium ${line.diff_quantity > 0 ? 'text-red-600' : line.diff_quantity < 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
                             {Number(line.diff_quantity).toFixed(2)}
                           </span>
                         ) : <span className="text-slate-400">-</span>}
                       </td>
-                      <td className="px-2 py-1"><input type="text" value={line.uom} onChange={e => handleLineChange(idx, 'uom', e.target.value)} className={inputClass} /></td>
-                      <td className="px-2 py-1"><input type="number" step="0.01" value={line.rate} readOnly={line.po_rate !== null && line.po_rate !== undefined} onChange={e => handleLineChange(idx, 'rate', e.target.value)} className={line.po_rate !== null && line.po_rate !== undefined ? `${inputClass} bg-slate-50 cursor-not-allowed` : inputClass} title={line.po_rate !== null && line.po_rate !== undefined ? `Locked to PO price: ${line.po_rate}` : ''} /></td>
-                      <td className="px-2 py-1"><input type="number" step="0.01" value={line.discount_percent} onChange={e => handleLineChange(idx, 'discount_percent', e.target.value)} className={inputClass} /></td>
-                      <td className="px-2 py-1"><input type="number" step="0.01" value={line.tax_percent} onChange={e => handleLineChange(idx, 'tax_percent', e.target.value)} className={inputClass} /></td>
-                      <td className="px-2 py-2 font-medium">{'\u20B9'}{(parseFloat(line.amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                      <td className="px-2 py-1">
+                      <td className="px-1.5 py-0.5"><input type="text" value={line.uom} onChange={e => handleLineChange(idx, 'uom', e.target.value)} className={inputClass} /></td>
+                      <td className="px-1.5 py-0.5"><input type="number" step="0.01" value={line.rate} readOnly={line.po_rate !== null && line.po_rate !== undefined} onChange={e => handleLineChange(idx, 'rate', e.target.value)} className={line.po_rate !== null && line.po_rate !== undefined ? `${inputClass} bg-slate-50 cursor-not-allowed` : inputClass} title={line.po_rate !== null && line.po_rate !== undefined ? `Locked to PO price: ${line.po_rate}` : ''} /></td>
+                      <td className="px-1.5 py-0.5"><input type="number" step="0.01" value={line.discount_percent} onChange={e => handleLineChange(idx, 'discount_percent', e.target.value)} className={inputClass} /></td>
+                      <td className="px-1.5 py-0.5"><input type="number" step="0.01" value={line.tax_percent} onChange={e => handleLineChange(idx, 'tax_percent', e.target.value)} className={inputClass} /></td>
+                      <td className="px-1.5 py-1 font-medium tabular-nums">{'\u20B9'}{(parseFloat(line.amount) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                      <td className="px-1 py-0.5">
                         {lines.length > 1 && (
-                          <button type="button" onClick={() => removeLine(idx)} className="text-red-500 hover:text-red-700 text-xs">Remove</button>
+                          <button type="button" onClick={() => removeLine(idx)} className="text-red-500 hover:text-red-700 text-[10px]">Remove</button>
                         )}
                       </td>
                     </tr>
@@ -707,7 +708,7 @@ export default function CreateVendorBill() {
                 </tbody>
               </table>
             </div>
-            <button type="button" onClick={addLine} className="mt-3 px-4 py-2 text-sm text-primary-600 border border-primary-300 rounded-lg hover:bg-primary-50">
+            <button type="button" onClick={addLine} className="mt-2 px-3 py-1.5 text-xs text-primary-600 border border-primary-300 rounded hover:bg-primary-50">
               + Add Item
             </button>
           </div>
@@ -721,37 +722,37 @@ export default function CreateVendorBill() {
 
           {/* Summary */}
           <div>
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Summary</h3>
-            <div className="max-w-md ml-auto space-y-2 text-sm">
+            <h3 className="text-xs font-semibold text-slate-800 mb-1.5 pb-1 border-b">Summary</h3>
+            <div className="max-w-xs ml-auto space-y-1 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-600">Subtotal:</span>
-                <span className="font-medium">{'\u20B9'}{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <span className="font-medium tabular-nums">{'\u20B9'}{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between text-red-600">
                 <span>Discount:</span>
-                <span>-{'\u20B9'}{totalDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <span className="tabular-nums">-{'\u20B9'}{totalDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600">Tax:</span>
-                <span>{'\u20B9'}{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <span className="tabular-nums">{'\u20B9'}{totalTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
               {chargesTotal > 0 && (
                 <div className="flex justify-between">
                   <span className="text-slate-600">Additional Charges:</span>
-                  <span>{'\u20B9'}{chargesTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  <span className="tabular-nums">{'\u20B9'}{chargesTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 </div>
               )}
-              <div className="flex justify-between pt-2 border-t border-slate-300 text-base font-bold">
+              <div className="flex justify-between pt-1.5 border-t border-slate-300 text-sm font-bold">
                 <span>Total:</span>
-                <span>{'\u20B9'}{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <span className="tabular-nums">{'\u20B9'}{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
 
-          {/* Notes */}
+          {/* Notes & Attachments — single row */}
           <div>
-            <h3 className="text-sm sm:text-base font-semibold text-slate-800 mb-2 pb-1.5 border-b">Notes</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <h3 className="text-xs font-semibold text-slate-800 mb-1.5 pb-1 border-b">Notes & Attachments</h3>
+            <div className="grid grid-cols-3 gap-2.5">
               {!isHidden('terms_and_conditions') && (
               <div>
                 <label className={labelClass}>Terms & Conditions</label>
@@ -764,54 +765,28 @@ export default function CreateVendorBill() {
                 <textarea name="notes" value={formData.notes} onChange={handleChange} rows={2} disabled={isReadOnly('notes')} className={isReadOnly('notes') ? lockedInputClass : inputClass} />
               </div>
               )}
+              <div>
+                <label className={labelClass}>Attachments</label>
+                <FileAttachments module="BILL" recordId={null} compact onPendingChange={(files) => { pendingAttachmentsRef.current = files; setPendingAttachments(files); }} />
+                {receiptAttachments.length > 0 && (
+                  <div className="mt-1.5 space-y-1">
+                    <p className="text-[10px] font-semibold text-blue-700">From Receipt ({receiptAttachments.length})</p>
+                    {receiptAttachments.map(f => (
+                      <div key={f.id} className="flex items-center gap-1.5 text-[10px]">
+                        <FileText size={11} className="text-blue-600 shrink-0" />
+                        <span className="truncate text-slate-700" title={f.file_name}>{f.file_name}</span>
+                        <a href={f.file} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline shrink-0">View</a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Receipt Attachments — inherited from selected Receipt Advice (read-only) */}
-          {receiptAttachments.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Paperclip size={16} className="text-blue-700" />
-                <h3 className="text-sm font-semibold text-blue-900">
-                  Receipt Advice Attachments ({receiptAttachments.length})
-                </h3>
-                <span className="text-xs text-blue-600">— inherited from linked GRN</span>
-              </div>
-              <div className="space-y-2">
-                {receiptAttachments.map(f => {
-                  const sizeKB = f.file_size ? (Number(f.file_size) / 1024).toFixed(1) : null;
-                  return (
-                    <div key={f.id} className="flex items-center gap-3 p-2.5 bg-white border border-blue-200 rounded">
-                      <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center flex-shrink-0">
-                        <FileText size={14} className="text-blue-700" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 truncate" title={f.file_name}>{f.file_name}</p>
-                        <p className="text-xs text-slate-500">
-                          Receipt{f.file_type ? ` • ${f.file_type}` : ''}{sizeKB ? ` • ${sizeKB} KB` : ''}
-                        </p>
-                      </div>
-                      <a
-                        href={f.file}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 bg-primary-600 text-white text-xs font-medium rounded hover:bg-primary-700"
-                      >
-                        View
-                      </a>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Bill Attachments — for new files uploaded specifically to the bill */}
-          <FileAttachments module="BILL" recordId={null} onPendingChange={(files) => { pendingAttachmentsRef.current = files; setPendingAttachments(files); }} />
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={() => navigate(-1)} className="px-4 sm:px-6 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
-            <button type="submit" disabled={isLoading} className="px-4 sm:px-6 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+          <div className="flex justify-end gap-2 pt-2.5 border-t">
+            <button type="button" onClick={() => navigate(-1)} className="px-4 py-1.5 border border-slate-300 rounded text-xs font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+            <button type="submit" disabled={isLoading} className="px-4 py-1.5 bg-primary-600 text-white rounded text-xs font-medium hover:bg-primary-700 disabled:opacity-50">
               {isLoading ? 'Saving...' : 'Save Bill'}
             </button>
           </div>

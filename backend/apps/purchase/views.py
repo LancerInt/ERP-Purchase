@@ -2133,6 +2133,62 @@ class RFQHeaderViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(rfq)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['post'], url_path='log-whatsapp')
+    def log_whatsapp(self, request, pk=None):
+        """Record that the RFQ was shared with a vendor on WhatsApp.
+
+        The operator shares the RFQ text from their own WhatsApp, then
+        uploads a screenshot as proof. Logs a WhatsApp entry in the RFQ's
+        send history and stores the screenshot as an RFQ attachment.
+
+        multipart: `screenshot` (image file, required), `vendor_id` (required).
+        """
+        from communications.models import EmailLog
+        from .models import PurchaseAttachment
+        from master.models import Vendor
+
+        rfq = self.get_object()
+        vendor_id = request.data.get('vendor_id')
+        if not vendor_id:
+            return Response({'error': 'vendor_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        vendor = Vendor.objects.filter(id=vendor_id).first()
+        if not vendor:
+            return Response({'error': 'Vendor not found.'}, status=status.HTTP_404_NOT_FOUND)
+        screenshot = request.FILES.get('screenshot')
+        if not screenshot:
+            return Response({'error': 'A WhatsApp screenshot is required as proof.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        log = EmailLog.objects.create(
+            rfq=rfq,
+            vendor=vendor,
+            vendor_email=getattr(vendor, 'contact_phone', '') or '',
+            subject=f'[{rfq.rfq_no}] Shared on WhatsApp',
+            body_preview='RFQ shared with the vendor on WhatsApp (screenshot attached).',
+            pdf_generated=False,
+            email_sent=True,
+            status='WhatsApp Sent',
+            sent_by=request.user,
+            sent_at=timezone.now(),
+        )
+
+        ext = (getattr(screenshot, 'name', '') or '').rsplit('.', 1)
+        ext = f'.{ext[1]}' if len(ext) > 1 else '.png'
+        PurchaseAttachment.objects.create(
+            module='RFQ', record_id=rfq.id, category='GENERAL',
+            file=screenshot,
+            file_name=f'RFQ sent proof - {rfq.rfq_no}{ext}',
+            uploaded_by=request.user,
+        )
+
+        AuditLog.objects.create(
+            user=request.user, role_name=get_user_role_name(request.user),
+            module_name='RFQ', action='EDIT',
+            details=f'RFQ {rfq.rfq_no} shared on WhatsApp with {vendor.vendor_name} (screenshot logged)',
+        )
+        return Response({'success': True, 'message': f'WhatsApp send logged for {vendor.vendor_name}',
+                         'log_id': str(log.id)})
+
 
 class QuoteResponseViewSet(viewsets.ModelViewSet):
     """ViewSet for Quote Responses."""

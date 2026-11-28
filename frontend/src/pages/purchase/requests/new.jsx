@@ -456,6 +456,7 @@ export default function CreatePurchaseRequest() {
           { label: 'Requests', href: '/purchase/requests' },
           { label: 'New' },
         ]}
+        hideCompanyFilter
       />
 
       <form onSubmit={handleSubmit}>
@@ -585,22 +586,20 @@ export default function CreatePurchaseRequest() {
               </CustomSelect>
             </div>
             {!isHidden('justification') && (
-            <div className={`${floatWrap} flex items-start gap-1`}>
-              <div className="flex-1 relative">
-                <label className={floatLabel}>Justification</label>
-                <div className="border border-slate-300 rounded-[6px] bg-white overflow-hidden">
-                  <textarea name="justification" value={formData.justification} onChange={handleChange} rows={1} disabled={isReadOnly('justification')} className="w-full pt-[14px] pb-[1px] px-[7px] text-[11.5px] border-0 focus:ring-0 focus:outline-none bg-transparent resize-none" placeholder="Reason..." />
+            <div className={floatWrap}>
+              <div className="flex items-center justify-between mb-[2px]">
+                <label className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide">Justification</label>
+                <div className="flex items-center gap-1">
                   {!isReadOnly('justification') && (
-                    <div className="flex items-center justify-end px-1 pb-[2px]">
-                      <VoiceDictation compact onText={(t) => appendDictation('justification', t)} onAudio={addVoiceAudio} />
-                    </div>
+                    <VoiceDictation compact onText={(t) => appendDictation('justification', t)} onAudio={addVoiceAudio} />
                   )}
+                  <button type="button" onClick={() => attachInputRef.current?.click()} className="flex items-center gap-0.5 px-1.5 py-[3px] text-[9px] font-semibold text-primary-600 border border-primary-300 rounded-[4px] hover:bg-primary-50 uppercase tracking-wide whitespace-nowrap shrink-0">
+                    <Paperclip size={9} />
+                    {pendingAttachments.length > 0 ? `${pendingAttachments.length}` : 'Attach'}
+                  </button>
                 </div>
               </div>
-              <button type="button" onClick={() => attachInputRef.current?.click()} className="mt-[12px] flex items-center gap-0.5 px-1.5 py-[4px] text-[9px] font-semibold text-primary-600 border border-primary-300 rounded-[4px] hover:bg-primary-50 uppercase tracking-wide whitespace-nowrap shrink-0">
-                <Paperclip size={9} />
-                {pendingAttachments.length > 0 ? `${pendingAttachments.length}` : 'Attach'}
-              </button>
+              <input type="text" name="justification" value={formData.justification} onChange={handleChange} disabled={isReadOnly('justification')} placeholder="Reason..." className="w-full border border-slate-300 rounded-[6px] px-[7px] py-[6px] text-[11.5px] focus:ring-1 focus:ring-primary-500 focus:border-primary-500 bg-white" />
             </div>
             )}
           </div>
